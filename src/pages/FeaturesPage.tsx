@@ -1,25 +1,7 @@
 import { Link } from 'react-router-dom'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
-
-const features = [
-  {
-    title: 'Orçado × Realizado',
-    problem: 'Saber onde o plano e a execução divergem, sem planilha caótica.',
-  },
-  {
-    title: 'Análise de Custos',
-    problem: 'Enxergar os maiores custos e onde concentrar atenção.',
-  },
-  {
-    title: 'Orçamento',
-    problem: 'Montar e importar o plano financeiro de forma padronizada.',
-  },
-  {
-    title: 'Indicadores',
-    problem: 'Consultar e simular indicadores com explicação clara.',
-  },
-]
+import { features } from '@/content/features'
 
 export function FeaturesPage() {
   return (
@@ -30,7 +12,7 @@ export function FeaturesPage() {
           <h1 className="animate-fade-up font-display text-4xl font-bold text-white sm:text-5xl">
             Funcionalidades
           </h1>
-          <p className="animate-fade-up-delayed mt-4 max-w-2xl text-white/70">
+          <p className="animate-fade-up-delayed mt-4 max-w-2xl text-white/65">
             Experimente a proposta antes de criar conta. Cada funcionalidade
             resolve um problema concreto da rotina financeira.
           </p>
@@ -41,14 +23,17 @@ export function FeaturesPage() {
         <ul className="grid gap-4 sm:grid-cols-2">
           {features.map((feature) => (
             <li
-              key={feature.title}
+              key={feature.id}
               className="rounded-2xl border border-paper-muted bg-white p-6 shadow-[var(--shadow-soft)]"
             >
-              <h2 className="font-display text-xl font-semibold text-navy">
+              <h2 className="font-display text-xl font-semibold text-ink">
                 {feature.title}
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-soft/80">
-                {feature.problem}
+                {feature.summary}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-mist">
+                {feature.explanation}
               </p>
               <div className="mt-5">
                 <Link to="/cadastro">

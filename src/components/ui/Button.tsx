@@ -12,9 +12,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<Variant, string> = {
   primary:
-    'bg-sky text-white hover:bg-navy-bright shadow-[0_12px_30px_-12px_rgb(59_130_246_/_0.7)]',
+    'bg-navy text-paper hover:bg-navy-mid shadow-[0_10px_24px_-14px_rgb(0_0_0_/_0.45)]',
   secondary:
-    'bg-navy text-paper hover:bg-navy-mid border border-white/10',
+    'bg-white text-ink hover:bg-paper border border-paper-muted',
   ghost:
     'bg-transparent text-paper/80 hover:text-paper hover:bg-white/5',
   inverse:
@@ -38,7 +38,7 @@ export function Button({
       className={cn(
         'inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition duration-200',
         'disabled:cursor-not-allowed disabled:opacity-55',
-        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky',
+        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-bright',
         variants[variant],
         sizes[size],
         className

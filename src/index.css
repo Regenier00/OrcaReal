@@ -4,19 +4,19 @@
   --font-sans: 'Sora', ui-sans-serif, sans-serif;
   --font-display: 'Outfit', ui-sans-serif, sans-serif;
 
-  --color-ink: #07090f;
-  --color-ink-soft: #121826;
-  --color-paper: #f7f8fb;
-  --color-paper-muted: #e8ecf4;
-  --color-navy: #0b1f3f;
-  --color-navy-mid: #163a6b;
-  --color-navy-bright: #1e4d8c;
-  --color-sky: #3b82f6;
-  --color-mist: #94a3b8;
-  --color-ok: #16a34a;
-  --color-danger: #dc2626;
+  --color-ink: #121212;
+  --color-ink-soft: #1c1c1c;
+  --color-paper: #f3f2ef;
+  --color-paper-muted: #e4e2dc;
+  --color-navy: #1a2330;
+  --color-navy-mid: #2a3545;
+  --color-navy-bright: #3d4d62;
+  --color-sky: #6a7b8f;
+  --color-mist: #8a8d87;
+  --color-ok: #3d6b4f;
+  --color-danger: #a33b3b;
 
-  --shadow-soft: 0 18px 50px -24px rgb(11 31 63 / 0.45);
+  --shadow-soft: 0 18px 44px -26px rgb(0 0 0 / 0.32);
 }
 
 @layer base {
@@ -76,9 +76,9 @@
 
   .bg-hero-atmosphere {
     background:
-      radial-gradient(ellipse 80% 60% at 15% 20%, rgb(30 77 140 / 0.45), transparent 55%),
-      radial-gradient(ellipse 70% 50% at 85% 10%, rgb(59 130 246 / 0.18), transparent 50%),
-      linear-gradient(165deg, #05070c 0%, #0b1f3f 48%, #07090f 100%);
+      radial-gradient(ellipse 70% 55% at 12% 18%, rgb(42 53 69 / 0.45), transparent 58%),
+      radial-gradient(ellipse 55% 40% at 88% 8%, rgb(24 28 32 / 0.55), transparent 52%),
+      linear-gradient(165deg, #080808 0%, #12171d 52%, #0a0a0a 100%);
   }
 
   .animate-fade-up {
@@ -112,11 +112,20 @@
 @keyframes glow-pulse {
   0%,
   100% {
-    opacity: 0.45;
+    opacity: 0.35;
     transform: scale(1);
   }
   50% {
-    opacity: 0.8;
-    transform: scale(1.04);
+    opacity: 0.55;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delayed,
+  .animate-fade-up-late,
+  .animate-glow-pulse {
+    animation: none;
   }
 }

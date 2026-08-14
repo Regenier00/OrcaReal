@@ -27,7 +27,7 @@ export function Input({
         className={cn(
           'w-full rounded-xl border border-paper-muted bg-white px-3.5 py-2.5 text-ink',
           'placeholder:text-mist outline-none transition',
-          'focus:border-navy-bright focus:ring-2 focus:ring-sky/25',
+          'focus:border-navy-bright focus:ring-2 focus:ring-navy-bright/20',
           error && 'border-danger focus:border-danger focus:ring-danger/20',
           className
         )}
