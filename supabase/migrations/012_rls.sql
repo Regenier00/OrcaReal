@@ -1,0 +1,11 @@
+alter table public.profiles enable row level security;
+alter table public.companies enable row level security;
+alter table public.company_users enable row level security;
+alter table public.segments enable row level security;
+alter table public.activities enable row level security;
+alter table public.departments enable row level security;
+alter table public.cost_centers enable row level security;
+alter table public.features enable row level security;
+alter table public.budgets enable row level security;
+alter table public.actuals enable row level security;
+alter table public.analytics enable row level security;
