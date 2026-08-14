@@ -1,6 +1,6 @@
 -- Onboarding: perguntas do sistema e respostas por empresa
 create table public.onboarding_questions (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   code text not null unique,
   question text not null,
   help_text text,
@@ -13,7 +13,7 @@ create table public.onboarding_questions (
 );
 
 create table public.onboarding_answers (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   question_id uuid not null references public.onboarding_questions (id) on delete cascade,
   answer jsonb not null default '{}'::jsonb,

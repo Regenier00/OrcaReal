@@ -1,6 +1,6 @@
 -- Dashboard personalizável por empresa
 create table public.company_dashboards (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   name text not null default 'Dashboard padrão',
   layout jsonb not null default '{}'::jsonb,

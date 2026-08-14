@@ -1,6 +1,6 @@
 -- Empresa: proprietária dos dados
 create table public.companies (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   trade_name text,
   document text,

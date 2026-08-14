@@ -1,6 +1,6 @@
 -- Catálogo global da plataforma (não misturar com dados da empresa)
 create table public.system_features (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   code text not null unique,
   name text not null,
   description text,
@@ -10,7 +10,7 @@ create table public.system_features (
 );
 
 create table public.system_indicators (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   code text not null unique,
   name text not null,
   description text,
@@ -21,7 +21,7 @@ create table public.system_indicators (
 );
 
 create table public.system_reports (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   code text not null unique,
   name text not null,
   description text,

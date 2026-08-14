@@ -1,6 +1,6 @@
 -- Alertas e resultados de indicadores (estrutura preparatória)
 create table public.alerts (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   code text,
   title text not null,
@@ -14,7 +14,7 @@ create table public.alerts (
 create index alerts_company_id_idx on public.alerts (company_id);
 
 create table public.indicator_results (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   indicator_id uuid references public.system_indicators (id) on delete set null,
   period_id uuid references public.periods (id) on delete set null,

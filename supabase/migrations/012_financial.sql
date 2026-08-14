@@ -3,7 +3,7 @@
 -- (chave analítica, conciliação, períodos fechados, estornos, etc.).
 
 create table public.periods (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   year integer not null check (year >= 2000 and year <= 2100),
   month integer not null check (month >= 1 and month <= 12),

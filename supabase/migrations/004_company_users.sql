@@ -1,6 +1,6 @@
 -- Relação usuário ↔ empresa (multiempresa)
 create table public.company_users (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
   role text not null default 'owner'
