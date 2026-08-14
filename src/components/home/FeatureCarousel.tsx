@@ -58,7 +58,7 @@ export function FeatureCarousel({ activeId, onChange }: FeatureCarouselProps) {
             type="button"
             onClick={() => goTo(index - 1)}
             aria-label="Funcionalidade anterior"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-paper-muted text-ink/70 transition hover:border-ink/20 hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-paper-muted text-ink/70 outline-none transition hover:border-ink/25 hover:text-ink focus-visible:border-ink/40"
           >
             <Chevron direction="left" />
           </button>
@@ -66,7 +66,7 @@ export function FeatureCarousel({ activeId, onChange }: FeatureCarouselProps) {
             type="button"
             onClick={() => goTo(index + 1)}
             aria-label="Próxima funcionalidade"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-paper-muted text-ink/70 transition hover:border-ink/20 hover:text-ink"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-paper-muted text-ink/70 outline-none transition hover:border-ink/25 hover:text-ink focus-visible:border-ink/40"
           >
             <Chevron direction="right" />
           </button>
@@ -101,7 +101,7 @@ export function FeatureCarousel({ activeId, onChange }: FeatureCarouselProps) {
             aria-label={feature.title}
             onClick={() => onChange(feature.id)}
             className={cn(
-              'h-1.5 rounded-full transition-all duration-300',
+              'h-1.5 rounded-full outline-none transition-all duration-300',
               feature.id === current.id
                 ? 'w-8 bg-ink'
                 : 'w-3 bg-paper-muted hover:bg-ink/30'

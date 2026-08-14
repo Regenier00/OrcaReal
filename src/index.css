@@ -57,6 +57,10 @@
     text-decoration: none;
   }
 
+  :focus-visible {
+    outline-color: var(--color-navy-bright);
+  }
+
   button,
   input,
   textarea,
@@ -76,9 +80,9 @@
 
   .bg-hero-atmosphere {
     background:
-      radial-gradient(ellipse 70% 55% at 12% 18%, rgb(42 53 69 / 0.45), transparent 58%),
-      radial-gradient(ellipse 55% 40% at 88% 8%, rgb(24 28 32 / 0.55), transparent 52%),
-      linear-gradient(165deg, #080808 0%, #12171d 52%, #0a0a0a 100%);
+      radial-gradient(ellipse 65% 50% at 14% 18%, rgb(255 255 255 / 0.045), transparent 58%),
+      radial-gradient(ellipse 50% 38% at 90% 6%, rgb(255 255 255 / 0.03), transparent 52%),
+      linear-gradient(168deg, #070707 0%, #141414 48%, #0b0b0b 100%);
   }
 
   .animate-fade-up {

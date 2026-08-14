@@ -22,11 +22,11 @@ export function HomePage() {
       <div className="relative overflow-hidden bg-hero-atmosphere text-paper">
         <div
           aria-hidden
-          className="animate-glow-pulse pointer-events-none absolute -left-28 top-16 h-80 w-80 rounded-full bg-white/[0.04] blur-3xl"
+          className="animate-glow-pulse pointer-events-none absolute -left-28 top-16 h-80 w-80 rounded-full bg-white/[0.035] blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-navy-mid/40 blur-3xl"
+          className="pointer-events-none absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-white/[0.025] blur-3xl"
         />
 
         <PublicHeader />
