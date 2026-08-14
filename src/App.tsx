@@ -1,80 +1,38 @@
-import { useEffect, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { supabase } from './lib/supabase';
-import { Auth } from './pages/Auth';
-import { ensureUserProfile } from './services/profile';
-import { Profile } from './pages/profile';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from '@/features/auth/AuthProvider'
+import { RequireAuth } from '@/features/auth/RequireAuth'
+import { AppShell } from '@/components/layout/AppShell'
+import { HomePage } from '@/pages/HomePage'
+import { FeaturesPage } from '@/pages/FeaturesPage'
+import { LoginPage } from '@/pages/LoginPage'
+import { SignUpPage } from '@/pages/SignUpPage'
+import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
+import { AppHomePage } from '@/pages/AppHomePage'
+import { CompanyPage } from '@/pages/CompanyPage'
+import { ProfilePage } from '@/pages/ProfilePage'
 
-function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/funcionalidades" element={<FeaturesPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/cadastro" element={<SignUpPage />} />
+          <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />
 
-  useEffect(() => {
-    // Trata a sessão atual do usuário
-    const handleSession = async (currentUser: User | null) => {
-      try {
-        if (currentUser) {
-          await ensureUserProfile(
-            currentUser.id,
-            currentUser.user_metadata?.name || '',
-            currentUser.email
-          );
-        }
+          <Route element={<RequireAuth />}>
+            <Route path="/app" element={<AppShell />}>
+              <Route index element={<AppHomePage />} />
+              <Route path="empresa" element={<CompanyPage />} />
+              <Route path="perfil" element={<ProfilePage />} />
+            </Route>
+          </Route>
 
-        setUser(currentUser);
-      } catch (error) {
-        console.error('Erro ao sincronizar perfil:', error);
-        setUser(currentUser);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    // Verifica se já existe uma sessão ativa
-    const loadSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      await handleSession(session?.user ?? null);
-    };
-
-    loadSession();
-
-    // Escuta alterações de autenticação
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      handleSession(session?.user ?? null);
-    });
-
-    // Remove o listener quando o componente for desmontado
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  // Enquanto verifica a sessão
-  if (loading) {
-    return (
-      <div
-        style={{
-          textAlign: 'center',
-          marginTop: '50px',
-        }}
-      >
-        Carregando...
-      </div>
-    );
-  }
-
-  // Usuário não autenticado
-  if (!user) {
-    return <Auth />;
-  }
-
-  // Usuário autenticado
-  return <Profile user={user} />;
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  )
 }
-
-export default App;
