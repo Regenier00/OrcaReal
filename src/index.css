@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Sora', ui-sans-serif, sans-serif;
-  --font-display: 'Outfit', ui-sans-serif, sans-serif;
+  --font-sans: 'Oswald', ui-sans-serif, sans-serif;
+  --font-display: 'Oswald', ui-sans-serif, sans-serif;
 
   --color-ink: #121212;
   --color-ink-soft: #1c1c1c;
@@ -49,7 +49,7 @@
   h3,
   h4 {
     font-family: var(--font-display);
-    letter-spacing: -0.03em;
+    letter-spacing: 0.02em;
   }
 
   a {
