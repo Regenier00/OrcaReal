@@ -10,6 +10,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage'
 import { AppHomePage } from '@/pages/AppHomePage'
 import { CompanyPage } from '@/pages/CompanyPage'
 import { ProfilePage } from '@/pages/ProfilePage'
+import { DemoPage } from '@/pages/DemoPage'
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/funcionalidades" element={<FeaturesPage />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/cadastro" element={<SignUpPage />} />
           <Route path="/recuperar-senha" element={<ForgotPasswordPage />} />

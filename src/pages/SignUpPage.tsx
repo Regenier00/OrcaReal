@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ensureUserProfile } from '@/features/auth/profileService'
 import { PublicHeader } from '@/components/layout/PublicHeader'
@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/Input'
 
 export function SignUpPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromDemo = (location.state as { from?: string } | null)?.from === '/demo'
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -56,7 +58,9 @@ export function SignUpPage() {
       <div className="mx-auto max-w-md px-5 py-12">
         <h1 className="font-display text-3xl font-bold text-ink">Criar conta</h1>
         <p className="mt-2 text-sm text-mist">
-          Padrão simples de cadastro — depois você cria sua empresa.
+          {fromDemo
+            ? 'A demonstração continua disponível. Com a conta você cria a empresa e usa os seus números.'
+            : 'Padrão simples de cadastro — depois você cria sua empresa.'}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
