@@ -1,0 +1,135 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Sora', ui-sans-serif, sans-serif;
+  --font-display: 'Outfit', ui-sans-serif, sans-serif;
+
+  --color-ink: #121212;
+  --color-ink-soft: #1c1c1c;
+  --color-paper: #f3f2ef;
+  --color-paper-muted: #e4e2dc;
+  --color-navy: #1a2330;
+  --color-navy-mid: #2a3545;
+  --color-navy-bright: #3d4d62;
+  --color-sky: #6a7b8f;
+  --color-mist: #8a8d87;
+  --color-ok: #3d6b4f;
+  --color-danger: #a33b3b;
+
+  --shadow-soft: 0 18px 44px -26px rgb(0 0 0 / 0.32);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background: var(--color-paper);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.03em;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  :focus-visible {
+    outline-color: var(--color-navy-bright);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .bg-hero-atmosphere {
+    background:
+      radial-gradient(ellipse 65% 50% at 14% 18%, rgb(255 255 255 / 0.045), transparent 58%),
+      radial-gradient(ellipse 50% 38% at 90% 6%, rgb(255 255 255 / 0.03), transparent 52%),
+      linear-gradient(168deg, #070707 0%, #141414 48%, #0b0b0b 100%);
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.8s ease-out both;
+  }
+
+  .animate-fade-up-delayed {
+    animation: fade-up 0.9s ease-out 0.15s both;
+  }
+
+  .animate-fade-up-late {
+    animation: fade-up 1s ease-out 0.3s both;
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 4.5s ease-in-out infinite;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delayed,
+  .animate-fade-up-late,
+  .animate-glow-pulse {
+    animation: none;
+  }
+}
