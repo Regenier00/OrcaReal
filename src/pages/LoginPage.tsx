@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, mapAuthError } from '@/features/auth/authErrors'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -21,9 +22,16 @@ export function LoginPage() {
     setMessage('')
 
     try {
+      if (!isSupabaseConfigured()) {
+        setMessage(
+          'Configuração de autenticação ausente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'
+        )
+        return
+      }
+
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setMessage(error.message)
+        setMessage(mapAuthError(error.message))
         return
       }
       navigate(from)
