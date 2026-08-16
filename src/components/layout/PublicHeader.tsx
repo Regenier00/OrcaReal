@@ -21,17 +21,30 @@ export function PublicHeader({ className, tone = 'dark' }: PublicHeaderProps) {
         <span className={dark ? 'text-sky' : 'text-navy-bright'}>Real</span>
       </Link>
 
-      <Link
-        to="/login"
-        className={cn(
-          'text-sm font-medium transition',
-          dark
-            ? 'text-white/70 hover:text-white'
-            : 'text-ink-soft/70 hover:text-ink'
-        )}
-      >
-        Já tem conta? Entrar
-      </Link>
+      <nav className="flex items-center gap-4 sm:gap-6">
+        <Link
+          to="/demo"
+          className={cn(
+            'text-sm font-medium transition',
+            dark
+              ? 'text-white/70 hover:text-white'
+              : 'text-ink-soft/70 hover:text-ink'
+          )}
+        >
+          Experimentar
+        </Link>
+        <Link
+          to="/login"
+          className={cn(
+            'text-sm font-medium transition',
+            dark
+              ? 'text-white/70 hover:text-white'
+              : 'text-ink-soft/70 hover:text-ink'
+          )}
+        >
+          Já tem conta? Entrar
+        </Link>
+      </nav>
     </header>
   )
 }

@@ -46,16 +46,16 @@ export function HomePage() {
           </p>
 
           <div className="animate-fade-up-late mt-10 flex flex-wrap items-center gap-3">
-            <Link to="/cadastro">
+            <Link to="/demo">
               <Button size="lg" variant="inverse">
-                Começar agora
+                Experimentar sem conta
               </Button>
             </Link>
-            <a href="#funcionalidades">
+            <Link to="/cadastro">
               <Button size="lg" variant="ghost">
-                Ver funcionalidades
+                Criar conta
               </Button>
-            </a>
+            </Link>
           </div>
         </section>
       </div>
@@ -83,11 +83,11 @@ export function HomePage() {
         </div>
 
         <div className="mt-12 flex flex-wrap items-center gap-3">
+          <Link to="/demo">
+            <Button>Experimentar sem conta</Button>
+          </Link>
           <Link to="/funcionalidades">
             <Button variant="secondary">Ver detalhes</Button>
-          </Link>
-          <Link to="/cadastro">
-            <Button>Criar conta</Button>
           </Link>
         </div>
       </section>

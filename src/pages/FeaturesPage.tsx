@@ -13,8 +13,9 @@ export function FeaturesPage() {
             Funcionalidades
           </h1>
           <p className="animate-fade-up-delayed mt-4 max-w-2xl text-white/65">
-            Experimente a proposta antes de criar conta. Cada funcionalidade
-            resolve um problema concreto da rotina financeira.
+            Cada funcionalidade resolve um problema concreto da rotina
+            financeira. Na demonstração você testa com dados de exemplo; a conta
+            entra quando for usar os seus.
           </p>
         </div>
       </div>
@@ -35,11 +36,14 @@ export function FeaturesPage() {
               <p className="mt-3 text-sm leading-relaxed text-mist">
                 {feature.explanation}
               </p>
-              <div className="mt-5">
-                <Link to="/cadastro">
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link to={`/demo?f=${feature.id}`}>
                   <Button variant="secondary" className="!text-sm">
-                    Quero usar com meus dados
+                    Ver na prática
                   </Button>
+                </Link>
+                <Link to="/cadastro">
+                  <Button className="!text-sm">Quero usar com meus dados</Button>
                 </Link>
               </div>
             </li>
@@ -47,13 +51,16 @@ export function FeaturesPage() {
         </ul>
 
         <div className="mt-10 flex flex-wrap gap-3">
+          <Link to="/demo">
+            <Button>Experimentar sem conta</Button>
+          </Link>
+          <Link to="/cadastro">
+            <Button variant="secondary">Criar conta</Button>
+          </Link>
           <Link to="/">
             <Button variant="ghost" className="!text-navy hover:!bg-paper-muted">
               Voltar à Home
             </Button>
-          </Link>
-          <Link to="/cadastro">
-            <Button>Criar conta</Button>
           </Link>
         </div>
       </section>

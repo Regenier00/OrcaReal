@@ -6,17 +6,21 @@ import {
   type ReactNode,
 } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { ensureUserProfile } from '@/features/auth/profileService'
 import { AuthContext } from '@/features/auth/auth-context'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(isSupabaseConfigured)
 
   useEffect(() => {
     let mounted = true
+
+    if (!isSupabaseConfigured) {
+      return
+    }
 
     const sync = async (nextSession: Session | null) => {
       try {
@@ -41,9 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    void supabase.auth.getSession().then(({ data }) => {
-      void sync(data.session)
-    })
+    void supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        void sync(data.session)
+      })
+      .catch((error) => {
+        console.error('Erro ao ler sessão:', error)
+        if (mounted) setLoading(false)
+      })
 
     const {
       data: { subscription },
