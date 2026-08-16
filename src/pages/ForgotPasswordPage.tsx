@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
+import { mapAuthError } from '@/features/auth/authErrors'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -25,7 +26,7 @@ export function ForgotPasswordPage() {
       )
 
       if (resetError) {
-        setError(resetError.message)
+        setError(mapAuthError(resetError.message))
         return
       }
 

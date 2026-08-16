@@ -32,6 +32,14 @@ export async function ensureUserProfile(
     .single()
 
   if (insertError) {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (existing) return existing as Profile
+
     console.error('Erro ao criar perfil:', insertError)
     return null
   }

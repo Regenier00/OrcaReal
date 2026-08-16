@@ -2,6 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ensureUserProfile } from '@/features/auth/profileService'
+import {
+  isSupabaseConfigured,
+  mapAuthError,
+} from '@/features/auth/authErrors'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -13,35 +17,64 @@ export function SignUpPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     setLoading(true)
     setMessage('')
+    setError('')
+
+    if (!isSupabaseConfigured()) {
+      setError(
+        'Configuração de autenticação ausente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'
+      )
+      setLoading(false)
+      return
+    }
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name } },
+        options: {
+          data: { name },
+          emailRedirectTo: `${window.location.origin}/app`,
+        },
       })
 
-      if (error) {
-        setMessage(error.message)
+      if (signUpError) {
+        setError(mapAuthError(signUpError.message))
         return
       }
 
-      if (!data.user) {
-        setMessage('Não foi possível criar o usuário.')
+      // Supabase devolve user sem identities quando o e-mail já existe
+      // (evita enumeração). Não é um cadastro novo.
+      if (!data.user || (data.user.identities?.length ?? 0) === 0) {
+        setError(
+          'Este e-mail já está cadastrado. Tente entrar ou recuperar a senha.'
+        )
+        return
+      }
+
+      // Confirm email ligado: usuário criado, sem sessão até confirmar.
+      if (!data.session) {
+        setMessage(
+          'Conta criada. Confirme o e-mail enviado para poder entrar.'
+        )
         return
       }
 
       await ensureUserProfile(data.user.id, name, email)
       setMessage('Cadastro realizado com sucesso!')
       navigate('/app')
-    } catch (error) {
-      console.error(error)
-      setMessage('Ocorreu um erro inesperado.')
+    } catch (err) {
+      console.error(err)
+      const fallback =
+        err instanceof Error
+          ? mapAuthError(err.message)
+          : 'Ocorreu um erro inesperado.'
+      setError(fallback)
     } finally {
       setLoading(false)
     }
@@ -91,7 +124,8 @@ export function SignUpPage() {
           </Button>
         </form>
 
-        {message ? <p className="mt-4 text-sm text-navy-mid">{message}</p> : null}
+        {message ? <p className="mt-4 text-sm text-ok">{message}</p> : null}
+        {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
 
         <p className="mt-6 text-sm text-mist">
           Já tem conta?{' '}
