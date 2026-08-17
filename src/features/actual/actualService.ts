@@ -79,6 +79,18 @@ const TRANSACTION_SELECT = `
   updated_at
 `
 
+// actual_transactions has two FKs to departments and cost_centers
+// (classified vs suggested). PostgREST needs the constraint name (PGRST201).
+const CLASSIFIED_SLICE_SELECT = `
+  posted_at,
+  amount,
+  type,
+  department_id,
+  cost_center_id,
+  department:departments!actual_transactions_department_id_fkey(id, name),
+  cost_center:cost_centers!actual_transactions_cost_center_id_fkey(id, name)
+`
+
 export interface ActualCatalog extends CompanyStructure {
   categories: Category[]
 }
@@ -459,17 +471,7 @@ export async function listClassifiedActualSlices(
   while (true) {
     const { data, error } = await supabase
       .from('actual_transactions')
-      .select(
-        `
-        posted_at,
-        amount,
-        type,
-        department_id,
-        cost_center_id,
-        department:departments(id, name),
-        cost_center:cost_centers(id, name)
-      `,
-      )
+      .select(CLASSIFIED_SLICE_SELECT)
       .eq('company_id', companyId)
       .eq('status', 'classified')
       .gte('posted_at', startDate)
