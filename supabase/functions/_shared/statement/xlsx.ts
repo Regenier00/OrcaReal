@@ -143,11 +143,6 @@ function columnIndex(ref: string) {
   return index - 1
 }
 
-function excelSerialToIso(serial: number) {
-  const epoch = Date.UTC(1899, 11, 30)
-  return new Date(epoch + Math.round(serial) * 86400000).toISOString().slice(0, 10)
-}
-
 function parseSheet(xml: string, shared: string[]) {
   if (xml.length > 2_000_000) {
     throw new Error('A planilha é grande demais para leitura segura.')
@@ -166,16 +161,13 @@ function parseSheet(xml: string, shared: string[]) {
       if (type === 's') {
         const index = Number(body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? '')
         value = shared[index] ?? ''
-      } else if (type === 'inlineStr') {
-        value = unescapeXml(body.match(/<t[^>]*>([\s\S]*?)<\/t>/)?.[1] ?? '')
-      } else {
+      } else if (type === 'inlineStr' || type === 'str') {
+        value = unescapeXml(body.match(/<t[^>]*>([\s\S]*?)<\/t>/)?.[1] ?? body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? '')
+      } else if (type === 'd') {
         const raw = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? ''
-        const numeric = Number(raw)
-        if (raw && Number.isFinite(numeric) && numeric > 20000 && numeric < 80000) {
-          value = excelSerialToIso(numeric)
-        } else {
-          value = raw
-        }
+        value = raw.slice(0, 10)
+      } else {
+        value = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? ''
       }
       if (ref) values[columnIndex(ref)] = value
       else values.push(value)
