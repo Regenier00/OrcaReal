@@ -33,6 +33,8 @@ export function ImportStatementPage() {
   const [file, setFile] = useState<File | null>(null)
   const [current, setCurrent] = useState<StatementImport | null>(null)
   const [busy, setBusy] = useState(false)
+  const [creatingAccount, setCreatingAccount] = useState(false)
+  const [loadedAccountsFor, setLoadedAccountsFor] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
@@ -45,15 +47,21 @@ export function ImportStatementPage() {
         if (!mounted) return
         setAccounts(data)
         setAccountId((currentId) => currentId || data[0]?.id || '')
+        setError('')
+        setLoadedAccountsFor(companyId)
       })
       .catch((err: unknown) => {
         if (!mounted) return
+        setAccounts([])
+        setLoadedAccountsFor(companyId)
         setError(err instanceof Error ? err.message : 'Erro ao carregar contas.')
       })
     return () => {
       mounted = false
     }
   }, [company])
+
+  const loadingAccounts = Boolean(company) && loadedAccountsFor !== company?.id
 
   const handleFiles = (list: FileList | null) => {
     const next = list?.[0]
@@ -76,22 +84,39 @@ export function ImportStatementPage() {
     handleFiles(event.dataTransfer.files)
   }
 
-  const handleCreateAccount = async () => {
-    if (!company || !newAccountName.trim()) return
-    setBusy(true)
+  const handleCreateAccount = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!company) {
+      setError('Selecione uma empresa para criar a conta.')
+      return
+    }
+    if (!newAccountName.trim()) {
+      setError('Informe o nome da conta.')
+      return
+    }
+    setCreatingAccount(true)
     try {
       const created = await createBankAccount({
         companyId: company.id,
         name: newAccountName,
       })
-      setAccounts((currentAccounts) => [...currentAccounts, created])
-      setAccountId(created.id)
+      const nextAccounts = await listBankAccounts(company.id).catch(
+        () => [created],
+      )
+      const selected =
+        nextAccounts.find((item) => item.id === created.id) ?? created
+      setAccounts(
+        nextAccounts.some((item) => item.id === created.id)
+          ? nextAccounts
+          : [...nextAccounts, created],
+      )
+      setAccountId(selected.id)
       setNewAccountName('')
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível criar a conta.')
     } finally {
-      setBusy(false)
+      setCreatingAccount(false)
     }
   }
 
@@ -138,73 +163,52 @@ export function ImportStatementPage() {
         </Link>
       }
     >
-      <form className="mt-8 grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
+      <div className="mt-8 grid gap-6">
         <section className="rounded-2xl border border-paper-muted bg-white p-6">
           <h2 className="font-display text-lg font-semibold text-navy">Banco</h2>
           <p className="mt-1 text-sm text-mist">
             Selecione o banco do extrato. As contas padrão já vêm com os principais bancos do mercado.
           </p>
-          {accounts.length > 0 ? (
-            <div className="mt-4 max-w-md">
-              <Select
-                label="Banco / conta"
-                value={accountId}
-                onChange={(event) => setAccountId(event.target.value)}
-              >
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.bank_code ? `${account.bank_code} · ` : ''}
-                    {account.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          ) : null}
-          <div className="mt-4 flex max-w-xl flex-wrap items-end gap-3">
+          <div className="mt-4 max-w-md">
+            <Select
+              label="Banco / conta"
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              disabled={loadingAccounts || accounts.length === 0}
+            >
+              {accounts.length === 0 ? (
+                <option value="">
+                  {loadingAccounts ? 'Carregando contas...' : 'Nenhuma conta cadastrada'}
+                </option>
+              ) : null}
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.bank_code ? `${account.bank_code} · ` : ''}
+                  {account.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <form
+            className="mt-4 flex max-w-xl flex-wrap items-end gap-3"
+            onSubmit={(event) => void handleCreateAccount(event)}
+            autoComplete="off"
+          >
             <Input
-              label="Outro banco"
+              label="Outra conta"
+              name="new-bank-account"
               value={newAccountName}
               onChange={(event) => setNewAccountName(event.target.value)}
-              placeholder="Nome do banco"
+              placeholder="Nome da conta ou banco"
             />
             <Button
-              type="button"
+              type="submit"
               variant="secondary"
-              disabled={busy || !newAccountName.trim()}
-              onClick={() => void handleCreateAccount()}
+              disabled={creatingAccount || !newAccountName.trim()}
             >
-              Adicionar banco
+              {creatingAccount ? 'Criando...' : 'Criar conta'}
             </Button>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-paper-muted bg-white p-6">
-          <h2 className="font-display text-lg font-semibold text-navy">Arquivo</h2>
-          <p className="mt-1 text-sm text-mist">
-            Formatos iniciais: OFX, CSV, XLSX e PDF estruturado. PDFs digitalizados ficarão prontos para OCR.
-          </p>
-          <label
-            onDragOver={(event) => {
-              event.preventDefault()
-              setDragOver(true)
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
-              dragOver ? 'border-navy-bright bg-paper' : 'border-paper-muted bg-paper/60'
-            }`}
-          >
-            <input
-              type="file"
-              accept={ACCEPTED_STATEMENT_ACCEPT}
-              className="sr-only"
-              onChange={(event) => handleFiles(event.target.files)}
-            />
-            <span className="font-medium text-ink">
-              {file ? file.name : 'Arraste o extrato ou clique para selecionar'}
-            </span>
-            <span className="mt-1 text-xs text-mist">Até 20 MB · arquivo privado por empresa</span>
-          </label>
+          </form>
         </section>
 
         {error ? (
@@ -213,12 +217,46 @@ export function ImportStatementPage() {
           </p>
         ) : null}
 
-        <div>
-          <Button type="submit" disabled={busy || !file}>
-            {busy ? 'Processando...' : 'Enviar e processar'}
-          </Button>
-        </div>
-      </form>
+        <form
+          className="grid gap-6"
+          onSubmit={(event) => void handleSubmit(event)}
+        >
+          <section className="rounded-2xl border border-paper-muted bg-white p-6">
+            <h2 className="font-display text-lg font-semibold text-navy">Arquivo</h2>
+            <p className="mt-1 text-sm text-mist">
+              Formatos iniciais: OFX, CSV, XLSX e PDF estruturado. PDFs digitalizados ficarão prontos para OCR.
+            </p>
+            <label
+              onDragOver={(event) => {
+                event.preventDefault()
+                setDragOver(true)
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={handleDrop}
+              className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
+                dragOver ? 'border-navy-bright bg-paper' : 'border-paper-muted bg-paper/60'
+              }`}
+            >
+              <input
+                type="file"
+                accept={ACCEPTED_STATEMENT_ACCEPT}
+                className="sr-only"
+                onChange={(event) => handleFiles(event.target.files)}
+              />
+              <span className="font-medium text-ink">
+                {file ? file.name : 'Arraste o extrato ou clique para selecionar'}
+              </span>
+              <span className="mt-1 text-xs text-mist">Até 20 MB · arquivo privado por empresa</span>
+            </label>
+          </section>
+
+          <div>
+            <Button type="submit" disabled={busy || !file || !accountId}>
+              {busy ? 'Processando...' : 'Enviar e processar'}
+            </Button>
+          </div>
+        </form>
+      </div>
 
       {current ? (
         <section className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">

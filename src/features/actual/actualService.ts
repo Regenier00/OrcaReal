@@ -143,6 +143,107 @@ export async function loadActualCatalog(companyId: string): Promise<ActualCatalo
 
 export { costCentersForDepartment }
 
+function readErrorText(error: unknown) {
+  const message =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message: unknown }).message ?? '')
+      : error instanceof Error
+        ? error.message
+        : ''
+  const code =
+    error && typeof error === 'object' && 'code' in error
+      ? String((error as { code: unknown }).code ?? '')
+      : ''
+  const details =
+    error && typeof error === 'object' && 'details' in error
+      ? String((error as { details: unknown }).details ?? '')
+      : ''
+  const hint =
+    error && typeof error === 'object' && 'hint' in error
+      ? String((error as { hint: unknown }).hint ?? '')
+      : ''
+  return {
+    code,
+    message,
+    normalized: `${code} ${message} ${details} ${hint}`.toLowerCase(),
+  }
+}
+
+function isMissingDbObject(error: unknown) {
+  const { normalized } = readErrorText(error)
+  return (
+    normalized.includes('pgrst202') ||
+    normalized.includes('pgrst205') ||
+    normalized.includes('could not find the function') ||
+    normalized.includes('could not find the table') ||
+    normalized.includes('schema cache')
+  )
+}
+
+function asBankAccount(value: unknown): BankAccount | null {
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row || typeof row !== 'object') return null
+  const item = row as Partial<BankAccount>
+  if (typeof item.id !== 'string' || typeof item.name !== 'string') return null
+  return item as BankAccount
+}
+
+function sortBankAccounts(accounts: BankAccount[]) {
+  return [...accounts].sort((left, right) => {
+    if (left.bank_code && right.bank_code && left.bank_code !== right.bank_code) {
+      return left.bank_code.localeCompare(right.bank_code, 'pt-BR', {
+        numeric: true,
+      })
+    }
+    if (left.bank_code && !right.bank_code) return -1
+    if (!left.bank_code && right.bank_code) return 1
+    return left.name.localeCompare(right.name, 'pt-BR')
+  })
+}
+
+function mapActualError(error: unknown, fallback: string) {
+  const { message, normalized } = readErrorText(error)
+
+  if (isMissingDbObject(error)) {
+    return 'O banco do Realizado ainda não foi atualizado. Aplique as migrations e tente de novo.'
+  }
+  if (
+    normalized.includes('pgrst116') ||
+    normalized.includes('json object requested')
+  ) {
+    return 'A conta não pôde ser confirmada. Atualize a página e tente de novo.'
+  }
+  if (
+    normalized.includes('42501') ||
+    normalized.includes('row-level security') ||
+    normalized.includes('permission denied')
+  ) {
+    return 'Você não tem permissão para criar conta nesta empresa.'
+  }
+  if (
+    normalized.includes('jwt') ||
+    normalized.includes('not authenticated') ||
+    normalized.includes('usuário não autenticado')
+  ) {
+    return 'Sua sessão expirou. Entre novamente para continuar.'
+  }
+  if (normalized.includes('sem acesso')) {
+    return 'Sem acesso a esta empresa.'
+  }
+  if (normalized.includes('informe o nome')) {
+    return 'Informe o nome da conta.'
+  }
+  if (
+    normalized.includes('failed to fetch') ||
+    normalized.includes('networkerror') ||
+    normalized.includes('fetch failed')
+  ) {
+    return 'Falha de conexão. Verifique sua internet e tente de novo.'
+  }
+  if (message.trim()) return message
+  return fallback
+}
+
 export async function listBankAccounts(companyId: string): Promise<BankAccount[]> {
   const { error: ensureError } = await supabase.rpc(
     'ensure_company_default_bank_accounts',
@@ -157,15 +258,14 @@ export async function listBankAccounts(companyId: string): Promise<BankAccount[]
     .select('*')
     .eq('company_id', companyId)
     .eq('is_active', true)
-    .order('bank_code', { ascending: true, nullsFirst: false })
     .order('name')
 
   if (error) {
     console.error('Erro ao listar contas bancárias:', error)
-    throw new Error('Não foi possível carregar as contas bancárias.')
+    throw new Error(mapActualError(error, 'Não foi possível carregar as contas bancárias.'))
   }
 
-  return (data ?? []) as BankAccount[]
+  return sortBankAccounts((data ?? []) as BankAccount[])
 }
 
 export async function createBankAccount(input: {
@@ -176,22 +276,79 @@ export async function createBankAccount(input: {
   const name = input.name.trim()
   if (!name) throw new Error('Informe o nome da conta.')
 
-  const { data, error } = await supabase
+  const { data, error } = await supabase.rpc('create_company_bank_account', {
+    p_company_id: input.companyId,
+    p_name: name,
+  })
+
+  if (!error) {
+    const created = asBankAccount(data)
+    if (created) return created
+  }
+
+  if (error && !isMissingDbObject(error)) {
+    console.error('Erro ao criar conta bancária via RPC:', error)
+    throw new Error(mapActualError(error, 'Não foi possível criar a conta bancária.'))
+  }
+
+  if (error) {
+    console.error('Erro ao criar conta bancária via RPC:', error)
+  }
+
+  const { data: currentRows, error: currentError } = await supabase
+    .from('bank_accounts')
+    .select('*')
+    .eq('company_id', input.companyId)
+
+  if (currentError) {
+    console.error('Erro ao localizar conta bancária:', currentError)
+    throw new Error(
+      mapActualError(
+        error ?? currentError,
+        'Não foi possível criar a conta bancária.',
+      ),
+    )
+  }
+
+  const existing = ((currentRows ?? []) as BankAccount[]).find(
+    (item) => item.name.trim().toLowerCase() === name.toLowerCase(),
+  )
+  if (existing) {
+    if (existing.is_active) return existing
+    const { data: reactivated, error: reactivateError } = await supabase
+      .from('bank_accounts')
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select('*')
+      .maybeSingle()
+    if (reactivateError) {
+      throw new Error(
+        mapActualError(reactivateError, 'Não foi possível reativar a conta bancária.'),
+      )
+    }
+    return asBankAccount(reactivated) ?? { ...existing, is_active: true }
+  }
+
+  const { data: inserted, error: insertError } = await supabase
     .from('bank_accounts')
     .insert({
       company_id: input.companyId,
       name,
-      bank_name: input.bankName?.trim() || null,
+      bank_name: input.bankName?.trim() || name,
     })
     .select('*')
-    .single()
+    .maybeSingle()
 
-  if (error) {
-    console.error('Erro ao criar conta bancária:', error)
-    throw new Error('Não foi possível criar a conta bancária.')
-  }
+  const created = asBankAccount(inserted)
+  if (created) return created
 
-  return data as BankAccount
+  console.error('Erro ao criar conta bancária:', insertError)
+  throw new Error(
+    mapActualError(
+      insertError ?? error,
+      'Não foi possível criar a conta bancária.',
+    ),
+  )
 }
 
 export async function listStatementImports(
