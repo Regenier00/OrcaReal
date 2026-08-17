@@ -8,7 +8,7 @@ import {
   isValidCnpj,
   onlyDigits,
 } from '@/features/company/cnpj'
-import { markCompanyOnboardingInProgress } from '@/features/company/onboardingFlag'
+import { markCompanyOnboardingInProgress, storeCompanyLocation } from '@/features/company/onboardingFlag'
 import {
   SEGMENT_OPTIONS,
   isOtherSegment,
@@ -56,6 +56,7 @@ export function CreateCompanyPage() {
           if (result.legalName) setName(result.legalName)
           if (result.description) setDescription(result.description)
           if (result.suggestedSegment) setSegmentCode(result.suggestedSegment)
+          storeCompanyLocation({ state: result.state, city: result.city })
           const statusNote = result.status
             ? `Situação: ${result.status}.`
             : ''

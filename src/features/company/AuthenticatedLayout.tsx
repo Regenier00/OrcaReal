@@ -15,11 +15,13 @@ const CREATED_PATH = '/app/empresa-criada'
 const ONBOARDING_PATHS = [
   '/app/criar-empresa',
   '/app/empresa-criada',
+  '/app/conhecer-empresa',
+  '/app/ambiente-pronto',
   '/app/configurar-ambiente',
 ]
 
 export function AuthenticatedLayout() {
-  const { loading, error, companies, refresh } = useCompany()
+  const { loading, error, companies, refresh, companyProfile } = useCompany()
   const location = useLocation()
   const inWizard = isCompanyOnboardingInProgress()
   const isOnboardingRoute = ONBOARDING_PATHS.includes(location.pathname)
@@ -80,6 +82,15 @@ export function AuthenticatedLayout() {
 
   if (location.pathname === CREATE_PATH) {
     return <Navigate to="/app" replace />
+  }
+
+  if (
+    !isOnboardingRoute &&
+    location.pathname === '/app' &&
+    companyProfile &&
+    !companyProfile.questionnaire_completed
+  ) {
+    return <Navigate to="/app/conhecer-empresa" replace />
   }
 
   if (isOnboardingRoute) {

@@ -150,7 +150,23 @@ export async function getCompanyProfile(
     .maybeSingle()
 
   if (error) return fail(error)
-  return { ok: true, data: (data as CompanyProfile | null) ?? null }
+  const row = (data as CompanyProfile | null) ?? null
+  if (!row) return { ok: true, data: null }
+  return {
+    ok: true,
+    data: {
+      ...row,
+      employee_count_range: row.employee_count_range ?? null,
+      state: row.state ?? null,
+      city: row.city ?? null,
+      operation_model: row.operation_model ?? null,
+      revenue_model: row.revenue_model ?? null,
+      primary_activity: row.primary_activity ?? null,
+      profile_facts: row.profile_facts ?? {},
+      questionnaire_completed: Boolean(row.questionnaire_completed),
+      experience_ready: Boolean(row.experience_ready),
+    },
+  }
 }
 
 export async function listSegments(): Promise<ServiceResult<Segment[]>> {

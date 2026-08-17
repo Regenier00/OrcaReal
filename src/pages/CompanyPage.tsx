@@ -15,7 +15,13 @@ import {
   updateCompanySettings,
 } from '@/features/company/companyService'
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
-import { SEGMENT_OPTIONS, isOtherSegment } from '@/features/company/segmentOptions'
+import { SEGMENT_OPTIONS, isOtherSegment, segmentLabel } from '@/features/company/segmentOptions'
+import {
+  addCompanyOperation,
+  listCompanyAnalysisUnits,
+  listCompanyOperations,
+  listEnabledCompanyIndicators,
+} from '@/features/experience/experienceService'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -28,10 +34,11 @@ import type {
   Department,
 } from '@/types/database'
 
-type Tab = 'dados' | 'usuarios' | 'departamentos' | 'centros' | 'configuracoes'
+type Tab = 'dados' | 'perfil' | 'usuarios' | 'departamentos' | 'centros' | 'configuracoes'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'dados', label: 'Dados da empresa' },
+  { id: 'perfil', label: 'Perfil operacional' },
   { id: 'usuarios', label: 'Usuários' },
   { id: 'departamentos', label: 'Departamentos' },
   { id: 'centros', label: 'Centros de custo' },
@@ -98,6 +105,19 @@ export function CompanyPage() {
             segments={segments}
             canEdit={isAdmin}
             onSaved={() => void refresh()}
+          />
+        ) : null}
+        {tab === 'perfil' ? (
+          <CompanyExperienceTab
+            key={activeCompany.id}
+            companyId={activeCompany.id}
+            canEdit={isAdmin}
+            profileSummary={companyProfile?.profile_summary ?? ''}
+            primaryActivity={companyProfile?.primary_activity ?? ''}
+            companySize={companyProfile?.company_size ?? ''}
+            employees={companyProfile?.employee_count_range ?? ''}
+            revenueModel={companyProfile?.revenue_model ?? ''}
+            operationModel={companyProfile?.operation_model ?? ''}
           />
         ) : null}
         {tab === 'usuarios' ? (
@@ -668,5 +688,175 @@ function SettingsTab({
         </p>
       )}
     </form>
+  )
+}
+
+function CompanyExperienceTab({
+  companyId,
+  canEdit,
+  profileSummary,
+  primaryActivity,
+  companySize,
+  employees,
+  revenueModel,
+  operationModel,
+}: {
+  companyId: string
+  canEdit: boolean
+  profileSummary: string
+  primaryActivity: string
+  companySize: string
+  employees: string
+  revenueModel: string
+  operationModel: string
+}) {
+  const [operations, setOperations] = useState<Array<{ id: string; name: string }>>([])
+  const [units, setUnits] = useState<string[]>([])
+  const [indicators, setIndicators] = useState<number>(0)
+  const [segmentCode, setSegmentCode] = useState('')
+  const [operationName, setOperationName] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    void Promise.all([
+      listCompanyOperations(companyId),
+      listCompanyAnalysisUnits(companyId),
+      listEnabledCompanyIndicators(companyId),
+    ]).then(([ops, analysis, inds]) => {
+      if (!mounted) return
+      if (ops.ok) {
+        setOperations(ops.data.map((row) => ({ id: String(row.id), name: String(row.name) })))
+      }
+      if (analysis.ok) {
+        setUnits(
+          analysis.data.map((row) => {
+            const unit = row.analysis_unit as { name?: string } | { name?: string }[] | null
+            const item = Array.isArray(unit) ? unit[0] : unit
+            return item?.name ?? 'Unidade'
+          })
+        )
+      }
+      if (inds.ok) setIndicators(inds.data.length)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [companyId])
+
+  const handleAddOperation = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEdit || saving) return
+    if (!segmentCode) {
+      setError('Selecione o ramo da nova operação.')
+      return
+    }
+    setSaving(true)
+    const result = await addCompanyOperation({
+      companyId,
+      segmentCode,
+      name: operationName || segmentLabel(segmentCode),
+    })
+    setSaving(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    setOperationName('')
+    setSegmentCode('')
+    const ops = await listCompanyOperations(companyId)
+    if (ops.ok) {
+      setOperations(ops.data.map((row) => ({ id: String(row.id), name: String(row.name) })))
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-xl font-semibold text-navy">
+          Perfil da empresa
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-mist">
+          {profileSummary ||
+            'O perfil é construído com as respostas do questionário. Quanto mais informações, mais personalizados ficam os indicadores.'}
+        </p>
+      </div>
+
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <ProfileFact label="Atividade principal" value={primaryActivity} />
+        <ProfileFact label="Porte" value={companySize} />
+        <ProfileFact label="Funcionários" value={employees} />
+        <ProfileFact label="Geração de receita" value={revenueModel} />
+        <ProfileFact label="Modelo de operação" value={operationModel} />
+        <ProfileFact label="Indicadores ativos" value={String(indicators)} />
+      </dl>
+
+      <div>
+        <h3 className="font-display text-lg font-semibold text-navy">Operações</h3>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {operations.map((item) => (
+            <li key={item.id} className="rounded-full bg-paper px-3 py-1 text-sm text-ink-soft">
+              {item.name}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <div>
+        <h3 className="font-display text-lg font-semibold text-navy">Unidades de análise</h3>
+        <ul className="mt-3 flex flex-wrap gap-2">
+          {units.map((item) => (
+            <li key={item} className="rounded-full bg-paper px-3 py-1 text-sm text-ink-soft">
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <Link to="/app/conhecer-empresa" className="inline-flex">
+        <Button variant="secondary">Continuar questionário</Button>
+      </Link>
+
+      {canEdit ? (
+        <form onSubmit={(event) => void handleAddOperation(event)} className="max-w-xl space-y-3">
+          <h3 className="font-display text-lg font-semibold text-navy">
+            Adicionar outra operação
+          </h3>
+          <Select
+            label="Ramo"
+            value={segmentCode}
+            onChange={(event) => setSegmentCode(event.target.value)}
+          >
+            <option value="">Selecione</option>
+            {SEGMENT_OPTIONS.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            label="Nome da operação"
+            value={operationName}
+            onChange={(event) => setOperationName(event.target.value)}
+            placeholder={segmentCode ? segmentLabel(segmentCode) : 'Ex.: Pecuária de corte'}
+          />
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Adicionando...' : 'Adicionar operação'}
+          </Button>
+        </form>
+      ) : null}
+    </div>
+  )
+}
+
+function ProfileFact({ label, value }: { label: string; value: string }) {
+  if (!value) return null
+  return (
+    <div className="rounded-xl bg-paper px-4 py-3">
+      <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
+      <dd className="mt-1 text-sm font-medium text-ink">{value}</dd>
+    </div>
   )
 }
