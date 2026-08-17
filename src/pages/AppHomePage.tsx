@@ -1,68 +1,108 @@
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { listUserCompanies } from '@/features/company/companyService'
-import type { Company } from '@/types/database'
+import { useCompany } from '@/features/company/useCompany'
+import { segmentLabel } from '@/features/company/segmentOptions'
+import { formatCnpj } from '@/features/company/cnpj'
 import { Button } from '@/components/ui/Button'
 
 export function AppHomePage() {
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
+  const {
+    activeCompany,
+    companies,
+    companyProfile,
+    segments,
+    memberships,
+    setActiveCompanyId,
+  } = useCompany()
 
-  useEffect(() => {
-    let mounted = true
-    void listUserCompanies().then((data) => {
-      if (!mounted) return
-      setCompanies(data)
-      setLoading(false)
-    })
-    return () => {
-      mounted = false
-    }
-  }, [])
+  const segment = segments.find((item) => item.id === companyProfile?.segment_id)
+  const segmentName =
+    companyProfile?.custom_segment ||
+    segment?.name ||
+    (segment ? segmentLabel(segment.code) : null)
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-ink">Área autenticada</h1>
+      <h1 className="font-display text-3xl font-bold text-ink">Início</h1>
       <p className="mt-2 max-w-2xl text-sm text-mist">
-        Próximos passos do plano: onboarding personalizado e estrutura
-        organizacional. Por enquanto, crie ou selecione sua empresa.
+        Acompanhe o orçamento e os resultados da empresa ativa.
       </p>
 
-      <div className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      {activeCompany ? (
+        <section className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mist">
+            Empresa ativa
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-semibold text-navy">
+            Empresa: {activeCompany.trade_name || activeCompany.name}
+          </h2>
+          {activeCompany.trade_name && activeCompany.trade_name !== activeCompany.name ? (
+            <p className="mt-1 text-sm text-mist">{activeCompany.name}</p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
+            {activeCompany.document ? (
+              <p>CNPJ: {formatCnpj(activeCompany.document)}</p>
+            ) : null}
+            {segmentName ? <p>Segmento: {segmentName}</p> : null}
+          </div>
+
+          {!companyProfile?.onboarding_completed ? (
+            <div className="mt-6 rounded-xl bg-paper px-4 py-3 text-sm text-ink-soft">
+              <p>Você ainda pode configurar departamentos e centros de custo.</p>
+              <Link to="/app/configurar-ambiente" className="mt-3 inline-flex">
+                <Button variant="secondary">Configure seu ambiente</Button>
+              </Link>
+            </div>
+          ) : null}
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/empresa">
+              <Button>Configurações da empresa</Button>
+            </Link>
+          </div>
+        </section>
+      ) : null}
+
+      {companies.length > 1 ? (
+        <section className="mt-6 rounded-2xl border border-paper-muted bg-white p-6">
           <h2 className="font-display text-xl font-semibold text-navy">
             Suas empresas
           </h2>
-          <Link to="/app/empresa">
-            <Button>Criar empresa</Button>
-          </Link>
-        </div>
-
-        {loading ? (
-          <p className="mt-6 text-sm text-mist">Carregando empresas...</p>
-        ) : companies.length === 0 ? (
-          <p className="mt-6 text-sm text-mist">
-            Nenhuma empresa ainda. Crie a primeira para inicializar a estrutura
-            padrão (departamentos, centros de custo, categorias e dashboard).
-          </p>
-        ) : (
-          <ul className="mt-6 divide-y divide-paper-muted">
-            {companies.map((company) => (
-              <li key={company.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="font-medium text-ink">{company.name}</p>
-                  {company.trade_name ? (
-                    <p className="text-xs text-mist">{company.trade_name}</p>
-                  ) : null}
-                </div>
-                <span className="text-xs font-medium uppercase tracking-wide text-navy-bright">
-                  Ativa
-                </span>
-              </li>
-            ))}
+          <ul className="mt-4 divide-y divide-paper-muted">
+            {memberships.map((membership) => {
+              const active = membership.company_id === activeCompany?.id
+              return (
+                <li
+                  key={membership.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div>
+                    <p className="font-medium text-ink">{membership.company.name}</p>
+                    <p className="text-xs text-mist">
+                      {membership.role === 'owner' || membership.role === 'admin'
+                        ? 'Administrador'
+                        : membership.role === 'viewer'
+                          ? 'Visualizador'
+                          : 'Membro'}
+                    </p>
+                  </div>
+                  {active ? (
+                    <span className="text-xs font-medium uppercase tracking-wide text-navy-bright">
+                      Ativa
+                    </span>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      onClick={() => setActiveCompanyId(membership.company_id)}
+                    >
+                      Usar esta
+                    </Button>
+                  )}
+                </li>
+              )
+            })}
           </ul>
-        )}
-      </div>
+        </section>
+      ) : null}
     </div>
   )
 }
