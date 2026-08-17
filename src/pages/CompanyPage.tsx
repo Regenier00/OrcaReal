@@ -471,7 +471,6 @@ function CostCentersTab({
 }) {
   const [items, setItems] = useState<CostCenter[]>([])
   const [name, setName] = useState('')
-  const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -515,7 +514,6 @@ function CostCentersTab({
     const result = await createCostCenter({
       companyId,
       name: trimmed,
-      code,
     })
     setSaving(false)
     if (!result.ok) {
@@ -523,7 +521,6 @@ function CostCentersTab({
       return
     }
     setName('')
-    setCode('')
     await reload()
   }
 
@@ -534,6 +531,9 @@ function CostCentersTab({
       <h2 className="font-display text-xl font-semibold text-navy">
         Centros de custo
       </h2>
+      <p className="mt-1 text-sm text-mist">
+        O código é gerado automaticamente na ordem de criação (001, 002…).
+      </p>
 
       {items.length === 0 ? (
         <p className="mt-4 text-sm text-mist">
@@ -545,7 +545,7 @@ function CostCentersTab({
             <li key={item.id} className="flex items-center justify-between gap-3 py-3">
               <div>
                 <p className="font-medium text-ink">{item.name}</p>
-                {item.code ? <p className="text-xs text-mist">{item.code}</p> : null}
+                <p className="text-xs text-mist">{item.code || '—'}</p>
               </div>
               {canEdit ? (
                 <Button
@@ -566,17 +566,11 @@ function CostCentersTab({
       )}
 
       {canEdit ? (
-        <form onSubmit={(event) => void handleAdd(event)} className="mt-5 flex flex-col gap-2 sm:flex-row">
+        <form onSubmit={(event) => void handleAdd(event)} className="mt-5 flex gap-2">
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Nome"
-          />
-          <Input
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder="Código"
-            className="sm:max-w-36"
           />
           <Button type="submit" disabled={saving}>
             {saving ? 'Adicionando...' : 'Adicionar'}

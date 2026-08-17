@@ -54,7 +54,7 @@ export async function loadCompanyStructure(
       .select('id, company_id, name, code, description, is_active')
       .eq('company_id', companyId)
       .eq('is_active', true)
-      .order('name'),
+      .order('code'),
     supabase
       .from('department_cost_centers')
       .select('id, department_id, cost_center_id'),

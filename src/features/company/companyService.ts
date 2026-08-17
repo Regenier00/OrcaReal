@@ -108,7 +108,7 @@ export async function setupCompanyEnvironment(input: {
   segmentCode?: SegmentCode | string
   customSegment?: string
   departments?: string[]
-  costCenters?: Array<{ name: string; code?: string }>
+  costCenters?: string[]
   skip?: boolean
 }): Promise<ServiceResult<Company>> {
   const { data, error } = await supabase.rpc('setup_company_environment', {
@@ -118,10 +118,7 @@ export async function setupCompanyEnvironment(input: {
     p_custom_segment: input.customSegment?.trim() || null,
     p_departments: (input.departments ?? []).map((item) => item.trim()).filter(Boolean),
     p_cost_centers: (input.costCenters ?? [])
-      .map((item) => ({
-        name: item.name.trim(),
-        code: item.code?.trim() || null,
-      }))
+      .map((name) => ({ name: name.trim() }))
       .filter((item) => item.name),
     p_skip: Boolean(input.skip),
   })
@@ -286,7 +283,7 @@ export async function listCostCenters(
     .from('cost_centers')
     .select('*')
     .eq('company_id', companyId)
-    .order('name')
+    .order('created_at', { ascending: true })
 
   if (error) return fail(error)
   return { ok: true, data: (data as CostCenter[]) ?? [] }
@@ -295,14 +292,12 @@ export async function listCostCenters(
 export async function createCostCenter(input: {
   companyId: string
   name: string
-  code?: string
 }): Promise<ServiceResult<CostCenter>> {
   const { data, error } = await supabase
     .from('cost_centers')
     .insert({
       company_id: input.companyId,
       name: input.name.trim(),
-      code: input.code?.trim() || null,
     })
     .select()
     .single()

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { SEGMENT_OPTIONS, type SegmentCode } from '@/features/company/segmentOptions'
-import { structureSuggestionsFor } from '@/features/company/structureSuggestions'
+import { structureSuggestionsFor, sequentialCostCenterCode } from '@/features/company/structureSuggestions'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -11,7 +11,7 @@ export interface CompanySetupValues {
   segmentCode: SegmentCode
   customSegment: string
   departments: string[]
-  costCenters: Array<{ name: string; code: string }>
+  costCenters: string[]
 }
 
 interface CompanySetupFormProps {
@@ -46,7 +46,7 @@ export function CompanySetupForm({
 
   const applySuggestions = () => {
     setDepartments(suggestions.departments)
-    setCostCenters(suggestions.costCenters.map((item) => ({ ...item })))
+    setCostCenters(suggestions.costCenters)
   }
 
   const toggleDepartment = (value: string) => {
@@ -58,12 +58,11 @@ export function CompanySetupForm({
   }
 
   const toggleCostCenter = (value: string) => {
-    setCostCenters((current) => {
-      const exists = current.some((item) => item.name === value)
-      if (exists) return current.filter((item) => item.name !== value)
-      const suggested = suggestions.costCenters.find((item) => item.name === value)
-      return [...current, { name: value, code: suggested?.code ?? '' }]
-    })
+    setCostCenters((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    )
   }
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -84,9 +83,7 @@ export function CompanySetupForm({
       segmentCode,
       customSegment: customSegment.trim(),
       departments: departments.map((item) => item.trim()).filter(Boolean),
-      costCenters: costCenters
-        .map((item) => ({ name: item.name.trim(), code: item.code.trim() }))
-        .filter((item) => item.name),
+      costCenters: costCenters.map((item) => item.trim()).filter(Boolean),
     })
   }
 
@@ -183,17 +180,17 @@ export function CompanySetupForm({
           Centros de custo
         </h2>
         <p className="mt-1 text-sm text-mist">
-          Opcional nesta etapa. Você pode cadastrar depois nas configurações.
+          Opcional nesta etapa. O código (001, 002…) é gerado automaticamente.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {suggestions.costCenters.map((item) => {
-            const selected = costCenters.some((center) => center.name === item.name)
+            const selected = costCenters.includes(item)
             return (
               <button
-                key={item.name}
+                key={item}
                 type="button"
-                onClick={() => toggleCostCenter(item.name)}
+                onClick={() => toggleCostCenter(item)}
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-sm transition',
                   selected
@@ -201,7 +198,7 @@ export function CompanySetupForm({
                     : 'border-paper-muted bg-paper text-ink-soft hover:border-navy-bright'
                 )}
               >
-                {item.name}
+                {item}
               </button>
             )
           })}
@@ -209,31 +206,21 @@ export function CompanySetupForm({
 
         <div className="mt-4 space-y-2">
           {costCenters.map((item, index) => (
-            <div key={`${item.name}-${index}`} className="flex gap-2">
+            <div key={`${item}-${index}`} className="flex gap-2">
+              <span className="inline-flex min-w-14 items-center justify-center rounded-xl border border-paper-muted bg-paper px-2 text-xs font-medium text-navy">
+                {sequentialCostCenterCode(index)}
+              </span>
               <Input
-                value={item.name}
+                value={item}
                 onChange={(event) => {
                   const value = event.target.value
                   setCostCenters((current) =>
                     current.map((center, currentIndex) =>
-                      currentIndex === index ? { ...center, name: value } : center
+                      currentIndex === index ? value : center
                     )
                   )
                 }}
                 placeholder="Nome"
-              />
-              <Input
-                value={item.code}
-                onChange={(event) => {
-                  const value = event.target.value
-                  setCostCenters((current) =>
-                    current.map((center, currentIndex) =>
-                      currentIndex === index ? { ...center, code: value } : center
-                    )
-                  )
-                }}
-                placeholder="Código"
-                className="max-w-32"
               />
               <Button
                 type="button"
@@ -256,8 +243,8 @@ export function CompanySetupForm({
           placeholder="Adicionar centro de custo"
           onAdd={() => {
             const next = customCostCenter.trim()
-            if (!next || costCenters.some((item) => item.name === next)) return
-            setCostCenters((current) => [...current, { name: next, code: '' }])
+            if (!next || costCenters.includes(next)) return
+            setCostCenters((current) => [...current, next])
             setCustomCostCenter('')
           }}
         />

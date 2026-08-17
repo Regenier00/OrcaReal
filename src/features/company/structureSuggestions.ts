@@ -1,13 +1,8 @@
 import type { SegmentCode } from '@/features/company/segmentOptions'
 
-export interface CostCenterSuggestion {
-  name: string
-  code: string
-}
-
 export interface StructureSuggestion {
   departments: string[]
-  costCenters: CostCenterSuggestion[]
+  costCenters: string[]
 }
 
 const SUGGESTIONS: Record<SegmentCode, StructureSuggestion> = {
@@ -20,11 +15,11 @@ const SUGGESTIONS: Record<SegmentCode, StructureSuggestion> = {
       'Operacional',
     ],
     costCenters: [
-      { name: 'Administrativo', code: 'ADM' },
-      { name: 'Pecuária', code: 'PEC' },
-      { name: 'Agrícola', code: 'AGR' },
-      { name: 'Financeiro', code: 'FIN' },
-      { name: 'Operacional', code: 'OPE' },
+      'Administrativo',
+      'Pecuária',
+      'Agrícola',
+      'Financeiro',
+      'Operacional',
     ],
   },
   commerce: {
@@ -36,11 +31,11 @@ const SUGGESTIONS: Record<SegmentCode, StructureSuggestion> = {
       'Operacional',
     ],
     costCenters: [
-      { name: 'Administrativo', code: 'ADM' },
-      { name: 'Comercial', code: 'COM' },
-      { name: 'Estoque', code: 'EST' },
-      { name: 'Financeiro', code: 'FIN' },
-      { name: 'Operacional', code: 'OPE' },
+      'Administrativo',
+      'Comercial',
+      'Estoque',
+      'Financeiro',
+      'Operacional',
     ],
   },
   industry: {
@@ -52,11 +47,11 @@ const SUGGESTIONS: Record<SegmentCode, StructureSuggestion> = {
       'Logística',
     ],
     costCenters: [
-      { name: 'Administrativo', code: 'ADM' },
-      { name: 'Produção', code: 'PRD' },
-      { name: 'Qualidade', code: 'QLD' },
-      { name: 'Financeiro', code: 'FIN' },
-      { name: 'Logística', code: 'LOG' },
+      'Administrativo',
+      'Produção',
+      'Qualidade',
+      'Financeiro',
+      'Logística',
     ],
   },
   services: {
@@ -68,20 +63,16 @@ const SUGGESTIONS: Record<SegmentCode, StructureSuggestion> = {
       'Pessoas',
     ],
     costCenters: [
-      { name: 'Administrativo', code: 'ADM' },
-      { name: 'Comercial', code: 'COM' },
-      { name: 'Operações', code: 'OPE' },
-      { name: 'Financeiro', code: 'FIN' },
-      { name: 'Pessoas', code: 'RH' },
+      'Administrativo',
+      'Comercial',
+      'Operações',
+      'Financeiro',
+      'Pessoas',
     ],
   },
   other: {
     departments: ['Administrativo', 'Financeiro', 'Operacional'],
-    costCenters: [
-      { name: 'Administrativo', code: 'ADM' },
-      { name: 'Financeiro', code: 'FIN' },
-      { name: 'Operacional', code: 'OPE' },
-    ],
+    costCenters: ['Administrativo', 'Financeiro', 'Operacional'],
   },
 }
 
@@ -92,4 +83,9 @@ export function structureSuggestionsFor(
     return SUGGESTIONS[code as SegmentCode]
   }
   return SUGGESTIONS.other
+}
+
+export function sequentialCostCenterCode(index: number): string {
+  const next = index + 1
+  return String(next).padStart(Math.max(3, String(next).length), '0')
 }
