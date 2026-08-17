@@ -10,6 +10,7 @@ import {
   type ActualCatalog,
 } from '@/features/actual/actualService'
 import {
+  ACTUAL_PATHS,
   TRANSACTION_STATUS_LABEL,
   TRANSACTION_TYPE_LABEL,
   hasSuggestion,
@@ -217,17 +218,12 @@ export function ClassifyTransactionsPage() {
 
   return (
     <ActualPageShell
-      title="Classificar movimentações"
-      description="A sugestão com base no histórico aparece quando existir, mas só entra no realizado se você confirmar."
+      title="Realizados não apropriados"
+      description="Classifique departamento, categoria e centro de custo. Só o que for apropriado entra na comparação Orçado × Realizado."
       actions={
-        <div className="flex flex-wrap gap-2">
-          <Link to="/app/realizado/importar">
-            <Button variant="secondary">Importar outro</Button>
-          </Link>
-          <Link to="/app/realizado">
-            <Button variant="secondary">Realizado</Button>
-          </Link>
-        </div>
+        <Link to={ACTUAL_PATHS.import}>
+          <Button variant="secondary">Importar extrato</Button>
+        </Link>
       }
     >
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -237,9 +233,9 @@ export function ClassifyTransactionsPage() {
           onChange={(event) => setStatus(event.target.value as ActualTransactionStatus | '')}
         >
           <option value="">Todos</option>
-          <option value="pending">Pendentes</option>
-          <option value="classified">Classificadas</option>
-          <option value="ignored">Ignoradas</option>
+          <option value="pending">Não apropriados</option>
+          <option value="classified">Apropriados</option>
+          <option value="ignored">Ignorados</option>
         </Select>
         <Select
           label="Tipo"
@@ -276,7 +272,7 @@ export function ClassifyTransactionsPage() {
 
       <section className="mt-6 rounded-2xl border border-paper-muted bg-white p-5">
         <p className="text-sm text-mist">
-          {summary.pending} pendentes nesta lista · {summary.classified} classificadas
+          {summary.pending} não apropriados nesta lista · {summary.classified} apropriados
           {summary.withSuggestion > 0
             ? ` · ${summary.withSuggestion} com sugestão de histórico`
             : ''}
@@ -328,7 +324,7 @@ export function ClassifyTransactionsPage() {
               disabled={busy || selected.length === 0}
               onClick={() => void apply('classified')}
             >
-              Classificar
+              Apropriar
             </Button>
             <Button
               type="button"
@@ -364,7 +360,8 @@ export function ClassifyTransactionsPage() {
             Nenhuma movimentação neste filtro
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-            Importe um extrato ou limpe os filtros para ver os lançamentos da empresa.
+            Importe um extrato no Realizado para ver os lançamentos ainda sem
+            apropriação, ou limpe os filtros.
           </p>
         </div>
       ) : (
@@ -386,7 +383,7 @@ export function ClassifyTransactionsPage() {
                 <th className="px-3 py-2.5 font-medium">Descrição</th>
                 <th className="px-3 py-2.5 font-medium">Tipo</th>
                 <th className="px-3 py-2.5 text-right font-medium">Valor</th>
-                <th className="px-3 py-2.5 font-medium">Classificação</th>
+                <th className="px-3 py-2.5 font-medium">Apropriação</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
               </tr>
             </thead>

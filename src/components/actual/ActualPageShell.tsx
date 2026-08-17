@@ -1,5 +1,6 @@
 import { useCompany } from '@/features/company/useCompany'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
+import { ActualSubnav } from '@/components/actual/ActualSubnav'
 import type { ReactNode } from 'react'
 
 export function ActualPageShell({
@@ -37,6 +38,7 @@ export function ActualPageShell({
         </div>
         {actions}
       </div>
+      <ActualSubnav />
       {children}
     </div>
   )

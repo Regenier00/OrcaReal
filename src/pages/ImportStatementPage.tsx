@@ -10,6 +10,7 @@ import {
 } from '@/features/actual/actualService'
 import {
   ACCEPTED_STATEMENT_ACCEPT,
+  ACTUAL_PATHS,
   FILE_TYPE_LABEL,
   IMPORT_STATUS_LABEL,
   MAX_STATEMENT_FILE_BYTES,
@@ -130,10 +131,10 @@ export function ImportStatementPage() {
   return (
     <ActualPageShell
       title="Importar extrato"
-      description="O arquivo vai para um armazenamento privado da empresa. Identificação, parser, normalização e prevenção de duplicidades rodam no servidor."
+      description="O extrato vira realizado da empresa. Depois da leitura, os lançamentos entram em Realizados não apropriados para você classificar antes do Orçado × Realizado."
       actions={
-        <Link to="/app/realizado">
-          <Button variant="secondary">Voltar ao realizado</Button>
+        <Link to={ACTUAL_PATHS.unappropriated}>
+          <Button variant="secondary">Não apropriados</Button>
         </Link>
       }
     >
@@ -237,7 +238,7 @@ export function ImportStatementPage() {
                   { label: 'Entradas', value: String(current.income_count) },
                   { label: 'Saídas', value: String(current.expense_count) },
                   {
-                    label: 'Pendentes',
+                    label: 'Não apropriados',
                     value: String(current.pending_count),
                     hint:
                       current.duplicate_count > 0
@@ -249,10 +250,10 @@ export function ImportStatementPage() {
                 ]}
               />
               <Link
-                to={`/app/realizado/classificar?importacao=${current.id}`}
+                to={`${ACTUAL_PATHS.unappropriated}?importacao=${current.id}`}
                 className="mt-6 inline-block"
               >
-                <Button type="button">Classificar movimentações</Button>
+                <Button type="button">Ir para não apropriados</Button>
               </Link>
             </div>
           ) : null}

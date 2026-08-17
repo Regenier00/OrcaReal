@@ -51,10 +51,16 @@ export const TRANSACTION_TYPE_LABEL: Record<ActualTransactionType, string> = {
 }
 
 export const TRANSACTION_STATUS_LABEL: Record<ActualTransactionStatus, string> = {
-  pending: 'Pendente',
-  classified: 'Classificada',
-  ignored: 'Ignorada',
+  pending: 'Não apropriado',
+  classified: 'Apropriado',
+  ignored: 'Ignorado',
 }
+
+export const ACTUAL_PATHS = {
+  root: '/app/realizado',
+  import: '/app/realizado/importar',
+  unappropriated: '/app/realizado/nao-apropriados',
+} as const
 
 export const IMPORT_STEPS: Array<{
   status: StatementImportStatus

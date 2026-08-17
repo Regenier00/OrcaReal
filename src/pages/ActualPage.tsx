@@ -7,6 +7,7 @@ import {
 } from '@/features/actual/actualService'
 import type { ActualSummary } from '@/features/actual/actualService'
 import {
+  ACTUAL_PATHS,
   FILE_TYPE_LABEL,
   IMPORT_STATUS_LABEL,
 } from '@/features/actual/model'
@@ -53,8 +54,16 @@ export function ActualPage() {
     () => [
       { label: 'Entradas', value: formatMoney(summary?.incomeTotal ?? 0) },
       { label: 'Saídas', value: formatMoney(summary?.expenseTotal ?? 0) },
-      { label: 'Classificadas', value: String(summary?.classifiedCount ?? 0) },
-      { label: 'Pendentes', value: String(summary?.pendingCount ?? 0) },
+      {
+        label: 'Não apropriados',
+        value: String(summary?.pendingCount ?? 0),
+        hint: 'Aguardando classificação',
+      },
+      {
+        label: 'Apropriados',
+        value: String(summary?.classifiedCount ?? 0),
+        hint: 'Prontos para o Orçado × Realizado',
+      },
     ],
     [summary],
   )
@@ -62,14 +71,14 @@ export function ActualPage() {
   return (
     <ActualPageShell
       title="Realizado"
-      description={`Importe extratos, classifique as movimentações da ${company?.trade_name || company?.name || 'empresa'} e prepare o Orçado × Realizado.`}
+      description={`O extrato bancário da ${company?.trade_name || company?.name || 'empresa'} vira realizado aqui. O que ainda não tiver departamento, categoria e centro de custo fica em não apropriados até você classificar.`}
       actions={
         <div className="flex flex-wrap gap-2">
-          <Link to="/app/realizado/importar">
+          <Link to={ACTUAL_PATHS.import}>
             <Button>Importar extrato</Button>
           </Link>
-          <Link to="/app/realizado/classificar">
-            <Button variant="secondary">Classificar movimentações</Button>
+          <Link to={ACTUAL_PATHS.unappropriated}>
+            <Button variant="secondary">Não apropriados</Button>
           </Link>
         </div>
       }
@@ -90,18 +99,19 @@ export function ActualPage() {
 
           <section className="mt-10">
             <h2 className="font-display text-xl font-semibold text-navy">
-              Importações
+              Extratos importados
             </h2>
             {imports.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
                 <p className="font-display text-xl font-semibold text-ink">
-                  Nenhum extrato importado
+                  Nenhum realizado ainda
                 </p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-                  Envie OFX, CSV, XLSX ou PDF estruturado. A leitura e a
-                  normalização acontecem no servidor, isoladas por empresa.
+                  Importe o extrato (OFX, CSV, XLSX ou PDF estruturado). O sistema
+                  lê os lançamentos e envia os que faltam classificar para
+                  Realizados não apropriados.
                 </p>
-                <Link to="/app/realizado/importar" className="mt-6 inline-block">
+                <Link to={ACTUAL_PATHS.import} className="mt-6 inline-block">
                   <Button>Importar extrato</Button>
                 </Link>
               </div>
@@ -122,7 +132,7 @@ export function ActualPage() {
                         {' · '}
                         {item.transaction_count} lançamentos
                         {' · '}
-                        {item.pending_count} pendentes
+                        {item.pending_count} não apropriados
                         {item.error_count > 0 ? ` · ${item.error_count} erros` : ''}
                       </p>
                     </div>
@@ -131,10 +141,10 @@ export function ActualPage() {
                         {item.income_count} entradas · {item.expense_count} saídas
                       </p>
                       <Link
-                        to={`/app/realizado/classificar?importacao=${item.id}`}
+                        to={`${ACTUAL_PATHS.unappropriated}?importacao=${item.id}`}
                       >
                         <Button variant="secondary" className="!px-3 !py-2 !text-xs">
-                          Classificar
+                          Não apropriados
                         </Button>
                       </Link>
                     </div>
