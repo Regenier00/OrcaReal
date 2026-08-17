@@ -10,6 +10,7 @@ import type { LoadedBudget } from '@/features/budget/model'
 import { monthsBetween, type BudgetMonth } from '@/features/budget/period'
 import {
   applyActualCut,
+  addClassifiedActualsToLines,
   buildComparisonLines,
   comparisonRows,
   comparisonTotals,
@@ -27,7 +28,7 @@ export function useComparisonData() {
   const [pairFetchedFor, setPairFetchedFor] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [month, setMonth] = useState<ComparisonMonthKey>('all')
-  const [groupBy, setGroupBy] = useState<ComparisonGroupBy>('line')
+  const [groupBy, setGroupBy] = useState<ComparisonGroupBy>('costCenter')
   const [cut, setCut] = useState(8)
   const [appliedCut, setAppliedCut] = useState(0)
 
@@ -127,7 +128,11 @@ export function useComparisonData() {
   )
 
   const lines = useMemo(() => {
-    const base = buildComparisonLines(pair?.budget ?? null, pair?.actual ?? null, months)
+    const base = addClassifiedActualsToLines(
+      buildComparisonLines(pair?.budget ?? null, pair?.actual ?? null, months),
+      pair?.classifiedActuals ?? [],
+      months
+    )
     return appliedCut > 0 ? applyActualCut(base, appliedCut) : base
   }, [pair, months, appliedCut])
 
@@ -143,6 +148,12 @@ export function useComparisonData() {
     () => costConcentration(lines, months, month),
     [lines, months, month]
   )
+
+  const hasRealized = useMemo(() => {
+    if (pair?.actual) return true
+    if ((pair?.classifiedActuals.length ?? 0) > 0) return true
+    return lines.some((line) => Object.values(line.actual).some((value) => value !== 0))
+  }, [pair, lines])
 
   const setBudgetId = (budgetId: string) => {
     const next = new URLSearchParams(params)
@@ -181,5 +192,6 @@ export function useComparisonData() {
     clearSimulation,
     setBudgetId,
     selectedBudgetId: requestedBudgetId,
+    hasRealized,
   }
 }

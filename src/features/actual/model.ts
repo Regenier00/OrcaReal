@@ -60,6 +60,31 @@ export const TRANSACTION_TYPE_LABEL: Record<ActualTransactionType, string> = {
   unknown: 'Não identificado',
 }
 
+export const EDITABLE_TRANSACTION_TYPES: ActualTransactionType[] = [
+  'expense',
+  'income',
+  'transfer',
+  'unknown',
+]
+
+export function classifiedAmountForComparison(
+  type: ActualTransactionType,
+  amount: number
+) {
+  if (type === 'expense') return amount
+  if (type === 'income') return -amount
+  return 0
+}
+
+export interface ClassifiedActualSlice {
+  departmentId: string | null
+  costCenterId: string
+  departmentName: string
+  costCenterName: string
+  monthKey: string
+  amount: number
+}
+
 export const TRANSACTION_STATUS_LABEL: Record<ActualTransactionStatus, string> = {
   pending: 'Não apropriado',
   classified: 'Apropriado',

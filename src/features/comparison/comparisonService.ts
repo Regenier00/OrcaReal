@@ -1,13 +1,17 @@
 import { supabase } from '@/lib/supabase'
-import { getCompanyActualByBudget } from '@/features/actual/actualService'
+import {
+  getCompanyActualByBudget,
+  listClassifiedActualSlices,
+} from '@/features/actual/actualService'
 import { getCompanyBudget, listCompanyBudgets } from '@/features/budget/budgetService'
 import type { LoadedBudget } from '@/features/budget/model'
-import type { LoadedActual } from '@/features/actual/model'
+import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
 import type { SystemIndicator } from '@/types/database'
 
 export interface ComparisonPair {
   budget: LoadedBudget
   actual: LoadedActual | null
+  classifiedActuals: ClassifiedActualSlice[]
 }
 
 export async function listCompanyComparisonOptions(
@@ -22,8 +26,11 @@ export async function loadComparisonPair(
 ): Promise<ComparisonPair | null> {
   const budget = await getCompanyBudget(companyId, budgetId)
   if (!budget) return null
-  const actual = await getCompanyActualByBudget(companyId, budgetId)
-  return { budget, actual }
+  const [actual, classifiedActuals] = await Promise.all([
+    getCompanyActualByBudget(companyId, budgetId),
+    listClassifiedActualSlices(companyId, budget.startDate, budget.endDate),
+  ])
+  return { budget, actual, classifiedActuals }
 }
 
 export async function listSystemIndicators(): Promise<SystemIndicator[]> {

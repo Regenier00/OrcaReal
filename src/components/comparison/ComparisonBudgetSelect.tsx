@@ -41,12 +41,12 @@ export function ComparisonBudgetSelect({
       </div>
       {hasActual && actualHref ? (
         <Link to={actualHref}>
-          <Button variant="secondary">Abrir realizado</Button>
+          <Button variant="secondary">Ver lançamentos</Button>
         </Link>
       ) : null}
       {!hasActual && createActualHref ? (
         <Link to={createActualHref}>
-          <Button>Lançar realizado</Button>
+          <Button>Apropriar lançamentos</Button>
         </Link>
       ) : null}
     </div>

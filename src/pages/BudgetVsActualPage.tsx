@@ -39,8 +39,8 @@ export function BudgetVsActualPage() {
             Crie um orçamento para comparar
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-            O vínculo Orçado × Realizado parte do plano. Depois você lança o
-            realizado no mesmo recorte.
+            O vínculo Orçado × Realizado parte do plano. Depois você apropria os
+            lançamentos do extrato no mesmo recorte.
           </p>
           <Link to="/app/orcamentos/novo" className="mt-6 inline-block">
             <Button>Novo orçamento</Button>
@@ -58,8 +58,9 @@ export function BudgetVsActualPage() {
             Orçado × Realizado
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            O desvio aparece no mesmo recorte do orçamento vinculado — período,
-            departamento e centro de custo.
+            Lançamentos apropriados entram na linha do centro de custo. Sem
+            orçamento naquela linha, o orçado fica zerado e o realizado aparece
+            mesmo assim.
           </p>
         </div>
         <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
@@ -75,25 +76,19 @@ export function BudgetVsActualPage() {
         budgets={data.budgets}
         value={data.selectedBudgetId}
         onChange={data.setBudgetId}
-        hasActual={Boolean(data.pair?.actual)}
-        actualHref={
-          data.pair?.actual ? `/app/realizado/${data.pair.actual.id}` : null
-        }
-        createActualHref={
-          data.selectedBudgetId
-            ? `/app/realizado/novo?orcamento=${data.selectedBudgetId}`
-            : '/app/realizado/novo'
-        }
+        hasActual={data.hasRealized}
+        actualHref="/app/realizado/nao-apropriados"
+        createActualHref="/app/realizado/nao-apropriados"
       />
 
-      {!data.pair?.actual ? (
+      {!data.hasRealized ? (
         <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-5 py-6">
           <p className="font-display text-lg font-semibold text-ink">
-            Este orçamento ainda não tem realizado
+            Ainda não há lançamentos apropriados neste recorte
           </p>
           <p className="mt-1 max-w-xl text-sm text-mist">
-            Lance o realizado com a mesma estrutura para fechar o vínculo e ver o
-            desvio.
+            Apropie os lançamentos do extrato para vê-los no centro de custo. Se
+            não houver orçamento naquela linha, o orçado fica R$ 0.
           </p>
         </div>
       ) : null}

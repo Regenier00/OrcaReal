@@ -71,7 +71,7 @@ export function ActualPage() {
   return (
     <ActualPageShell
       title="Realizado"
-      description={`O extrato bancário da ${company?.trade_name || company?.name || 'empresa'} vira realizado aqui. O que ainda não tiver departamento, categoria e centro de custo fica em não apropriados até você classificar.`}
+      description={`O extrato bancário da ${company?.trade_name || company?.name || 'empresa'} vira realizado aqui. O que ainda não tiver departamento e centro de custo fica em não apropriados até você classificar.`}
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to={ACTUAL_PATHS.import}>

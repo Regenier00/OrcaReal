@@ -50,7 +50,7 @@ export function VarianceTable({ rows, className }: VarianceTableProps) {
                 >
                   {formatBRL(variance)}
                   <span className="ml-1 text-xs opacity-70">
-                    {formatSignedPct(row.budget === 0 ? 0 : variance / row.budget)}
+                    {formatSignedPct(row.budget === 0 ? Number.NaN : variance / row.budget)}
                   </span>
                 </td>
               </tr>

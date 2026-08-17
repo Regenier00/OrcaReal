@@ -4,7 +4,13 @@ import {
   loadCompanyStructure,
   type CompanyStructure,
 } from '@/features/company/structureService'
-import { fileTypeFromName, MAX_STATEMENT_FILE_BYTES } from '@/features/actual/model'
+import {
+  classifiedAmountForComparison,
+  fileTypeFromName,
+  MAX_STATEMENT_FILE_BYTES,
+  type ClassifiedActualSlice,
+} from '@/features/actual/model'
+import { monthKey } from '@/features/budget/period'
 import { processStatementFile } from '@/features/actual/processStatementFile'
 import type {
   ActualTransaction,
@@ -441,6 +447,81 @@ export async function listActualTransactions(
   }))
 }
 
+export async function listClassifiedActualSlices(
+  companyId: string,
+  startDate: string,
+  endDate: string,
+): Promise<ClassifiedActualSlice[]> {
+  const pageSize = 1000
+  const slices: ClassifiedActualSlice[] = []
+  let from = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('actual_transactions')
+      .select(
+        `
+        posted_at,
+        amount,
+        type,
+        department_id,
+        cost_center_id,
+        department:departments(id, name),
+        cost_center:cost_centers(id, name)
+      `,
+      )
+      .eq('company_id', companyId)
+      .eq('status', 'classified')
+      .gte('posted_at', startDate)
+      .lte('posted_at', endDate)
+      .not('cost_center_id', 'is', null)
+      .order('posted_at', { ascending: true })
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      console.error('Erro ao carregar realizados apropriados:', error)
+      throw new Error('Não foi possível carregar os lançamentos apropriados.')
+    }
+
+    const rows = data ?? []
+    for (const row of rows) {
+      const costCenter = asNamedRef(row.cost_center)
+      const department = asNamedRef(row.department)
+      const costCenterId = costCenter?.id || (row.cost_center_id as string | null)
+      if (!costCenterId) continue
+
+      const postedAt = String(row.posted_at ?? '')
+      const match = /^(\d{4})-(\d{2})/.exec(postedAt)
+      if (!match) continue
+
+      slices.push({
+        departmentId: (row.department_id as string | null) ?? department?.id ?? null,
+        costCenterId,
+        departmentName: department?.name || 'Departamento',
+        costCenterName: costCenter?.name || 'Centro de custo',
+        monthKey: monthKey(Number(match[1]), Number(match[2])),
+        amount: classifiedAmountForComparison(
+          row.type as ActualTransactionType,
+          Number(row.amount),
+        ),
+      })
+    }
+
+    if (rows.length < pageSize) break
+    from += pageSize
+  }
+
+  return slices
+}
+
+function asNamedRef(value: unknown): { id: string; name: string } | null {
+  const row = Array.isArray(value) ? value[0] : value
+  if (!row || typeof row !== 'object') return null
+  const item = row as { id?: unknown; name?: unknown }
+  if (typeof item.id !== 'string' || typeof item.name !== 'string') return null
+  return { id: item.id, name: item.name }
+}
+
 export async function classifyActualTransactions(input: {
   companyId: string
   transactionIds: string[]
@@ -448,6 +529,7 @@ export async function classifyActualTransactions(input: {
   categoryId?: string | null
   costCenterId?: string | null
   status?: ActualTransactionStatus
+  type?: ActualTransactionType | null
 }): Promise<number> {
   if (input.transactionIds.length === 0) return 0
 
@@ -458,6 +540,7 @@ export async function classifyActualTransactions(input: {
     p_category_id: input.categoryId || null,
     p_cost_center_id: input.costCenterId || null,
     p_status: input.status ?? 'classified',
+    p_type: input.type || null,
   })
 
   if (error) {

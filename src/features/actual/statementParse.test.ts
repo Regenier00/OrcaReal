@@ -1,3 +1,4 @@
+import type { RawMovement } from '../../../supabase/functions/_shared/statement/types.ts'
 import { parseStatement } from '../../../supabase/functions/_shared/statement/parse.ts'
 import { parseTabularRows } from '../../../supabase/functions/_shared/statement/csv.ts'
 import { detectTabularLayout } from '../../../supabase/functions/_shared/statement/columns.ts'
@@ -12,7 +13,7 @@ function encode(text: string) {
   return new TextEncoder().encode(text)
 }
 
-function byDescription(result: { movements: Array<{ description: string }> }, text: string) {
+function byDescription(result: { movements: RawMovement[] }, text: string) {
   return result.movements.find((item) => item.description.includes(text))
 }
 

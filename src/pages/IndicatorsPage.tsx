@@ -50,8 +50,8 @@ export function IndicatorsPage() {
             Sem dados para calcular
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-            Crie um orçamento e lance o realizado para ver desvio e concentração
-            com a fórmula à vista.
+            Crie um orçamento e aproprie os lançamentos do extrato para ver
+            desvio e concentração com a fórmula à vista.
           </p>
           <Link to="/app/orcamentos/novo" className="mt-6 inline-block">
             <Button>Novo orçamento</Button>
@@ -88,21 +88,15 @@ export function IndicatorsPage() {
         budgets={data.budgets}
         value={data.selectedBudgetId}
         onChange={data.setBudgetId}
-        hasActual={Boolean(data.pair?.actual)}
-        actualHref={
-          data.pair?.actual ? `/app/realizado/${data.pair.actual.id}` : null
-        }
-        createActualHref={
-          data.selectedBudgetId
-            ? `/app/realizado/novo?orcamento=${data.selectedBudgetId}`
-            : '/app/realizado/novo'
-        }
+        hasActual={data.hasRealized}
+        actualHref="/app/realizado/nao-apropriados"
+        createActualHref="/app/realizado/nao-apropriados"
       />
 
-      {!data.pair?.actual ? (
+      {!data.hasRealized ? (
         <p className="rounded-xl border border-paper-muted bg-white px-4 py-3 text-sm text-mist">
-          Sem realizado vinculado, o desvio considera realizado zero. Lance os
-          valores para ver os indicadores completos.
+          Sem lançamentos apropriados, o desvio considera realizado zero. Apropie
+          os valores para ver os indicadores completos.
         </p>
       ) : null}
 

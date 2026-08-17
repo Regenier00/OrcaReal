@@ -11,6 +11,7 @@ import {
 } from '@/features/actual/actualService'
 import {
   ACTUAL_PATHS,
+  EDITABLE_TRANSACTION_TYPES,
   TRANSACTION_STATUS_LABEL,
   TRANSACTION_TYPE_LABEL,
   hasSuggestion,
@@ -19,7 +20,6 @@ import type {
   ActualTransaction,
   ActualTransactionStatus,
   ActualTransactionType,
-  Category,
 } from '@/types/database'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
@@ -34,20 +34,6 @@ function formatDate(value: string) {
   return `${day}/${month}/${year}`
 }
 
-function categoriesForType(categories: Category[], type: ActualTransactionType) {
-  if (type === 'income') {
-    const revenue = categories.filter((item) => item.category_type === 'revenue')
-    return revenue.length > 0 ? revenue : categories
-  }
-  if (type === 'expense') {
-    const expense = categories.filter((item) =>
-      item.category_type === 'expense' || item.category_type === 'cost',
-    )
-    return expense.length > 0 ? expense : categories
-  }
-  return categories
-}
-
 export function ClassifyTransactionsPage() {
   const [params] = useSearchParams()
   const importId = params.get('importacao') ?? ''
@@ -60,8 +46,8 @@ export function ClassifyTransactionsPage() {
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [search, setSearch] = useState('')
   const [departmentId, setDepartmentId] = useState('')
-  const [categoryId, setCategoryId] = useState('')
   const [costCenterId, setCostCenterId] = useState('')
+  const [nextType, setNextType] = useState<ActualTransactionType | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
@@ -120,8 +106,6 @@ export function ClassifyTransactionsPage() {
   const costCenters = catalog
     ? costCentersForDepartment(catalog, departmentId)
     : []
-  const selectedType = selectedItems.length === 1 ? selectedItems[0].type : 'expense'
-  const categories = categoriesForType(catalog?.categories ?? [], selectedType)
 
   const allSelected = items.length > 0 && selected.length === items.length
 
@@ -133,6 +117,21 @@ export function ClassifyTransactionsPage() {
     }
   }, [items])
 
+  const reload = async () => {
+    if (!company) return
+    const nextItems = await listActualTransactions(company.id, {
+      importId: importId || undefined,
+      status,
+      type,
+      departmentId: departmentFilter || undefined,
+      search,
+    })
+    setItems(nextItems)
+    setSelected((current) =>
+      current.filter((id) => nextItems.some((item) => item.id === id)),
+    )
+  }
+
   const toggle = (id: string) => {
     setSelected((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
@@ -141,20 +140,20 @@ export function ClassifyTransactionsPage() {
 
   const apply = async (nextStatus: ActualTransactionStatus) => {
     if (!company || selected.length === 0) return
+    const effectiveTypes = selectedItems.map((item) => nextType || item.type)
     if (
       nextStatus === 'classified' &&
-      selectedItems.some((item) => item.type === 'expense') &&
-      (!departmentId || !categoryId || !costCenterId)
+      effectiveTypes.some((itemType) => itemType === 'unknown')
     ) {
-      setError('Para despesas, informe departamento, categoria e centro de custo.')
+      setError('Defina se o lançamento é entrada ou saída antes de apropriar.')
       return
     }
     if (
       nextStatus === 'classified' &&
-      selectedItems.some((item) => item.type === 'income') &&
-      !categoryId
+      effectiveTypes.some((itemType) => itemType === 'expense' || itemType === 'income') &&
+      (!departmentId || !costCenterId)
     ) {
-      setError('Para entradas, informe a categoria.')
+      setError('Informe departamento e centro de custo para apropriar.')
       return
     }
     setBusy(true)
@@ -163,22 +162,34 @@ export function ClassifyTransactionsPage() {
         companyId: company.id,
         transactionIds: selected,
         departmentId: departmentId || null,
-        categoryId: categoryId || null,
         costCenterId: costCenterId || null,
         status: nextStatus,
+        type: nextType || null,
       })
-      const nextItems = await listActualTransactions(company.id, {
-        importId: importId || undefined,
-        status,
-        type,
-        departmentId: departmentFilter || undefined,
-        search,
-      })
-      setItems(nextItems)
+      await reload()
       setSelected([])
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível classificar.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const changeType = async (item: ActualTransaction, value: ActualTransactionType) => {
+    if (!company || value === item.type) return
+    setBusy(true)
+    try {
+      await classifyActualTransactions({
+        companyId: company.id,
+        transactionIds: [item.id],
+        type: value,
+        status: item.status === 'ignored' ? 'ignored' : item.status,
+      })
+      await reload()
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível alterar o tipo.')
     } finally {
       setBusy(false)
     }
@@ -194,14 +205,7 @@ export function ClassifyTransactionsPage() {
         companyId: company.id,
         transactions: targets,
       })
-      const nextItems = await listActualTransactions(company.id, {
-        importId: importId || undefined,
-        status,
-        type,
-        departmentId: departmentFilter || undefined,
-        search,
-      })
-      setItems(nextItems)
+      await reload()
       setSelected([])
       setError('')
     } catch (err) {
@@ -219,11 +223,16 @@ export function ClassifyTransactionsPage() {
   return (
     <ActualPageShell
       title="Realizados não apropriados"
-      description="Classifique departamento, categoria e centro de custo. Só o que for apropriado entra na comparação Orçado × Realizado."
+      description="Classifique departamento e centro de custo. Se o tipo estiver errado, corrija entrada ou saída. O que for apropriado entra no Orçado × Realizado na linha do centro de custo."
       actions={
-        <Link to={ACTUAL_PATHS.import}>
-          <Button variant="secondary">Importar extrato</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to={ACTUAL_PATHS.import}>
+            <Button variant="secondary">Importar extrato</Button>
+          </Link>
+          <Link to="/app/orcado-realizado">
+            <Button variant="secondary">Orçado × Realizado</Button>
+          </Link>
+        </div>
       }
     >
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -295,18 +304,6 @@ export function ClassifyTransactionsPage() {
             ))}
           </Select>
           <Select
-            label="Categoria"
-            value={categoryId}
-            onChange={(event) => setCategoryId(event.target.value)}
-          >
-            <option value="">Selecionar</option>
-            {categories.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-          <Select
             label="Centro de custo"
             value={costCenterId}
             onChange={(event) => setCostCenterId(event.target.value)}
@@ -317,6 +314,19 @@ export function ClassifyTransactionsPage() {
                 {item.name}
               </option>
             ))}
+          </Select>
+          <Select
+            label="Tipo"
+            hint="Use para corrigir entrada ou saída"
+            value={nextType}
+            onChange={(event) =>
+              setNextType(event.target.value as ActualTransactionType | '')
+            }
+          >
+            <option value="">Manter o tipo de cada lançamento</option>
+            <option value="expense">Saída</option>
+            <option value="income">Entrada</option>
+            <option value="transfer">Transferência</option>
           </Select>
           <div className="flex flex-wrap items-end gap-2">
             <Button
@@ -408,7 +418,6 @@ export function ClassifyTransactionsPage() {
                         Sugestão de histórico:{' '}
                         {[
                           nameOf(catalog?.departments ?? [], item.suggested_department_id),
-                          nameOf(catalog?.categories ?? [], item.suggested_category_id),
                           nameOf(catalog?.costCenters ?? [], item.suggested_cost_center_id),
                         ]
                           .filter((value) => value !== '—')
@@ -416,8 +425,25 @@ export function ClassifyTransactionsPage() {
                       </p>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3 text-ink-soft">
-                    {TRANSACTION_TYPE_LABEL[item.type]}
+                  <td className="px-3 py-3">
+                    <select
+                      aria-label={`Tipo de ${item.description}`}
+                      className="w-full min-w-32 rounded-lg border border-paper-muted bg-white px-2 py-1.5 text-sm text-ink outline-none focus:border-navy-bright focus:ring-2 focus:ring-navy-bright/20"
+                      value={item.type}
+                      disabled={busy}
+                      onChange={(event) =>
+                        void changeType(
+                          item,
+                          event.target.value as ActualTransactionType,
+                        )
+                      }
+                    >
+                      {EDITABLE_TRANSACTION_TYPES.map((value) => (
+                        <option key={value} value={value}>
+                          {TRANSACTION_TYPE_LABEL[value]}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td
                     className={cn(
@@ -430,8 +456,6 @@ export function ClassifyTransactionsPage() {
                   </td>
                   <td className="px-3 py-3 text-xs text-mist">
                     {nameOf(catalog?.departments ?? [], item.department_id)}
-                    {' · '}
-                    {nameOf(catalog?.categories ?? [], item.category_id)}
                     {' · '}
                     {nameOf(catalog?.costCenters ?? [], item.cost_center_id)}
                   </td>
