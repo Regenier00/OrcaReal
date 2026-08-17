@@ -1,5 +1,9 @@
 import { supabase } from '@/lib/supabase'
-import { sortDepartmentsByDefault } from '@/features/company/defaultDepartments'
+import {
+  defaultCostCenterNameForDepartment,
+  sortCostCentersByDefault,
+  sortDepartmentsByDefault,
+} from '@/features/company/defaultDepartments'
 import type {
   Activity,
   BusinessUnit,
@@ -27,7 +31,7 @@ export async function loadCompanyStructure(
   )
 
   if (ensureError) {
-    console.error('Erro ao garantir departamentos padrão:', ensureError)
+    console.error('Erro ao garantir estrutura padrão:', ensureError)
   }
 
   const [businessUnitsRes, departmentsRes, costCentersRes] = await Promise.all([
@@ -61,6 +65,9 @@ export async function loadCompanyStructure(
   const departments = sortDepartmentsByDefault(
     (departmentsRes.data ?? []) as Department[]
   )
+  const costCenters = sortCostCentersByDefault(
+    (costCentersRes.data ?? []) as CostCenter[]
+  )
   const departmentIds = departments.map((item) => item.id)
 
   let departmentCostCenters: DepartmentCostCenter[] = []
@@ -80,7 +87,7 @@ export async function loadCompanyStructure(
   return {
     businessUnits: (businessUnitsRes.data ?? []) as BusinessUnit[],
     departments,
-    costCenters: (costCentersRes.data ?? []) as CostCenter[],
+    costCenters,
     departmentCostCenters,
     categories: [],
     activities: [],
@@ -91,12 +98,38 @@ export function costCentersForDepartment(
   structure: CompanyStructure,
   departmentId: string
 ): CostCenter[] {
+  if (!departmentId) return []
+
   const linkedIds = structure.departmentCostCenters
     .filter((link) => link.department_id === departmentId)
     .map((link) => link.cost_center_id)
 
-  if (linkedIds.length === 0) return structure.costCenters
+  const pool =
+    linkedIds.length === 0
+      ? structure.costCenters
+      : structure.costCenters.filter((item) => linkedIds.includes(item.id))
 
-  const allowed = new Set(linkedIds)
-  return structure.costCenters.filter((item) => allowed.has(item.id))
+  return sortCostCentersByDefault(pool)
+}
+
+export function defaultCostCenterIdForDepartment(
+  structure: CompanyStructure,
+  departmentId: string
+): string {
+  const centers = costCentersForDepartment(structure, departmentId)
+  if (centers.length === 0) return ''
+
+  const department = structure.departments.find((item) => item.id === departmentId)
+  const mappedName = department
+    ? defaultCostCenterNameForDepartment(department.name)
+    : undefined
+
+  if (mappedName) {
+    const mapped = centers.find(
+      (item) => item.name.toLowerCase() === mappedName.toLowerCase()
+    )
+    if (mapped) return mapped.id
+  }
+
+  return centers.length === 1 ? centers[0].id : ''
 }

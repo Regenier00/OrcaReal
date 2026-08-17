@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import type { CompanyStructure } from '@/features/company/structureService'
-import { costCentersForDepartment } from '@/features/company/structureService'
+import {
+  costCentersForDepartment,
+  defaultCostCenterIdForDepartment,
+} from '@/features/company/structureService'
 import type { BudgetMonth } from '@/features/budget/period'
 import type { DraftBudgetItem } from '@/features/budget/model'
 import {
@@ -75,7 +78,9 @@ export function BudgetItemEditor({
     onChange({
       ...item,
       departmentId,
-      costCenterId: costCenterStillValid ? item.costCenterId : '',
+      costCenterId: costCenterStillValid
+        ? item.costCenterId
+        : defaultCostCenterIdForDepartment(structure, departmentId),
     })
   }
 
@@ -127,6 +132,12 @@ export function BudgetItemEditor({
           label="Centro de custo"
           value={item.costCenterId}
           onChange={(event) => setField('costCenterId', event.target.value)}
+          disabled={!item.departmentId}
+          hint={
+            item.departmentId
+              ? undefined
+              : 'Selecione o departamento para ver os centros de custo.'
+          }
         >
           <option value="">Selecione</option>
           {costCenters.map((center) => (

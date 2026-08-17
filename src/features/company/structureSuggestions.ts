@@ -1,4 +1,4 @@
-import { DEFAULT_DEPARTMENT_NAMES } from '@/features/company/defaultDepartments'
+import { DEFAULT_COST_CENTER_NAMES, DEFAULT_DEPARTMENT_NAMES } from '@/features/company/defaultDepartments'
 
 export interface StructureSuggestion {
   departments: string[]
@@ -7,7 +7,7 @@ export interface StructureSuggestion {
 
 const DEFAULT_STRUCTURE: StructureSuggestion = {
   departments: DEFAULT_DEPARTMENT_NAMES,
-  costCenters: DEFAULT_DEPARTMENT_NAMES,
+  costCenters: DEFAULT_COST_CENTER_NAMES,
 }
 
 export function structureSuggestionsFor(): StructureSuggestion {

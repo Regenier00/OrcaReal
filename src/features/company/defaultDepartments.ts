@@ -1,28 +1,33 @@
-export const DEFAULT_DEPARTMENTS: Array<{ name: string; description: string }> = [
-  { name: 'Administração Geral', description: 'Administrativo' },
-  { name: 'Gestão Financeira', description: 'Financeiro' },
-  { name: 'Contabilidade', description: 'Contabilidade' },
-  { name: 'Recursos Humanos', description: 'Recursos Humanos' },
-  { name: 'Vendas e Comercial', description: 'Comercial / Vendas' },
-  { name: 'Marketing', description: 'Marketing' },
-  { name: 'Compras', description: 'Compras' },
-  { name: 'Estoque e Almoxarifado', description: 'Estoque / Almoxarifado' },
-  { name: 'Operações e Produção', description: 'Operacional / Produção' },
-  { name: 'Logística e Distribuição', description: 'Logística' },
+export const DEFAULT_DEPARTMENTS: Array<{ name: string; costCenter: string }> = [
+  { name: 'Administrativo', costCenter: 'Administração Geral' },
+  { name: 'Financeiro', costCenter: 'Gestão Financeira' },
+  { name: 'Contabilidade', costCenter: 'Contabilidade' },
+  { name: 'Recursos Humanos', costCenter: 'Recursos Humanos' },
+  { name: 'Comercial / Vendas', costCenter: 'Vendas e Comercial' },
+  { name: 'Marketing', costCenter: 'Marketing' },
+  { name: 'Compras', costCenter: 'Compras' },
+  { name: 'Estoque / Almoxarifado', costCenter: 'Estoque e Almoxarifado' },
+  { name: 'Operacional / Produção', costCenter: 'Operações e Produção' },
+  { name: 'Logística', costCenter: 'Logística e Distribuição' },
 ]
 
 export const DEFAULT_DEPARTMENT_NAMES = DEFAULT_DEPARTMENTS.map(
   (item) => item.name
 )
 
-export function sortDepartmentsByDefault<T extends { name: string }>(
-  departments: T[]
+export const DEFAULT_COST_CENTER_NAMES = DEFAULT_DEPARTMENTS.map(
+  (item) => item.costCenter
+)
+
+function sortByNameOrder<T extends { name: string }>(
+  items: T[],
+  orderedNames: string[]
 ): T[] {
   const order = new Map(
-    DEFAULT_DEPARTMENT_NAMES.map((name, index) => [name.toLowerCase(), index])
+    orderedNames.map((name, index) => [name.toLowerCase(), index])
   )
 
-  return [...departments].sort((a, b) => {
+  return [...items].sort((a, b) => {
     const aIndex = order.get(a.name.toLowerCase())
     const bIndex = order.get(b.name.toLowerCase())
     if (aIndex != null && bIndex != null) return aIndex - bIndex
@@ -30,4 +35,24 @@ export function sortDepartmentsByDefault<T extends { name: string }>(
     if (bIndex != null) return 1
     return a.name.localeCompare(b.name, 'pt-BR')
   })
+}
+
+export function sortDepartmentsByDefault<T extends { name: string }>(
+  departments: T[]
+): T[] {
+  return sortByNameOrder(departments, DEFAULT_DEPARTMENT_NAMES)
+}
+
+export function sortCostCentersByDefault<T extends { name: string }>(
+  costCenters: T[]
+): T[] {
+  return sortByNameOrder(costCenters, DEFAULT_COST_CENTER_NAMES)
+}
+
+export function defaultCostCenterNameForDepartment(
+  departmentName: string
+): string | undefined {
+  return DEFAULT_DEPARTMENTS.find(
+    (item) => item.name.toLowerCase() === departmentName.toLowerCase()
+  )?.costCenter
 }

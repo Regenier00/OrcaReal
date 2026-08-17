@@ -1,7 +1,10 @@
 import { supabase } from '@/lib/supabase'
 import { mapCompanyError } from '@/features/company/companyErrors'
 import { onlyDigits } from '@/features/company/cnpj'
-import { sortDepartmentsByDefault } from '@/features/company/defaultDepartments'
+import {
+  sortCostCentersByDefault,
+  sortDepartmentsByDefault,
+} from '@/features/company/defaultDepartments'
 import type { SegmentCode } from '@/features/company/segmentOptions'
 import type {
   Company,
@@ -290,7 +293,10 @@ export async function listCostCenters(
     .order('created_at', { ascending: true })
 
   if (error) return fail(error)
-  return { ok: true, data: (data as CostCenter[]) ?? [] }
+  return {
+    ok: true,
+    data: sortCostCentersByDefault((data as CostCenter[]) ?? []),
+  }
 }
 
 export async function createCostCenter(input: {

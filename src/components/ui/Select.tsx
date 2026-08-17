@@ -13,6 +13,7 @@ export function Select({
   error,
   className,
   id,
+  disabled,
   children,
   ...props
 }: SelectProps) {
@@ -25,10 +26,12 @@ export function Select({
       ) : null}
       <select
         id={selectId}
+        disabled={disabled}
         className={cn(
           'w-full rounded-xl border border-paper-muted bg-white px-3.5 py-2.5 text-ink',
           'outline-none transition',
           'focus:border-navy-bright focus:ring-2 focus:ring-navy-bright/20',
+          disabled && 'cursor-not-allowed bg-paper text-mist',
           error && 'border-danger focus:border-danger focus:ring-danger/20',
           className
         )}

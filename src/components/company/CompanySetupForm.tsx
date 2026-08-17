@@ -181,8 +181,9 @@ export function CompanySetupForm({
         <h2 className="font-display text-lg font-semibold text-navy">
           Centros de custo
         </h2>
-        <p className="mt-1 text-sm text-mist">
-          Opcional nesta etapa. O código (001, 002…) é gerado automaticamente.
+            <p className="mt-1 text-sm text-mist">
+          Cada departamento já nasce com o centro de custo correspondente. O
+          código (001, 002…) é gerado automaticamente.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">
