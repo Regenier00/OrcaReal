@@ -385,7 +385,9 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [functions.process-statement]
-verify_jwt = true
+# JWT is validated inside the function so OPTIONS preflight (no Authorization)
+# is not rejected by the gateway as a CORS/fetch failure.
+verify_jwt = false
 
 [edge_runtime]
 enabled = true

@@ -1,12 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
 import { MAX_STATEMENT_BYTES, MAX_TRANSACTIONS } from '../_shared/statement/limits.ts'
 import { parseStatement } from '../_shared/statement/parse.ts'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
-}
 
 interface RequestBody {
   importId?: string
@@ -34,7 +29,7 @@ async function updateImport(
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {

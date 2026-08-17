@@ -5,6 +5,7 @@ import {
   type CompanyStructure,
 } from '@/features/company/structureService'
 import { fileTypeFromName, MAX_STATEMENT_FILE_BYTES } from '@/features/actual/model'
+import { processStatementFile } from '@/features/actual/processStatementFile'
 import type {
   ActualTransaction,
   ActualTransactionStatus,
@@ -93,16 +94,6 @@ export interface TransactionFilters {
   search?: string
   dateFrom?: string
   dateTo?: string
-}
-
-export interface ProcessStatementResult {
-  importId: string
-  status: StatementImportStatus
-  inserted?: number
-  duplicates?: number
-  errors?: number
-  warnings?: Array<{ message: string; row?: number }>
-  error?: string
 }
 
 function asWarnings(value: unknown): StatementImport['warnings'] {
@@ -568,30 +559,13 @@ export async function uploadAndProcessStatement(input: {
     throw new Error('O arquivo foi enviado, mas a importação não pôde ser atualizada.')
   }
 
-  const { data, error } = await supabase.functions.invoke('process-statement', {
-    body: { importId: importRow.id, companyId: input.companyId },
+  const bytes = new Uint8Array(await input.file.arrayBuffer())
+  await processStatementFile({
+    companyId: input.companyId,
+    importId: importRow.id,
+    fileName: input.file.name,
+    bytes,
   })
-
-  if (error) {
-    console.error('Erro na função de processamento:', error)
-    await supabase
-      .from('statement_imports')
-      .update({
-        status: 'failed',
-        error_message:
-          'Não foi possível processar o extrato. Verifique se a função process-statement está implantada.',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', importRow.id)
-    throw new Error(
-      'O arquivo foi enviado, mas o processamento falhou. Tente novamente em instantes.',
-    )
-  }
-
-  const processed = data as ProcessStatementResult | null
-  if (processed?.error) {
-    throw new Error(processed.error)
-  }
 
   const latest = await getStatementImport(input.companyId, importRow.id)
   return latest ?? importRow

@@ -1,5 +1,11 @@
 import { MAX_STATEMENT_BYTES, MAX_UNCOMPRESSED_ENTRY } from './limits.ts'
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new ArrayBuffer(bytes.byteLength)
+  new Uint8Array(copy).set(bytes)
+  return copy
+}
+
 export async function inflateLimited(
   data: Uint8Array,
   format: CompressionFormat,
@@ -9,7 +15,7 @@ export async function inflateLimited(
     throw new Error('Bloco compactado inválido.')
   }
 
-  const stream = new Blob([data]).stream().pipeThrough(
+  const stream = new Blob([toArrayBuffer(data)]).stream().pipeThrough(
     new DecompressionStream(format),
   )
   const reader = stream.getReader()
