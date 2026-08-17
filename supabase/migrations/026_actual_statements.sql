@@ -71,7 +71,7 @@ create table public.actual_transactions (
   bank_account_id uuid not null references public.bank_accounts (id) on delete restrict,
   import_id uuid references public.statement_imports (id) on delete set null,
   posted_at date not null,
-  description text not null,
+  description text not null check (char_length(description) <= 500),
   amount numeric(14, 2) not null check (amount >= 0),
   type text not null default 'unknown'
     check (type in ('income', 'expense', 'transfer', 'unknown')),
@@ -464,7 +464,10 @@ begin
       v_posted := (v_item->>'posted_at')::date;
       v_amount := round(coalesce(v_item->>'amount', '0')::numeric, 2);
       v_type := coalesce(nullif(v_item->>'type', ''), 'unknown');
-      v_description := btrim(coalesce(v_item->>'description', ''));
+      v_description := left(
+        btrim(regexp_replace(coalesce(v_item->>'description', ''), '^[=+\-@|]+', '')),
+        500
+      );
       v_external_id := nullif(btrim(coalesce(v_item->>'external_id', '')), '');
 
       if v_posted is null or v_description = '' or v_amount < 0 then

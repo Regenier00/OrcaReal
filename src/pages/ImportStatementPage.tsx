@@ -12,6 +12,7 @@ import {
   ACCEPTED_STATEMENT_ACCEPT,
   FILE_TYPE_LABEL,
   IMPORT_STATUS_LABEL,
+  MAX_STATEMENT_FILE_BYTES,
   isAcceptedStatementFile,
 } from '@/features/actual/model'
 import type { BankAccount, StatementImport } from '@/types/database'
@@ -58,6 +59,10 @@ export function ImportStatementPage() {
     if (!next) return
     if (!isAcceptedStatementFile(next.name)) {
       setError('Envie um arquivo OFX, CSV, XLSX ou PDF estruturado.')
+      return
+    }
+    if (next.size > MAX_STATEMENT_FILE_BYTES) {
+      setError('O arquivo excede o limite de 20 MB.')
       return
     }
     setError('')

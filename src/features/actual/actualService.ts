@@ -4,7 +4,7 @@ import {
   loadCompanyStructure,
   type CompanyStructure,
 } from '@/features/company/structureService'
-import { fileTypeFromName } from '@/features/actual/model'
+import { fileTypeFromName, MAX_STATEMENT_FILE_BYTES } from '@/features/actual/model'
 import type {
   ActualTransaction,
   ActualTransactionStatus,
@@ -117,8 +117,8 @@ function mapImport(row: StatementImport): StatementImport {
 }
 
 function storagePath(companyId: string, importId: string, fileName: string) {
-  const safeName = fileName.replace(/[^\w.\-()+ ]+/g, '_').slice(0, 180)
-  return `${companyId}/${importId}/${safeName}`
+  const safeName = fileName.replace(/[^\w.\-()+ ]+/g, '_').replace(/^\.+/, '').slice(0, 180)
+  return `${companyId}/${importId}/${safeName || 'extrato'}`
 }
 
 export async function loadActualCatalog(companyId: string): Promise<ActualCatalog> {
@@ -346,6 +346,9 @@ export async function uploadAndProcessStatement(input: {
   const fileType = fileTypeFromName(input.file.name)
   if (fileType === 'unknown') {
     throw new Error('Envie um arquivo OFX, CSV, XLSX ou PDF.')
+  }
+  if (input.file.size > MAX_STATEMENT_FILE_BYTES) {
+    throw new Error('O arquivo excede o limite de 20 MB.')
   }
 
   const { data: created, error: createError } = await supabase

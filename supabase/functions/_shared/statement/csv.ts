@@ -1,5 +1,7 @@
 import { detectBank } from './banks.ts'
+import { MAX_CSV_LINE_CHARS, MAX_CSV_ROWS, MAX_WARNINGS } from './limits.ts'
 import {
+  capWarnings,
   emptyResult,
   finalizeMovements,
   parseAmount,
@@ -82,6 +84,12 @@ export function parseTabularRows(rows: string[][]): ParseResult {
     result.warnings.push({ message: 'Arquivo sem linhas' })
     return result
   }
+  if (rows.length > MAX_CSV_ROWS) {
+    result.warnings.push({
+      message: `A planilha tem mais de ${MAX_CSV_ROWS} linhas e foi recusada.`,
+    })
+    return result
+  }
 
   let headerIndex = 0
   let headers = rows[0].map(normalizeHeader)
@@ -121,6 +129,7 @@ export function parseTabularRows(rows: string[][]): ParseResult {
     if (row.every((cell) => !cell)) continue
     const posted = parseBrazilianDate(row[dateCol] ?? '')
     const description = row[descCol] ?? ''
+    if (result.warnings.length > MAX_WARNINGS * 4) continue
     if (!posted || !description) {
       result.warnings.push({ message: 'Linha ignorada por data ou descrição vazia', row: i + 1 })
       continue
@@ -162,6 +171,7 @@ export function parseTabularRows(rows: string[][]): ParseResult {
   }
 
   result.movements = finalizeMovements(movements)
+  result.warnings = capWarnings(result.warnings)
   return result
 }
 
@@ -180,12 +190,28 @@ export const csvParser: StatementParser = {
       return result
     }
 
+    if (lines.length > MAX_CSV_ROWS) {
+      const result = emptyResult('csv')
+      result.warnings.push({
+        message: `O CSV tem mais de ${MAX_CSV_ROWS} linhas e foi recusado.`,
+      })
+      return result
+    }
+    if (lines.some((line) => line.length > MAX_CSV_LINE_CHARS)) {
+      const result = emptyResult('csv')
+      result.warnings.push({
+        message: 'O CSV contém uma linha longa demais e foi recusado.',
+      })
+      return result
+    }
+
     const delimiter = detectDelimiter(lines[0])
     const rows = lines.map((line) => splitCsvLine(line, delimiter))
     const result = parseTabularRows(rows)
     result.format = 'csv'
     result.bankCode = detected.bankCode
     result.bankName = detected.bankName
+    result.warnings = capWarnings(result.warnings)
     return result
   },
 }

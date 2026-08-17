@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import { MAX_STATEMENT_BYTES, MAX_TRANSACTIONS } from '../_shared/statement/limits.ts'
 import { parseStatement } from '../_shared/statement/parse.ts'
 
 const corsHeaders = {
@@ -6,8 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers':
     'authorization, x-client-info, apikey, content-type',
 }
-
-const MAX_TRANSACTIONS = 10_000
 
 interface RequestBody {
   importId?: string
@@ -110,6 +109,9 @@ Deno.serve(async (req) => {
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer())
+    if (bytes.byteLength > MAX_STATEMENT_BYTES) {
+      throw new Error('O arquivo excede o limite de 20 MB.')
+    }
     await updateImport(client, importId, { status: 'parsing' })
 
     const parsed = await parseStatement(statementImport.file_name, bytes)

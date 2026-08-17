@@ -1,5 +1,11 @@
 import { parseTabularRows } from './csv.ts'
 import { detectBank } from './banks.ts'
+import { inflateLimited } from './inflate.ts'
+import {
+  MAX_UNCOMPRESSED_ENTRY,
+  MAX_UNCOMPRESSED_TOTAL,
+  MAX_ZIP_ENTRIES,
+} from './limits.ts'
 import { emptyResult } from './normalize.ts'
 import type { DetectedFile, ParseResult, StatementParser } from './types.ts'
 
@@ -17,43 +23,84 @@ function readU32(bytes: Uint8Array, offset: number) {
 }
 
 async function inflateRaw(data: Uint8Array) {
-  const stream = new Blob([data]).stream().pipeThrough(
-    new DecompressionStream('deflate-raw'),
+  return inflateLimited(data, 'deflate-raw', MAX_UNCOMPRESSED_ENTRY)
+}
+
+function isSafeZipName(name: string) {
+  const normalized = name.replaceAll('\\', '/')
+  return (
+    Boolean(normalized) &&
+    !normalized.startsWith('/') &&
+    !normalized.includes('..') &&
+    normalized.length < 180
   )
-  const buffer = await new Response(stream).arrayBuffer()
-  return new Uint8Array(buffer)
+}
+
+function isNeededXlsxEntry(name: string) {
+  return (
+    name === '[Content_Types].xml' ||
+    name === 'xl/sharedStrings.xml' ||
+    /^xl\/worksheets\/sheet\d+\.xml$/.test(name)
+  )
 }
 
 async function unzip(bytes: Uint8Array) {
   const files = new Map<string, Uint8Array>()
+  const searchWindow = Math.min(bytes.length, 65_536)
   let offset = bytes.length - 22
-  while (offset >= 0 && readU32(bytes, offset) !== 0x06054b50) {
+  const minOffset = bytes.length - searchWindow
+  while (offset >= minOffset && readU32(bytes, offset) !== 0x06054b50) {
     offset -= 1
   }
-  if (offset < 0) throw new Error('Arquivo XLSX inválido')
+  if (offset < minOffset || readU32(bytes, offset) !== 0x06054b50) {
+    throw new Error('Arquivo XLSX inválido')
+  }
 
   const cdOffset = readU32(bytes, offset + 16)
   const cdEntries = readU16(bytes, offset + 10)
+  if (cdEntries > MAX_ZIP_ENTRIES) {
+    throw new Error('A planilha tem entradas demais e foi recusada.')
+  }
+  if (cdOffset >= bytes.length) throw new Error('Arquivo XLSX inválido')
+
   let cursor = cdOffset
+  let totalUncompressed = 0
 
   for (let i = 0; i < cdEntries; i += 1) {
-    if (readU32(bytes, cursor) !== 0x02014b50) break
+    if (cursor + 46 > bytes.length || readU32(bytes, cursor) !== 0x02014b50) break
     const method = readU16(bytes, cursor + 10)
     const compressedSize = readU32(bytes, cursor + 20)
+    const uncompressedSize = readU32(bytes, cursor + 24)
     const nameLength = readU16(bytes, cursor + 28)
     const extraLength = readU16(bytes, cursor + 30)
     const commentLength = readU16(bytes, cursor + 32)
     const localOffset = readU32(bytes, cursor + 42)
+    if (cursor + 46 + nameLength > bytes.length) break
     const name = new TextDecoder().decode(
       bytes.slice(cursor + 46, cursor + 46 + nameLength),
     )
+    cursor += 46 + nameLength + extraLength + commentLength
+
+    if (!isSafeZipName(name) || !isNeededXlsxEntry(name)) continue
+    if (method !== 0 && method !== 8) continue
+    if (uncompressedSize > MAX_UNCOMPRESSED_ENTRY) {
+      throw new Error('A planilha compactada excede o limite seguro de leitura.')
+    }
+    if (localOffset + 30 > bytes.length) continue
     const localNameLength = readU16(bytes, localOffset + 26)
     const localExtraLength = readU16(bytes, localOffset + 28)
     const dataStart = localOffset + 30 + localNameLength + localExtraLength
+    if (dataStart + compressedSize > bytes.length) continue
     const compressed = bytes.slice(dataStart, dataStart + compressedSize)
     const content = method === 0 ? compressed : await inflateRaw(compressed)
+    if (content.byteLength > MAX_UNCOMPRESSED_ENTRY) {
+      throw new Error('A planilha compactada excede o limite seguro de leitura.')
+    }
+    totalUncompressed += content.byteLength
+    if (totalUncompressed > MAX_UNCOMPRESSED_TOTAL) {
+      throw new Error('A planilha compactada excede o limite seguro de leitura.')
+    }
     files.set(name, content)
-    cursor += 46 + nameLength + extraLength + commentLength
   }
 
   return files
@@ -73,6 +120,9 @@ function unescapeXml(value: string) {
 }
 
 function parseSharedStrings(xml: string) {
+  if (xml.length > 2_000_000) {
+    throw new Error('A planilha é grande demais para leitura segura.')
+  }
   const values: string[] = []
   const items = xml.match(/<si[\s\S]*?<\/si>/g) ?? []
   for (const item of items) {
@@ -99,6 +149,9 @@ function excelSerialToIso(serial: number) {
 }
 
 function parseSheet(xml: string, shared: string[]) {
+  if (xml.length > 2_000_000) {
+    throw new Error('A planilha é grande demais para leitura segura.')
+  }
   const rows: string[][] = []
   const rowBlocks = xml.match(/<row[^>]*>[\s\S]*?<\/row>/g) ?? []
   for (const block of rowBlocks) {
@@ -140,6 +193,11 @@ export const xlsxParser: StatementParser = {
   async parse(file: DetectedFile): Promise<ParseResult> {
     try {
       const files = await unzip(file.bytes)
+      if (!files.has('[Content_Types].xml')) {
+        const result = emptyResult('xlsx')
+        result.warnings.push({ message: 'O arquivo ZIP não é uma planilha XLSX válida.' })
+        return result
+      }
       const sharedXml = files.get('xl/sharedStrings.xml')
       const shared = sharedXml ? parseSharedStrings(decodeXml(sharedXml)) : []
       const sheet =

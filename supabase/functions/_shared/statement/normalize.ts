@@ -1,4 +1,5 @@
-import type { MovementType, ParseResult, RawMovement } from './types.ts'
+import { MAX_DESCRIPTION_CHARS, MAX_TRANSACTIONS, MAX_WARNINGS } from './limits.ts'
+import type { MovementType, ParseResult, ParseWarning, RawMovement } from './types.ts'
 
 const TRANSFER_PATTERN =
   /\b(ted|doc|tef|transf(?:erencia)?|resgate|aplicacao|aplicação|entre contas)\b/i
@@ -8,7 +9,20 @@ export function roundMoney(value: number) {
 }
 
 export function normalizeDescription(value: string) {
-  return value.replace(/\s+/g, ' ').trim()
+  let text = value.replace(/\s+/g, ' ').trim()
+  text = text.replace(/^[=+\-@|]+/, '').trim()
+  if (text.length > MAX_DESCRIPTION_CHARS) {
+    text = text.slice(0, MAX_DESCRIPTION_CHARS)
+  }
+  return text
+}
+
+export function capWarnings(warnings: ParseWarning[]) {
+  if (warnings.length <= MAX_WARNINGS) return warnings
+  return [
+    ...warnings.slice(0, MAX_WARNINGS),
+    { message: `${warnings.length - MAX_WARNINGS} avisos adicionais foram omitidos.` },
+  ]
 }
 
 export function parseBrazilianDate(value: string): string | null {
@@ -113,6 +127,7 @@ export function emptyResult(format: ParseResult['format']): ParseResult {
 
 export function finalizeMovements(movements: RawMovement[]): RawMovement[] {
   return movements
+    .slice(0, MAX_TRANSACTIONS)
     .map((item) => ({
       ...item,
       description: normalizeDescription(item.description),

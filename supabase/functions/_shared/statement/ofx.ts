@@ -1,5 +1,6 @@
 import { detectBank } from './banks.ts'
 import {
+  capWarnings,
   emptyResult,
   finalizeMovements,
   parseAmount,
@@ -75,6 +76,7 @@ export const ofxParser: StatementParser = {
     }
 
     result.movements = finalizeMovements(movements)
+    result.warnings = capWarnings(result.warnings)
     if (result.movements.length === 0) {
       result.warnings.push({ message: 'Nenhum lançamento encontrado no OFX' })
     }

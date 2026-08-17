@@ -1,5 +1,6 @@
 import { csvParser } from './csv.ts'
 import { identifyStatement } from './identify.ts'
+import { assertSafeStatementFile } from './inspect.ts'
 import { ofxParser } from './ofx.ts'
 import { ocrParser, pdfParser } from './pdf.ts'
 import type { ParseResult, StatementParser } from './types.ts'
@@ -17,6 +18,7 @@ export async function parseStatement(
   fileName: string,
   bytes: Uint8Array,
 ): Promise<ParseResult> {
+  assertSafeStatementFile(fileName, bytes)
   const detected = identifyStatement(fileName, bytes)
   const parser = parsers.find((item) => item.matches(detected))
   if (!parser) {

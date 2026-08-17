@@ -1,5 +1,8 @@
 import { detectBank } from './banks.ts'
+import { inflateLimited } from './inflate.ts'
+import { MAX_PDF_STREAMS, MAX_UNCOMPRESSED_ENTRY } from './limits.ts'
 import {
+  capWarnings,
   emptyResult,
   finalizeMovements,
   parseAmount,
@@ -13,17 +16,11 @@ import type {
   StatementParser,
 } from './types.ts'
 
-async function inflate(data: Uint8Array) {
+async function inflatePdfStream(data: Uint8Array) {
   try {
-    const stream = new Blob([data]).stream().pipeThrough(
-      new DecompressionStream('deflate'),
-    )
-    return new Uint8Array(await new Response(stream).arrayBuffer())
+    return await inflateLimited(data, 'deflate', MAX_UNCOMPRESSED_ENTRY)
   } catch {
-    const stream = new Blob([data]).stream().pipeThrough(
-      new DecompressionStream('deflate-raw'),
-    )
-    return new Uint8Array(await new Response(stream).arrayBuffer())
+    return inflateLimited(data, 'deflate-raw', MAX_UNCOMPRESSED_ENTRY)
   }
 }
 
@@ -42,10 +39,13 @@ function decodePdfString(value: string) {
 
 function extractLiteralStrings(content: string) {
   const texts: string[] = []
-  const re = /\((?:\\.|[^\\)])*\)/g
+  const re = /\((?:\\.|[^\\)]){0,400}\)/g
   let match: RegExpExecArray | null
+  let count = 0
   while ((match = re.exec(content))) {
     texts.push(decodePdfString(match[0].slice(1, -1)))
+    count += 1
+    if (count > 20_000) break
   }
   return texts
 }
@@ -53,22 +53,36 @@ function extractLiteralStrings(content: string) {
 async function extractPdfText(bytes: Uint8Array) {
   const latin = new TextDecoder('latin1').decode(bytes)
   const texts: string[] = []
-  const streamRe = /stream\r?\n([\s\S]*?)endstream/g
-  let match: RegExpExecArray | null
-  while ((match = streamRe.exec(latin))) {
-    const raw = match[1]
+  const marker = 'stream'
+  let cursor = 0
+  let streams = 0
+
+  while (streams < MAX_PDF_STREAMS) {
+    const start = latin.indexOf(marker, cursor)
+    if (start < 0) break
+    const dataStart = start + marker.length
+    const after = latin.slice(dataStart, dataStart + 2)
+    const bodyStart =
+      after === '\r\n' ? dataStart + 2 : after.startsWith('\n') ? dataStart + 1 : dataStart
+    const end = latin.indexOf('endstream', bodyStart)
+    if (end < 0) break
+    const raw = latin.slice(bodyStart, end)
+    cursor = end + 9
+    streams += 1
+    if (raw.length > MAX_UNCOMPRESSED_ENTRY) continue
+
     const binary = Uint8Array.from(raw, (char) => char.charCodeAt(0))
     let decoded = raw
     try {
-      decoded = new TextDecoder('latin1').decode(await inflate(binary))
+      decoded = new TextDecoder('latin1').decode(await inflatePdfStream(binary))
     } catch {
-      decoded = raw
+      decoded = raw.slice(0, 50_000)
     }
     texts.push(...extractLiteralStrings(decoded))
   }
 
   if (texts.length === 0) {
-    texts.push(...extractLiteralStrings(latin))
+    texts.push(...extractLiteralStrings(latin.slice(0, 200_000)))
   }
 
   return texts.join(' ')
@@ -80,6 +94,7 @@ function linesFromText(text: string) {
     .split(/(?=\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/)
     .map((line) => line.trim())
     .filter(Boolean)
+    .slice(0, 12_000)
 }
 
 export const pdfParser: StatementParser = {
@@ -135,11 +150,12 @@ export const pdfParser: StatementParser = {
         externalId: null,
         documentNumber: null,
         counterparty: null,
-        raw: { line },
+        raw: { source: 'pdf' },
       })
     }
 
     result.movements = finalizeMovements(movements)
+    result.warnings = capWarnings(result.warnings)
     if (result.movements.length === 0) {
       result.warnings.push({
         message:
