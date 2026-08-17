@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createCompany } from '@/features/company/companyService'
+import { useCompany } from '@/features/company/useCompany'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 export function CompanyPage() {
   const navigate = useNavigate()
+  const { refreshCompanies, selectCompany } = useCompany()
   const [name, setName] = useState('')
   const [tradeName, setTradeName] = useState('')
   const [document, setDocument] = useState('')
@@ -28,7 +30,9 @@ export function CompanyPage() {
     }
 
     setMessage('Empresa criada com estrutura padrão.')
-    navigate('/app')
+    await refreshCompanies()
+    selectCompany(company.id)
+    navigate('/app/orcamentos')
   }
 
   return (

@@ -11,6 +11,9 @@ import { AppHomePage } from '@/pages/AppHomePage'
 import { CompanyPage } from '@/pages/CompanyPage'
 import { ProfilePage } from '@/pages/ProfilePage'
 import { DemoPage } from '@/pages/DemoPage'
+import { BudgetsPage } from '@/pages/BudgetsPage'
+import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
+import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
 
 export default function App() {
   return (
@@ -27,6 +30,10 @@ export default function App() {
           <Route element={<RequireAuth />}>
             <Route path="/app" element={<AppShell />}>
               <Route index element={<AppHomePage />} />
+              <Route path="orcamentos" element={<BudgetsPage />} />
+              <Route path="orcamentos/novo" element={<BudgetWizardPage />} />
+              <Route path="orcamentos/:id" element={<BudgetDetailPage />} />
+              <Route path="orcamentos/:id/editar" element={<BudgetWizardPage />} />
               <Route path="empresa" element={<CompanyPage />} />
               <Route path="perfil" element={<ProfilePage />} />
             </Route>
