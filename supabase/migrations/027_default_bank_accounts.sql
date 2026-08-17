@@ -1,5 +1,51 @@
 -- Contas bancárias padrão com os principais bancos do mercado brasileiro.
 -- Empresas novas recebem na criação; empresas já existentes são preenchidas aqui.
+--
+-- O CLI do Supabase usa o prefixo numérico como versão. Se o remoto já aplicou
+-- outra 026 (por exemplo 026_actuals.sql), o arquivo antigo 026_actual_statements.sql
+-- era ignorado e public.bank_accounts ainda não existia. Esta migration cria a
+-- tabela se faltar; o restante do schema de extratos fica na 029.
+
+create table if not exists public.bank_accounts (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies (id) on delete cascade,
+  name text not null,
+  bank_code text,
+  bank_name text,
+  agency text,
+  account_number text,
+  account_digit text,
+  account_type text not null default 'checking'
+    check (account_type in ('checking', 'savings', 'payment', 'other')),
+  currency text not null default 'BRL',
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists bank_accounts_company_id_idx
+  on public.bank_accounts (company_id);
+
+alter table public.bank_accounts enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'bank_accounts'
+      and policyname = 'bank_accounts_all_member'
+  ) then
+    execute $policy$
+      create policy "bank_accounts_all_member"
+        on public.bank_accounts for all to authenticated
+        using (public.is_company_member(company_id))
+        with check (public.is_company_member(company_id))
+    $policy$;
+  end if;
+end;
+$$;
 
 create or replace function public.ensure_company_default_bank_accounts(
   p_company_id uuid

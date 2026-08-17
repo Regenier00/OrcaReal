@@ -1,8 +1,12 @@
 -- Realizado: importação de extratos e modelo único de transação.
 -- Reutiliza companies, departments, categories, cost_centers e periods.
 -- Arquivos financeiros ficam no bucket privado statement-imports.
+--
+-- Numerada 029 porque o CLI trata só o prefixo como versão: se o remoto já
+-- aplicou outra 026, este arquivo seria ignorado como 026_actual_statements.sql.
+-- DDL idempotente para conviver com 027 (que cria bank_accounts se faltar).
 
-create table public.bank_accounts (
+create table if not exists public.bank_accounts (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   name text not null,
@@ -19,9 +23,9 @@ create table public.bank_accounts (
   updated_at timestamptz not null default now()
 );
 
-create index bank_accounts_company_id_idx on public.bank_accounts (company_id);
+create index if not exists bank_accounts_company_id_idx on public.bank_accounts (company_id);
 
-create table public.statement_imports (
+create table if not exists public.statement_imports (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   bank_account_id uuid not null references public.bank_accounts (id) on delete restrict,
@@ -60,12 +64,12 @@ create table public.statement_imports (
   processed_at timestamptz
 );
 
-create index statement_imports_company_id_idx
+create index if not exists statement_imports_company_id_idx
   on public.statement_imports (company_id, created_at desc);
-create index statement_imports_account_id_idx
+create index if not exists statement_imports_account_id_idx
   on public.statement_imports (bank_account_id);
 
-create table public.actual_transactions (
+create table if not exists public.actual_transactions (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   bank_account_id uuid not null references public.bank_accounts (id) on delete restrict,
@@ -97,20 +101,20 @@ create table public.actual_transactions (
   updated_at timestamptz not null default now()
 );
 
-create index actual_transactions_company_posted_idx
+create index if not exists actual_transactions_company_posted_idx
   on public.actual_transactions (company_id, posted_at desc);
-create index actual_transactions_company_status_idx
+create index if not exists actual_transactions_company_status_idx
   on public.actual_transactions (company_id, status);
-create index actual_transactions_import_id_idx
+create index if not exists actual_transactions_import_id_idx
   on public.actual_transactions (import_id);
-create unique index actual_transactions_fingerprint_idx
+create unique index if not exists actual_transactions_fingerprint_idx
   on public.actual_transactions (company_id, fingerprint);
-create unique index actual_transactions_external_id_idx
+create unique index if not exists actual_transactions_external_id_idx
   on public.actual_transactions (bank_account_id, external_id)
   where external_id is not null;
 
 -- Memória de classificação para sugestões futuras (nunca aplica sozinha).
-create table public.transaction_classification_memory (
+create table if not exists public.transaction_classification_memory (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies (id) on delete cascade,
   description_normalized text not null,
@@ -123,7 +127,7 @@ create table public.transaction_classification_memory (
   unique (company_id, description_normalized)
 );
 
-create index transaction_classification_memory_company_idx
+create index if not exists transaction_classification_memory_company_idx
   on public.transaction_classification_memory (company_id);
 
 -- Totais mensais para o Realizado e, no futuro, Orçado × Realizado.
@@ -250,6 +254,7 @@ begin
 end;
 $$;
 
+drop trigger if exists actual_transactions_before_write on public.actual_transactions;
 create trigger actual_transactions_before_write
   before insert or update on public.actual_transactions
   for each row execute function public.actual_transactions_before_write();
@@ -320,6 +325,7 @@ begin
 end;
 $$;
 
+drop trigger if exists actual_transactions_after_write on public.actual_transactions;
 create trigger actual_transactions_after_write
   after insert or delete or update of status, type, posted_at, amount, import_id
   on public.actual_transactions
@@ -377,6 +383,7 @@ begin
 end;
 $$;
 
+drop trigger if exists actual_transactions_remember_classification on public.actual_transactions;
 create trigger actual_transactions_remember_classification
   after insert or update of status, category_id, department_id, cost_center_id
   on public.actual_transactions
@@ -758,29 +765,38 @@ alter table public.statement_imports enable row level security;
 alter table public.actual_transactions enable row level security;
 alter table public.transaction_classification_memory enable row level security;
 
+drop policy if exists "bank_accounts_all_member" on public.bank_accounts;
 create policy "bank_accounts_all_member"
   on public.bank_accounts for all to authenticated
   using (public.is_company_member(company_id))
   with check (public.is_company_member(company_id));
 
+drop policy if exists "statement_imports_all_member" on public.statement_imports;
 create policy "statement_imports_all_member"
   on public.statement_imports for all to authenticated
   using (public.is_company_member(company_id))
   with check (public.is_company_member(company_id));
 
+drop policy if exists "actual_transactions_all_member" on public.actual_transactions;
 create policy "actual_transactions_all_member"
   on public.actual_transactions for all to authenticated
   using (public.is_company_member(company_id))
   with check (public.is_company_member(company_id));
 
+drop policy if exists "transaction_classification_memory_select_member"
+  on public.transaction_classification_memory;
 create policy "transaction_classification_memory_select_member"
   on public.transaction_classification_memory for select to authenticated
   using (public.is_company_member(company_id));
 
+drop policy if exists "transaction_classification_memory_write_member"
+  on public.transaction_classification_memory;
 create policy "transaction_classification_memory_write_member"
   on public.transaction_classification_memory for insert to authenticated
   with check (public.is_company_member(company_id));
 
+drop policy if exists "transaction_classification_memory_update_member"
+  on public.transaction_classification_memory;
 create policy "transaction_classification_memory_update_member"
   on public.transaction_classification_memory for update to authenticated
   using (public.is_company_member(company_id))
@@ -812,6 +828,7 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+drop policy if exists "statement_imports_storage_select_member" on storage.objects;
 create policy "statement_imports_storage_select_member"
   on storage.objects for select to authenticated
   using (
@@ -819,6 +836,7 @@ create policy "statement_imports_storage_select_member"
     and public.is_company_member(((string_to_array(name, '/'))[1])::uuid)
   );
 
+drop policy if exists "statement_imports_storage_insert_member" on storage.objects;
 create policy "statement_imports_storage_insert_member"
   on storage.objects for insert to authenticated
   with check (
@@ -826,6 +844,7 @@ create policy "statement_imports_storage_insert_member"
     and public.is_company_member(((string_to_array(name, '/'))[1])::uuid)
   );
 
+drop policy if exists "statement_imports_storage_update_member" on storage.objects;
 create policy "statement_imports_storage_update_member"
   on storage.objects for update to authenticated
   using (
@@ -837,9 +856,16 @@ create policy "statement_imports_storage_update_member"
     and public.is_company_member(((string_to_array(name, '/'))[1])::uuid)
   );
 
+drop policy if exists "statement_imports_storage_delete_member" on storage.objects;
 create policy "statement_imports_storage_delete_member"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'statement-imports'
     and public.is_company_member(((string_to_array(name, '/'))[1])::uuid)
   );
+
+grant select, insert, update, delete on table public.bank_accounts to authenticated;
+grant select, insert, update, delete on table public.statement_imports to authenticated;
+grant select, insert, update, delete on table public.actual_transactions to authenticated;
+grant select, insert, update, delete on table public.transaction_classification_memory to authenticated;
+grant select on table public.actual_monthly_totals to authenticated;

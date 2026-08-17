@@ -1,13 +1,33 @@
 -- Criação de conta no Realizado: RPC com isolamento por empresa,
 -- grants explícitos e recarga do schema da API.
--- ALTER DEFAULT PRIVILEGES só vale para o papel que o definiu; se 026
--- rodou com outro owner, authenticated fica sem INSERT em bank_accounts.
+-- Grants em tabelas de extrato só ocorrem se elas já existirem; a 029
+-- concede de novo depois de criar o schema.
 
-grant select, insert, update, delete on table public.bank_accounts to authenticated;
-grant select, insert, update, delete on table public.statement_imports to authenticated;
-grant select, insert, update, delete on table public.actual_transactions to authenticated;
-grant select, insert, update, delete on table public.transaction_classification_memory to authenticated;
-grant select on table public.actual_monthly_totals to authenticated;
+do $$
+declare
+  r record;
+begin
+  for r in
+    select *
+    from (
+      values
+        ('bank_accounts', 'select, insert, update, delete'),
+        ('statement_imports', 'select, insert, update, delete'),
+        ('actual_transactions', 'select, insert, update, delete'),
+        ('transaction_classification_memory', 'select, insert, update, delete'),
+        ('actual_monthly_totals', 'select')
+    ) as t(table_name, privileges)
+  loop
+    if to_regclass('public.' || r.table_name) is not null then
+      execute format(
+        'grant %s on table public.%I to authenticated',
+        r.privileges,
+        r.table_name
+      );
+    end if;
+  end loop;
+end;
+$$;
 
 create or replace function public.create_company_bank_account(
   p_company_id uuid,
