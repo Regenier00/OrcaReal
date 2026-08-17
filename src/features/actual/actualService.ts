@@ -7,6 +7,7 @@ import {
 import {
   classifiedAmountForComparison,
   fileTypeFromName,
+  isDefaultBankAccount,
   MAX_STATEMENT_FILE_BYTES,
   type ClassifiedActualSlice,
 } from '@/features/actual/model'
@@ -189,14 +190,6 @@ function isMissingDbObject(error: unknown) {
   )
 }
 
-function asBankAccount(value: unknown): BankAccount | null {
-  const row = Array.isArray(value) ? value[0] : value
-  if (!row || typeof row !== 'object') return null
-  const item = row as Partial<BankAccount>
-  if (typeof item.id !== 'string' || typeof item.name !== 'string') return null
-  return item as BankAccount
-}
-
 function sortBankAccounts(accounts: BankAccount[]) {
   return [...accounts].sort((left, right) => {
     if (left.bank_code && right.bank_code && left.bank_code !== right.bank_code) {
@@ -227,7 +220,7 @@ function mapActualError(error: unknown, fallback: string) {
     normalized.includes('row-level security') ||
     normalized.includes('permission denied')
   ) {
-    return 'Você não tem permissão para criar conta nesta empresa.'
+    return 'Você não tem permissão para essa ação nesta empresa.'
   }
   if (
     normalized.includes('jwt') ||
@@ -239,8 +232,8 @@ function mapActualError(error: unknown, fallback: string) {
   if (normalized.includes('sem acesso')) {
     return 'Sem acesso a esta empresa.'
   }
-  if (normalized.includes('informe o nome')) {
-    return 'Informe o nome da conta.'
+  if (normalized.includes('importação não encontrada')) {
+    return 'Esse extrato já não está mais disponível.'
   }
   if (
     normalized.includes('failed to fetch') ||
@@ -274,89 +267,8 @@ export async function listBankAccounts(companyId: string): Promise<BankAccount[]
     throw new Error(mapActualError(error, 'Não foi possível carregar as contas bancárias.'))
   }
 
-  return sortBankAccounts((data ?? []) as BankAccount[])
-}
-
-export async function createBankAccount(input: {
-  companyId: string
-  name: string
-  bankName?: string
-}): Promise<BankAccount> {
-  const name = input.name.trim()
-  if (!name) throw new Error('Informe o nome da conta.')
-
-  const { data, error } = await supabase.rpc('create_company_bank_account', {
-    p_company_id: input.companyId,
-    p_name: name,
-  })
-
-  if (!error) {
-    const created = asBankAccount(data)
-    if (created) return created
-  }
-
-  if (error && !isMissingDbObject(error)) {
-    console.error('Erro ao criar conta bancária via RPC:', error)
-    throw new Error(mapActualError(error, 'Não foi possível criar a conta bancária.'))
-  }
-
-  if (error) {
-    console.error('Erro ao criar conta bancária via RPC:', error)
-  }
-
-  const { data: currentRows, error: currentError } = await supabase
-    .from('bank_accounts')
-    .select('*')
-    .eq('company_id', input.companyId)
-
-  if (currentError) {
-    console.error('Erro ao localizar conta bancária:', currentError)
-    throw new Error(
-      mapActualError(
-        error ?? currentError,
-        'Não foi possível criar a conta bancária.',
-      ),
-    )
-  }
-
-  const existing = ((currentRows ?? []) as BankAccount[]).find(
-    (item) => item.name.trim().toLowerCase() === name.toLowerCase(),
-  )
-  if (existing) {
-    if (existing.is_active) return existing
-    const { data: reactivated, error: reactivateError } = await supabase
-      .from('bank_accounts')
-      .update({ is_active: true, updated_at: new Date().toISOString() })
-      .eq('id', existing.id)
-      .select('*')
-      .maybeSingle()
-    if (reactivateError) {
-      throw new Error(
-        mapActualError(reactivateError, 'Não foi possível reativar a conta bancária.'),
-      )
-    }
-    return asBankAccount(reactivated) ?? { ...existing, is_active: true }
-  }
-
-  const { data: inserted, error: insertError } = await supabase
-    .from('bank_accounts')
-    .insert({
-      company_id: input.companyId,
-      name,
-      bank_name: input.bankName?.trim() || name,
-    })
-    .select('*')
-    .maybeSingle()
-
-  const created = asBankAccount(inserted)
-  if (created) return created
-
-  console.error('Erro ao criar conta bancária:', insertError)
-  throw new Error(
-    mapActualError(
-      insertError ?? error,
-      'Não foi possível criar a conta bancária.',
-    ),
+  return sortBankAccounts(
+    ((data ?? []) as BankAccount[]).filter(isDefaultBankAccount),
   )
 }
 
@@ -375,6 +287,58 @@ export async function listStatementImports(
   }
 
   return ((data ?? []) as StatementImport[]).map(mapImport)
+}
+
+export async function deleteStatementImport(
+  companyId: string,
+  importId: string,
+): Promise<void> {
+  const current = await getStatementImport(companyId, importId)
+
+  const { error } = await supabase.rpc('delete_statement_import', {
+    p_company_id: companyId,
+    p_import_id: importId,
+  })
+
+  if (!error) return
+
+  if (!isMissingDbObject(error)) {
+    console.error('Erro ao excluir extrato via RPC:', error)
+    throw new Error(mapActualError(error, 'Não foi possível excluir o extrato.'))
+  }
+
+  const { error: transactionError } = await supabase
+    .from('actual_transactions')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('import_id', importId)
+
+  if (transactionError) {
+    console.error('Erro ao excluir lançamentos do extrato:', transactionError)
+    throw new Error(
+      mapActualError(transactionError, 'Não foi possível excluir o extrato.'),
+    )
+  }
+
+  const { error: importError } = await supabase
+    .from('statement_imports')
+    .delete()
+    .eq('company_id', companyId)
+    .eq('id', importId)
+
+  if (importError) {
+    console.error('Erro ao excluir extrato:', importError)
+    throw new Error(mapActualError(importError, 'Não foi possível excluir o extrato.'))
+  }
+
+  if (current?.file_path) {
+    const { error: storageError } = await supabase.storage
+      .from('statement-imports')
+      .remove([current.file_path])
+    if (storageError) {
+      console.error('Erro ao excluir arquivo do extrato:', storageError)
+    }
+  }
 }
 
 export async function getStatementImport(

@@ -1,3 +1,4 @@
+import { isDefaultBankAccount } from './defaultBanks.ts'
 import type { RawMovement } from '../../../supabase/functions/_shared/statement/types.ts'
 import { parseStatement } from '../../../supabase/functions/_shared/statement/parse.ts'
 import { parseTabularRows } from '../../../supabase/functions/_shared/statement/csv.ts'
@@ -221,6 +222,25 @@ async function testUnknownFormat() {
   assert(failed, 'formato desconhecido deveria falhar')
 }
 
+function testDefaultBankFilter() {
+  assert(
+    isDefaultBankAccount({ bank_code: '341', bank_name: 'Itaú', name: 'Itaú' }),
+    'Itaú padrão deveria aparecer',
+  )
+  assert(
+    isDefaultBankAccount({ bank_code: null, bank_name: null, name: 'Nubank' }),
+    'Nubank pelo nome deveria aparecer',
+  )
+  assert(
+    !isDefaultBankAccount({
+      bank_code: null,
+      bank_name: null,
+      name: 'Conta da empresa',
+    }),
+    'conta avulsa não deveria aparecer',
+  )
+}
+
 await testOfx()
 await testCsv()
 testHeaderWithCurrencyAndSlash()
@@ -234,4 +254,5 @@ await testCsvWithPreamble()
 testCommonBrazilianLayouts()
 testRejectsExecutable()
 await testUnknownFormat()
+testDefaultBankFilter()
 console.log('statement parse tests ok')

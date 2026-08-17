@@ -35,6 +35,8 @@ export const ACCEPTED_STATEMENT_EXTENSIONS = [
 export const ACCEPTED_STATEMENT_ACCEPT = ACCEPTED_STATEMENT_EXTENSIONS.join(',')
 export const MAX_STATEMENT_FILE_BYTES = 20 * 1024 * 1024
 
+export { DEFAULT_BANKS, isDefaultBankAccount } from '@/features/actual/defaultBanks'
+
 export const FILE_TYPE_LABEL: Record<StatementFileType, string> = {
   ofx: 'OFX',
   csv: 'CSV',

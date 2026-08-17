@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import {
-  createBankAccount,
+  deleteStatementImport,
   listBankAccounts,
+  listStatementImports,
   pollStatementImport,
   uploadAndProcessStatement,
 } from '@/features/actual/actualService'
@@ -18,9 +19,10 @@ import {
 } from '@/features/actual/model'
 import type { BankAccount, StatementImport } from '@/types/database'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { ConfirmDialog } from '@/components/ui/Dialog'
 import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
+import { ImportedStatementsList } from '@/components/actual/ImportedStatementsList'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
 
@@ -29,12 +31,13 @@ export function ImportStatementPage() {
   const { company } = useCompany()
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [accountId, setAccountId] = useState('')
-  const [newAccountName, setNewAccountName] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [current, setCurrent] = useState<StatementImport | null>(null)
+  const [imports, setImports] = useState<StatementImport[]>([])
   const [busy, setBusy] = useState(false)
-  const [creatingAccount, setCreatingAccount] = useState(false)
   const [loadedAccountsFor, setLoadedAccountsFor] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<StatementImport | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
 
@@ -42,17 +45,26 @@ export function ImportStatementPage() {
     if (!company) return
     const companyId = company.id
     let mounted = true
-    void listBankAccounts(companyId)
-      .then((data) => {
+    void Promise.all([
+      listBankAccounts(companyId),
+      listStatementImports(companyId),
+    ])
+      .then(([nextAccounts, nextImports]) => {
         if (!mounted) return
-        setAccounts(data)
-        setAccountId((currentId) => currentId || data[0]?.id || '')
+        setAccounts(nextAccounts)
+        setAccountId((currentId) =>
+          nextAccounts.some((item) => item.id === currentId)
+            ? currentId
+            : nextAccounts[0]?.id || '',
+        )
+        setImports(nextImports)
         setError('')
         setLoadedAccountsFor(companyId)
       })
       .catch((err: unknown) => {
         if (!mounted) return
         setAccounts([])
+        setImports([])
         setLoadedAccountsFor(companyId)
         setError(err instanceof Error ? err.message : 'Erro ao carregar contas.')
       })
@@ -84,47 +96,11 @@ export function ImportStatementPage() {
     handleFiles(event.dataTransfer.files)
   }
 
-  const handleCreateAccount = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!company) {
-      setError('Selecione uma empresa para criar a conta.')
-      return
-    }
-    if (!newAccountName.trim()) {
-      setError('Informe o nome da conta.')
-      return
-    }
-    setCreatingAccount(true)
-    try {
-      const created = await createBankAccount({
-        companyId: company.id,
-        name: newAccountName,
-      })
-      const nextAccounts = await listBankAccounts(company.id).catch(
-        () => [created],
-      )
-      const selected =
-        nextAccounts.find((item) => item.id === created.id) ?? created
-      setAccounts(
-        nextAccounts.some((item) => item.id === created.id)
-          ? nextAccounts
-          : [...nextAccounts, created],
-      )
-      setAccountId(selected.id)
-      setNewAccountName('')
-      setError('')
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível criar a conta.')
-    } finally {
-      setCreatingAccount(false)
-    }
-  }
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
     if (!accountId) {
-      setError('Selecione ou crie a conta bancária deste extrato.')
+      setError('Selecione o banco deste extrato.')
       return
     }
     setBusy(true)
@@ -143,6 +119,8 @@ export function ImportStatementPage() {
         setCurrent,
       )
       setCurrent(finished)
+      const nextImports = await listStatementImports(company.id)
+      setImports(nextImports)
       if (finished.status === 'failed') {
         setError(finished.error_message || 'Falha ao processar o extrato.')
       }
@@ -150,6 +128,26 @@ export function ImportStatementPage() {
       setError(err instanceof Error ? err.message : 'Falha na importação.')
     } finally {
       setBusy(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!company || !pendingDelete) return
+    setDeleting(true)
+    try {
+      await deleteStatementImport(company.id, pendingDelete.id)
+      setImports((currentImports) =>
+        currentImports.filter((item) => item.id !== pendingDelete.id),
+      )
+      setCurrent((currentImport) =>
+        currentImport?.id === pendingDelete.id ? null : currentImport,
+      )
+      setPendingDelete(null)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível excluir o extrato.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -167,18 +165,18 @@ export function ImportStatementPage() {
         <section className="rounded-2xl border border-paper-muted bg-white p-6">
           <h2 className="font-display text-lg font-semibold text-navy">Banco</h2>
           <p className="mt-1 text-sm text-mist">
-            Selecione o banco do extrato. As contas padrão já vêm com os principais bancos do mercado.
+            Selecione o banco do extrato entre os bancos padrão já cadastrados no sistema.
           </p>
           <div className="mt-4 max-w-md">
             <Select
-              label="Banco / conta"
+              label="Banco"
               value={accountId}
               onChange={(event) => setAccountId(event.target.value)}
               disabled={loadingAccounts || accounts.length === 0}
             >
               {accounts.length === 0 ? (
                 <option value="">
-                  {loadingAccounts ? 'Carregando contas...' : 'Nenhuma conta cadastrada'}
+                  {loadingAccounts ? 'Carregando bancos...' : 'Nenhum banco padrão disponível'}
                 </option>
               ) : null}
               {accounts.map((account) => (
@@ -189,26 +187,6 @@ export function ImportStatementPage() {
               ))}
             </Select>
           </div>
-          <form
-            className="mt-4 flex max-w-xl flex-wrap items-end gap-3"
-            onSubmit={(event) => void handleCreateAccount(event)}
-            autoComplete="off"
-          >
-            <Input
-              label="Outra conta"
-              name="new-bank-account"
-              value={newAccountName}
-              onChange={(event) => setNewAccountName(event.target.value)}
-              placeholder="Nome da conta ou banco"
-            />
-            <Button
-              type="submit"
-              variant="secondary"
-              disabled={creatingAccount || !newAccountName.trim()}
-            >
-              {creatingAccount ? 'Criando...' : 'Criar conta'}
-            </Button>
-          </form>
         </section>
 
         {error ? (
@@ -287,12 +265,19 @@ export function ImportStatementPage() {
                   },
                 ]}
               />
-              <Link
-                to={`${ACTUAL_PATHS.unappropriated}?importacao=${current.id}`}
-                className="mt-6 inline-block"
-              >
-                <Button type="button">Ir para não apropriados</Button>
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link to={`${ACTUAL_PATHS.unappropriated}?importacao=${current.id}`}>
+                  <Button type="button">Ir para não apropriados</Button>
+                </Link>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="text-danger"
+                  onClick={() => setPendingDelete(current)}
+                >
+                  Excluir extrato
+                </Button>
+              </div>
             </div>
           ) : null}
           {current.warnings.length > 0 ? (
@@ -304,6 +289,33 @@ export function ImportStatementPage() {
           ) : null}
         </section>
       ) : null}
+
+      {imports.length > 0 ? (
+        <section className="mt-8">
+          <h2 className="font-display text-lg font-semibold text-navy">
+            Extratos importados
+          </h2>
+          <p className="mt-1 text-sm text-mist">
+            Excluir um extrato remove os lançamentos importados com ele.
+          </p>
+          <ImportedStatementsList
+            imports={imports}
+            onDelete={setPendingDelete}
+          />
+        </section>
+      ) : null}
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Excluir extrato"
+        body={`Excluir o extrato “${pendingDelete?.file_name ?? ''}”? Os lançamentos importados com ele serão removidos. Esta ação não pode ser desfeita.`}
+        confirmLabel={deleting ? 'Excluindo...' : 'Excluir extrato'}
+        danger
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!deleting) void handleDelete()
+        }}
+      />
     </ActualPageShell>
   )
 }

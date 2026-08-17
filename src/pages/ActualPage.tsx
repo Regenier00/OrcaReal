@@ -2,19 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import {
+  deleteStatementImport,
   getActualSummary,
   listStatementImports,
 } from '@/features/actual/actualService'
 import type { ActualSummary } from '@/features/actual/actualService'
-import {
-  ACTUAL_PATHS,
-  FILE_TYPE_LABEL,
-  IMPORT_STATUS_LABEL,
-} from '@/features/actual/model'
+import { ACTUAL_PATHS } from '@/features/actual/model'
 import type { StatementImport } from '@/types/database'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
+import { ConfirmDialog } from '@/components/ui/Dialog'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
+import { ImportedStatementsList } from '@/components/actual/ImportedStatementsList'
 import { ImportSummary } from '@/components/actual/ImportSummary'
 
 export function ActualPage() {
@@ -22,6 +21,8 @@ export function ActualPage() {
   const [summary, setSummary] = useState<ActualSummary | null>(null)
   const [imports, setImports] = useState<StatementImport[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<StatementImport | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -67,6 +68,26 @@ export function ActualPage() {
     ],
     [summary],
   )
+
+  const handleDelete = async () => {
+    if (!company || !pendingDelete) return
+    setDeleting(true)
+    try {
+      await deleteStatementImport(company.id, pendingDelete.id)
+      const [nextSummary, nextImports] = await Promise.all([
+        getActualSummary(company.id),
+        listStatementImports(company.id),
+      ])
+      setSummary(nextSummary)
+      setImports(nextImports)
+      setPendingDelete(null)
+      setError('')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível excluir o extrato.')
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   return (
     <ActualPageShell
@@ -119,45 +140,26 @@ export function ActualPage() {
                 </Link>
               </div>
             ) : (
-              <ul className="mt-4 divide-y divide-paper-muted overflow-hidden rounded-2xl border border-paper-muted bg-white">
-                {imports.map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-4 px-5 py-4"
-                  >
-                    <div>
-                      <p className="font-medium text-ink">{item.file_name}</p>
-                      <p className="mt-1 text-xs text-mist">
-                        {FILE_TYPE_LABEL[item.file_type]}
-                        {item.detected_bank ? ` · ${item.detected_bank}` : ''}
-                        {' · '}
-                        {IMPORT_STATUS_LABEL[item.status]}
-                        {' · '}
-                        {item.transaction_count} lançamentos
-                        {' · '}
-                        {item.pending_count} não apropriados
-                        {item.error_count > 0 ? ` · ${item.error_count} erros` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="text-sm tabular-nums text-mist">
-                        {item.income_count} entradas · {item.expense_count} saídas
-                      </p>
-                      <Link
-                        to={`${ACTUAL_PATHS.unappropriated}?importacao=${item.id}`}
-                      >
-                        <Button variant="secondary" className="!px-3 !py-2 !text-xs">
-                          Não apropriados
-                        </Button>
-                      </Link>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <ImportedStatementsList
+                imports={imports}
+                onDelete={setPendingDelete}
+              />
             )}
           </section>
         </>
       )}
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Excluir extrato"
+        body={`Excluir o extrato “${pendingDelete?.file_name ?? ''}”? Os lançamentos importados com ele serão removidos. Esta ação não pode ser desfeita.`}
+        confirmLabel={deleting ? 'Excluindo...' : 'Excluir extrato'}
+        danger
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (!deleting) void handleDelete()
+        }}
+      />
     </ActualPageShell>
   )
 }
