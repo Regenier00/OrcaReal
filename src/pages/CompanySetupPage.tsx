@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import { setupCompanyEnvironment } from '@/features/company/companyService'
 import { clearCompanyOnboardingFlag } from '@/features/company/onboardingFlag'
+import { DEFAULT_DEPARTMENT_NAMES } from '@/features/company/defaultDepartments'
 import {
   isSegmentCode,
   type SegmentCode,
@@ -32,7 +33,7 @@ export function CompanySetupPage() {
       name: activeCompany?.name ?? '',
       segmentCode,
       customSegment: companyProfile?.custom_segment ?? '',
-      departments: [],
+      departments: DEFAULT_DEPARTMENT_NAMES,
       costCenters: [],
     }
   }, [activeCompany, companyProfile, segmentCode])

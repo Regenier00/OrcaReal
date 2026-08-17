@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react'
-import { SEGMENT_OPTIONS, type SegmentCode } from '@/features/company/segmentOptions'
+import {
+  SEGMENT_OPTIONS,
+  isOtherSegment,
+  type SegmentCode,
+} from '@/features/company/segmentOptions'
 import { structureSuggestionsFor, sequentialCostCenterCode } from '@/features/company/structureSuggestions'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -39,10 +43,7 @@ export function CompanySetupForm({
   const [nameError, setNameError] = useState('')
   const [segmentError, setSegmentError] = useState('')
 
-  const suggestions = useMemo(
-    () => structureSuggestionsFor(segmentCode),
-    [segmentCode]
-  )
+  const suggestions = useMemo(() => structureSuggestionsFor(), [])
 
   const applySuggestions = () => {
     setDepartments(suggestions.departments)
@@ -111,7 +112,7 @@ export function CompanySetupForm({
         </Select>
       </div>
 
-      {segmentCode === 'other' ? (
+      {isOtherSegment(segmentCode) ? (
         <Input
           label="Informe o segmento"
           value={customSegment}
@@ -127,7 +128,8 @@ export function CompanySetupForm({
               Departamentos
             </h2>
             <p className="mt-1 text-sm text-mist">
-              Sugestões com base no segmento. Selecione, edite ou ignore.
+              A empresa já nasce com estes departamentos padrão. Você pode
+              manter, incluir outros ou ignorar nesta etapa.
             </p>
           </div>
           <Button type="button" variant="secondary" onClick={applySuggestions}>

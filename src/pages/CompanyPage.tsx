@@ -15,7 +15,7 @@ import {
   updateCompanySettings,
 } from '@/features/company/companyService'
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
-import { SEGMENT_OPTIONS, type SegmentCode } from '@/features/company/segmentOptions'
+import { SEGMENT_OPTIONS, isOtherSegment } from '@/features/company/segmentOptions'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -166,12 +166,10 @@ function CompanyDataTab({
 
   const selectedCode = segments.find((item) => item.id === formSegmentId)?.code
   const orderedSegments = useMemo(() => {
-    return SEGMENT_OPTIONS.map((option) => {
+    return SEGMENT_OPTIONS.flatMap((option) => {
       const match = segments.find((item) => item.code === option.code)
-      return match ? { ...option, id: match.id } : null
-    }).filter((item): item is { code: SegmentCode; label: string; id: string } =>
-      Boolean(item)
-    )
+      return match ? [{ code: option.code, label: option.label, id: match.id }] : []
+    })
   }, [segments])
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -211,7 +209,7 @@ function CompanyDataTab({
       const segmentResult = await updateCompanySegment({
         companyId,
         segmentId: formSegmentId,
-        customSegment: selectedCode === 'other' ? formCustomSegment : '',
+        customSegment: isOtherSegment(selectedCode) ? formCustomSegment : '',
       })
       if (!segmentResult.ok) {
         setLoading(false)
@@ -260,7 +258,7 @@ function CompanyDataTab({
           </option>
         ))}
       </Select>
-      {selectedCode === 'other' ? (
+      {isOtherSegment(selectedCode) ? (
         <Input
           label="Segmento personalizado"
           value={formCustomSegment}

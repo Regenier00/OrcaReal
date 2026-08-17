@@ -11,6 +11,7 @@ import {
 import { markCompanyOnboardingInProgress } from '@/features/company/onboardingFlag'
 import {
   SEGMENT_OPTIONS,
+  isOtherSegment,
   type SegmentCode,
 } from '@/features/company/segmentOptions'
 import { Button } from '@/components/ui/Button'
@@ -130,7 +131,7 @@ export function CreateCompanyPage() {
       document,
       description,
       segmentCode: segmentCode as SegmentCode,
-      customSegment: segmentCode === 'other' ? customSegment : '',
+      customSegment: isOtherSegment(segmentCode) ? customSegment : '',
     })
 
     if (!result.ok) {
@@ -216,7 +217,7 @@ export function CreateCompanyPage() {
           ))}
         </Select>
 
-        {segmentCode === 'other' ? (
+        {isOtherSegment(segmentCode) ? (
           <Input
             label="Informe o segmento"
             value={customSegment}
