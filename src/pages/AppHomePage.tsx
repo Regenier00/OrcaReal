@@ -58,6 +58,9 @@ export function AppHomePage() {
             <Link to="/app/orcamentos">
               <Button>Orçamentos</Button>
             </Link>
+            <Link to="/app/realizado">
+              <Button variant="secondary">Realizado</Button>
+            </Link>
             <Link to="/app/empresa">
               <Button variant="secondary">Configurações da empresa</Button>
             </Link>

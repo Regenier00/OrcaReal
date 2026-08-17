@@ -18,6 +18,9 @@ import { CompanySetupPage } from '@/pages/CompanySetupPage'
 import { BudgetsPage } from '@/pages/BudgetsPage'
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
 import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
+import { ActualPage } from '@/pages/ActualPage'
+import { ImportStatementPage } from '@/pages/ImportStatementPage'
+import { ClassifyTransactionsPage } from '@/pages/ClassifyTransactionsPage'
 
 export default function App() {
   return (
@@ -47,6 +50,15 @@ export default function App() {
                 <Route
                   path="/app/orcamentos/:id/editar"
                   element={<BudgetWizardPage />}
+                />
+                <Route path="/app/realizado" element={<ActualPage />} />
+                <Route
+                  path="/app/realizado/importar"
+                  element={<ImportStatementPage />}
+                />
+                <Route
+                  path="/app/realizado/classificar"
+                  element={<ClassifyTransactionsPage />}
                 />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
