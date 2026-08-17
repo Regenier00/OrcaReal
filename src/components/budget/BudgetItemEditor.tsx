@@ -10,7 +10,6 @@ import {
   copyValueToAllMonths,
   distributeAmounts,
   lineTotal,
-  CATEGORY_TYPE_LABEL,
 } from '@/features/budget/model'
 import { formatMoney, parseMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
@@ -133,32 +132,6 @@ export function BudgetItemEditor({
           {costCenters.map((center) => (
             <option key={center.id} value={center.id}>
               {center.code ? `${center.code} · ${center.name}` : center.name}
-            </option>
-          ))}
-        </Select>
-
-        <Select
-          label="Atividade"
-          value={item.activityId}
-          onChange={(event) => setField('activityId', event.target.value)}
-        >
-          <option value="">Selecione</option>
-          {structure.activities.map((activity) => (
-            <option key={activity.id} value={activity.id}>
-              {activity.name}
-            </option>
-          ))}
-        </Select>
-
-        <Select
-          label="Conta contábil"
-          value={item.categoryId}
-          onChange={(event) => setField('categoryId', event.target.value)}
-        >
-          <option value="">Selecione</option>
-          {structure.categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name} ({CATEGORY_TYPE_LABEL[category.category_type]})
             </option>
           ))}
         </Select>

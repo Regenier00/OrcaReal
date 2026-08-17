@@ -9,8 +9,6 @@ interface StructureLabels {
   businessUnit: (id: string) => string
   department: (id: string) => string
   costCenter: (id: string) => string
-  activity: (id: string) => string
-  category: (id: string) => string
 }
 
 interface BudgetItemsTableProps {
@@ -61,13 +59,13 @@ export function BudgetItemsTable({
           {items.map((item) => (
             <tr key={item.localId} className="border-t border-paper-muted">
               <td className="sticky left-0 z-10 bg-white px-3 py-3 align-top">
-                <p className="font-medium text-ink">{labels.category(item.categoryId)}</p>
+                <p className="font-medium text-ink">
+                  {labels.department(item.departmentId)}
+                </p>
                 <p className="mt-0.5 text-xs text-mist">
                   {[
                     labels.businessUnit(item.businessUnitId),
-                    labels.department(item.departmentId),
                     labels.costCenter(item.costCenterId),
-                    labels.activity(item.activityId),
                   ]
                     .filter(Boolean)
                     .join(' · ')}

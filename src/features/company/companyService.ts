@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { mapCompanyError } from '@/features/company/companyErrors'
 import { onlyDigits } from '@/features/company/cnpj'
+import { sortDepartmentsByDefault } from '@/features/company/defaultDepartments'
 import type { SegmentCode } from '@/features/company/segmentOptions'
 import type {
   Company,
@@ -246,7 +247,10 @@ export async function listDepartments(
     .order('name')
 
   if (error) return fail(error)
-  return { ok: true, data: (data as Department[]) ?? [] }
+  return {
+    ok: true,
+    data: sortDepartmentsByDefault((data as Department[]) ?? []),
+  }
 }
 
 export async function createDepartment(input: {

@@ -81,14 +81,14 @@ function mapItem(row: BudgetItemRow): LoadedBudgetItem {
     businessUnitId: row.business_unit_id ?? '',
     departmentId: row.department_id,
     costCenterId: row.cost_center_id,
-    activityId: row.activity_id,
-    categoryId: row.category_id,
+    activityId: row.activity_id ?? '',
+    categoryId: row.category_id ?? '',
     amounts,
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
     departmentName: asSingle(row.department)?.name ?? 'Departamento',
     costCenterName: asSingle(row.cost_center)?.name ?? 'Centro de custo',
-    activityName: asSingle(row.activity)?.name ?? 'Atividade',
-    categoryName: asSingle(row.category)?.name ?? 'Conta',
+    activityName: asSingle(row.activity)?.name ?? '',
+    categoryName: asSingle(row.category)?.name ?? '',
     categoryType: (asSingle(row.category)?.category_type ?? null) as CategoryType | null,
   }
 }
@@ -175,8 +175,8 @@ function toItemsPayload(draft: DraftBudget) {
     business_unit_id: item.businessUnitId || null,
     department_id: item.departmentId,
     cost_center_id: item.costCenterId,
-    activity_id: item.activityId,
-    category_id: item.categoryId,
+    activity_id: item.activityId || null,
+    category_id: item.categoryId || null,
     values: Object.entries(item.amounts).map(([key, amount]) => {
       const [year, month] = key.split('-').map(Number)
       return { year, month, amount }

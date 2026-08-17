@@ -69,8 +69,6 @@ export function BudgetDetailPage() {
         businessUnit: () => '',
         department: () => '',
         costCenter: () => '',
-        activity: () => '',
-        category: () => '',
       }
     }
     return {
@@ -80,10 +78,6 @@ export function BudgetDetailPage() {
         budget.items.find((item) => item.departmentId === value)?.departmentName ?? '',
       costCenter: (value: string) =>
         budget.items.find((item) => item.costCenterId === value)?.costCenterName ?? '',
-      activity: (value: string) =>
-        budget.items.find((item) => item.activityId === value)?.activityName ?? '',
-      category: (value: string) =>
-        budget.items.find((item) => item.categoryId === value)?.categoryName ?? '',
     }
   }, [budget])
 

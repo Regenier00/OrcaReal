@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { sortDepartmentsByDefault } from '@/features/company/defaultDepartments'
 import type {
   Activity,
   BusinessUnit,
@@ -17,26 +18,19 @@ export interface CompanyStructure {
   activities: Activity[]
 }
 
-const emptyStructure: CompanyStructure = {
-  businessUnits: [],
-  departments: [],
-  costCenters: [],
-  departmentCostCenters: [],
-  categories: [],
-  activities: [],
-}
-
 export async function loadCompanyStructure(
   companyId: string
 ): Promise<CompanyStructure> {
-  const [
-    businessUnitsRes,
-    departmentsRes,
-    costCentersRes,
-    linksRes,
-    categoriesRes,
-    companyActivitiesRes,
-  ] = await Promise.all([
+  const { error: ensureError } = await supabase.rpc(
+    'ensure_company_default_departments',
+    { p_company_id: companyId }
+  )
+
+  if (ensureError) {
+    console.error('Erro ao garantir departamentos padrão:', ensureError)
+  }
+
+  const [businessUnitsRes, departmentsRes, costCentersRes] = await Promise.all([
     supabase
       .from('business_units')
       .select('id, company_id, name, code, description, is_active')
@@ -47,73 +41,49 @@ export async function loadCompanyStructure(
       .from('departments')
       .select('id, company_id, name, description, is_active')
       .eq('company_id', companyId)
-      .eq('is_active', true)
-      .order('name'),
+      .eq('is_active', true),
     supabase
       .from('cost_centers')
       .select('id, company_id, name, code, description, is_active')
       .eq('company_id', companyId)
       .eq('is_active', true)
       .order('code'),
-    supabase
-      .from('department_cost_centers')
-      .select('id, department_id, cost_center_id'),
-    supabase
-      .from('categories')
-      .select('id, company_id, name, category_type, parent_id, is_active')
-      .eq('company_id', companyId)
-      .eq('is_active', true)
-      .order('name'),
-    supabase
-      .from('company_activities')
-      .select('activity:activities(id, code, name, description, segment_id)')
-      .eq('company_id', companyId),
   ])
 
   const firstError =
-    businessUnitsRes.error ||
-    departmentsRes.error ||
-    costCentersRes.error ||
-    linksRes.error ||
-    categoriesRes.error ||
-    companyActivitiesRes.error
+    businessUnitsRes.error || departmentsRes.error || costCentersRes.error
 
   if (firstError) {
     console.error('Erro ao carregar estrutura da empresa:', firstError)
-    return emptyStructure
+    throw new Error('Não foi possível carregar a estrutura da empresa.')
   }
 
-  let activities = (companyActivitiesRes.data ?? [])
-    .map((row) => row.activity as unknown as Activity | Activity[] | null)
-    .flatMap((activity) => (Array.isArray(activity) ? activity : [activity]))
-    .filter((activity): activity is Activity => Boolean(activity))
+  const departments = sortDepartmentsByDefault(
+    (departmentsRes.data ?? []) as Department[]
+  )
+  const departmentIds = departments.map((item) => item.id)
 
-  if (activities.length === 0) {
+  let departmentCostCenters: DepartmentCostCenter[] = []
+  if (departmentIds.length > 0) {
     const { data, error } = await supabase
-      .from('activities')
-      .select('id, code, name, description, segment_id')
-      .order('name')
+      .from('department_cost_centers')
+      .select('id, department_id, cost_center_id')
+      .in('department_id', departmentIds)
 
     if (error) {
-      console.error('Erro ao carregar atividades:', error)
+      console.error('Erro ao carregar vínculos de centro de custo:', error)
     } else {
-      activities = (data ?? []) as Activity[]
+      departmentCostCenters = (data ?? []) as DepartmentCostCenter[]
     }
   }
 
-  const departmentIds = new Set(
-    (departmentsRes.data ?? []).map((item) => item.id)
-  )
-
   return {
     businessUnits: (businessUnitsRes.data ?? []) as BusinessUnit[],
-    departments: (departmentsRes.data ?? []) as Department[],
+    departments,
     costCenters: (costCentersRes.data ?? []) as CostCenter[],
-    departmentCostCenters: ((linksRes.data ?? []) as DepartmentCostCenter[]).filter(
-      (link) => departmentIds.has(link.department_id)
-    ),
-    categories: (categoriesRes.data ?? []) as Category[],
-    activities,
+    departmentCostCenters,
+    categories: [],
+    activities: [],
   }
 }
 

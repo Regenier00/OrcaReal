@@ -8,8 +8,8 @@ export interface DraftBudgetItem {
   businessUnitId: string
   departmentId: string
   costCenterId: string
-  activityId: string
-  categoryId: string
+  activityId?: string
+  categoryId?: string
   amounts: Record<string, number>
 }
 
@@ -61,17 +61,12 @@ export function emptyAmounts(months: BudgetMonth[]): Record<string, number> {
   return Object.fromEntries(months.map((month) => [month.key, 0]))
 }
 
-export function structureKey(item: Pick<
-  DraftBudgetItem,
-  'businessUnitId' | 'departmentId' | 'costCenterId' | 'activityId' | 'categoryId'
->) {
-  return [
-    item.businessUnitId || '',
-    item.departmentId,
-    item.costCenterId,
-    item.activityId,
-    item.categoryId,
-  ].join('|')
+export function structureKey(
+  item: Pick<DraftBudgetItem, 'businessUnitId' | 'departmentId' | 'costCenterId'>
+) {
+  return [item.businessUnitId || '', item.departmentId, item.costCenterId].join(
+    '|'
+  )
 }
 
 export function lineTotal(item: DraftBudgetItem, months: BudgetMonth[]) {
@@ -151,12 +146,6 @@ export function duplicateItem(
   }
 }
 
-export const CATEGORY_TYPE_LABEL: Record<CategoryType, string> = {
-  revenue: 'Receita',
-  expense: 'Despesa',
-  cost: 'Custo',
-}
-
 export const BUDGET_STATUS_LABEL: Record<BudgetStatus, string> = {
   draft: 'Rascunho',
   active: 'Ativo',
@@ -172,8 +161,6 @@ export function createEmptyItem(
     businessUnitId,
     departmentId: '',
     costCenterId: '',
-    activityId: '',
-    categoryId: '',
     amounts: emptyAmounts(months),
   }
 }

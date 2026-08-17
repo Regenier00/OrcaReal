@@ -46,8 +46,6 @@ export function validateBudgetItem(
   }
   if (!item.departmentId) errors.push('Selecione o departamento.')
   if (!item.costCenterId) errors.push('Selecione o centro de custo.')
-  if (!item.activityId) errors.push('Selecione a atividade.')
-  if (!item.categoryId) errors.push('Selecione a conta contábil.')
 
   for (const [key, amount] of Object.entries(item.amounts)) {
     if (!Number.isFinite(amount)) {

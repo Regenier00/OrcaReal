@@ -150,8 +150,8 @@ export interface BudgetItem {
   business_unit_id: string | null
   department_id: string
   cost_center_id: string
-  activity_id: string
-  category_id: string
+  activity_id: string | null
+  category_id: string | null
   sort_order: number
 }
 

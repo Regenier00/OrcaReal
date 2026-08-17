@@ -146,8 +146,6 @@ export function BudgetWizardPage() {
       businessUnit: lookup(structure?.businessUnits ?? []),
       department: lookup(structure?.departments ?? []),
       costCenter: lookup(structure?.costCenters ?? []),
-      activity: lookup(structure?.activities ?? []),
-      category: lookup(structure?.categories ?? []),
     }
   }, [structure])
 
@@ -225,7 +223,7 @@ export function BudgetWizardPage() {
     )
     if (duplicate) {
       errors.push(
-        'Já existe uma linha com esta combinação de unidade, departamento, centro de custo, atividade e conta neste orçamento.'
+        'Já existe uma linha com esta combinação de unidade, departamento e centro de custo neste orçamento.'
       )
     }
     setEditorErrors(errors)
@@ -457,8 +455,7 @@ export function BudgetWizardPage() {
                 Estrutura e valores
               </h2>
               <p className="mt-1 text-sm text-mist">
-                Unidade → departamento → centro de custo → atividade → conta
-                contábil → valor por mês.
+                Unidade → departamento → centro de custo → valor por mês.
               </p>
             </div>
             <Button type="button" onClick={openNewItem}>
