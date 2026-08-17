@@ -51,7 +51,7 @@ export function ForgotPasswordPage() {
 
   return (
     <div className="min-h-svh bg-paper">
-      <div className="bg-hero-atmosphere">
+      <div className="bg-ink bg-hero-atmosphere">
         <PublicHeader />
       </div>
 
