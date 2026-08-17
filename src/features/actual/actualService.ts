@@ -620,3 +620,11 @@ export async function pollStatementImport(
   if (!last) throw new Error('Importação não encontrada.')
   return last
 }
+
+export {
+  deleteCompanyActual,
+  getCompanyActual,
+  getCompanyActualByBudget,
+  listCompanyActuals,
+  saveCompanyActual,
+} from '@/features/actual/periodActualService'

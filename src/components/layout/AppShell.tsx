@@ -10,6 +10,8 @@ const links = [
   { to: '/app', label: 'Início', end: true },
   { to: '/app/orcamentos', label: 'Orçamentos' },
   { to: '/app/realizado', label: 'Realizado' },
+  { to: '/app/orcado-realizado', label: 'Orçado × Realizado' },
+  { to: '/app/indicadores', label: 'Indicadores' },
   { to: '/app/empresa', label: 'Empresa' },
   { to: '/app/perfil', label: 'Perfil' },
 ]

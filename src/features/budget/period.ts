@@ -50,6 +50,10 @@ export function defaultBudgetName(year: number) {
   return `Orçamento ${periodLabelForYear(year)}`
 }
 
+export function defaultActualName(year: number) {
+  return `Realizado ${periodLabelForYear(year)}`
+}
+
 export function calendarYearBounds(year: number) {
   return {
     startDate: `${year}-01-01`,

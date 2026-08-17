@@ -80,6 +80,9 @@ export function ActualPage() {
           <Link to={ACTUAL_PATHS.unappropriated}>
             <Button variant="secondary">Não apropriados</Button>
           </Link>
+          <Link to={ACTUAL_PATHS.byBudget}>
+            <Button variant="secondary">Por orçamento</Button>
+          </Link>
         </div>
       }
     >

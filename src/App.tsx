@@ -21,6 +21,11 @@ import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
 import { ActualPage } from '@/pages/ActualPage'
 import { ImportStatementPage } from '@/pages/ImportStatementPage'
 import { ClassifyTransactionsPage } from '@/pages/ClassifyTransactionsPage'
+import { ActualsPage } from '@/pages/ActualsPage'
+import { ActualWizardPage } from '@/pages/ActualWizardPage'
+import { ActualDetailPage } from '@/pages/ActualDetailPage'
+import { BudgetVsActualPage } from '@/pages/BudgetVsActualPage'
+import { IndicatorsPage } from '@/pages/IndicatorsPage'
 import { ACTUAL_PATHS } from '@/features/actual/model'
 
 export default function App() {
@@ -65,6 +70,18 @@ export default function App() {
                   path="/app/realizado/classificar"
                   element={<RedirectUnappropriated />}
                 />
+                <Route path={ACTUAL_PATHS.byBudget} element={<ActualsPage />} />
+                <Route path="/app/realizado/novo" element={<ActualWizardPage />} />
+                <Route path="/app/realizado/:id" element={<ActualDetailPage />} />
+                <Route
+                  path="/app/realizado/:id/editar"
+                  element={<ActualWizardPage />}
+                />
+                <Route
+                  path="/app/orcado-realizado"
+                  element={<BudgetVsActualPage />}
+                />
+                <Route path="/app/indicadores" element={<IndicatorsPage />} />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
               </Route>
