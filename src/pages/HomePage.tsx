@@ -19,7 +19,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-svh bg-paper text-ink">
-      <div className="relative overflow-hidden bg-hero-atmosphere text-paper">
+      <div className="relative overflow-hidden bg-ink bg-hero-atmosphere text-paper">
         <div
           aria-hidden
           className="animate-glow-pulse pointer-events-none absolute -left-28 top-16 h-80 w-80 rounded-full bg-white/[0.035] blur-3xl"

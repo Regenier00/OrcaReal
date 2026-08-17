@@ -2,7 +2,10 @@ import { Link } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import { segmentLabel } from '@/features/company/segmentOptions'
 import { formatCnpj } from '@/features/company/cnpj'
+import { appModules } from '@/content/appModules'
 import { Button } from '@/components/ui/Button'
+import { FeatureIllustration } from '@/components/home/FeatureIllustration'
+import { PersonalizedDashboard } from '@/components/experience/PersonalizedDashboard'
 
 export function AppHomePage() {
   const {
@@ -22,9 +25,10 @@ export function AppHomePage() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-ink">Início</h1>
+      <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
       <p className="mt-2 max-w-2xl text-sm text-mist">
-        Acompanhe o orçamento e os resultados da empresa ativa.
+        Visão financeira, operacional e orçado × realizado montada a partir do
+        perfil da empresa.
       </p>
 
       {activeCompany ? (
@@ -33,7 +37,7 @@ export function AppHomePage() {
             Empresa ativa
           </p>
           <h2 className="mt-2 font-display text-2xl font-semibold text-navy">
-            Empresa: {activeCompany.trade_name || activeCompany.name}
+            {activeCompany.trade_name || activeCompany.name}
           </h2>
           {activeCompany.trade_name && activeCompany.trade_name !== activeCompany.name ? (
             <p className="mt-1 text-sm text-mist">{activeCompany.name}</p>
@@ -42,26 +46,69 @@ export function AppHomePage() {
             {activeCompany.document ? (
               <p>CNPJ: {formatCnpj(activeCompany.document)}</p>
             ) : null}
-            {segmentName ? <p>Segmento: {segmentName}</p> : null}
+            {segmentName ? <p>Ramo: {segmentName}</p> : null}
+            {companyProfile?.primary_activity ? (
+              <p>Atividade: {companyProfile.primary_activity}</p>
+            ) : null}
           </div>
-
-          {!companyProfile?.onboarding_completed ? (
-            <div className="mt-6 rounded-xl bg-paper px-4 py-3 text-sm text-ink-soft">
-              <p>Você ainda pode configurar departamentos e centros de custo.</p>
-              <Link to="/app/configurar-ambiente" className="mt-3 inline-flex">
-                <Button variant="secondary">Configure seu ambiente</Button>
-              </Link>
-            </div>
+          {companyProfile?.profile_summary ? (
+            <p className="mt-4 text-sm leading-relaxed text-mist">
+              {companyProfile.profile_summary}
+            </p>
           ) : null}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Link to="/app/orcamentos">
               <Button>Orçamentos</Button>
             </Link>
+            <Link to="/app/conhecer-empresa">
+              <Button variant="secondary">Aprofundar perfil</Button>
+            </Link>
             <Link to="/app/empresa">
-              <Button variant="secondary">Configurações da empresa</Button>
+              <Button variant="secondary">Empresa</Button>
             </Link>
           </div>
+        </section>
+      ) : null}
+
+      {activeCompany ? <PersonalizedDashboard /> : null}
+
+      {activeCompany ? (
+        <section className="mt-8">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mist">
+            Funcionalidades
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-semibold text-navy">
+            Tudo disponível para esta empresa
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-mist">
+            Com usuário e empresa cadastrados, orçamento, realizado, a comparação
+            e os indicadores ficam no mesmo ambiente.
+          </p>
+
+          <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+            {appModules.map((module) => (
+              <li key={module.id}>
+                <Link
+                  to={module.to}
+                  className="flex h-full flex-col rounded-2xl border border-paper-muted bg-white p-6 transition hover:border-ink/20"
+                >
+                  <h3 className="font-display text-xl font-semibold text-ink">
+                    {module.title}
+                  </h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft/75">
+                    {module.summary}
+                  </p>
+                  <div className="mt-5 rounded-xl bg-paper px-4 py-4">
+                    <FeatureIllustration id={module.id} />
+                  </div>
+                  <span className="mt-5 inline-flex items-center justify-center rounded-xl border border-paper-muted bg-white px-5 py-2.5 text-sm font-semibold text-ink">
+                    Abrir
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 

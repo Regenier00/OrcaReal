@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
 import { AuthProvider } from '@/features/auth/AuthProvider'
 import { RequireAuth } from '@/features/auth/RequireAuth'
 import { CompanyProvider } from '@/features/company/CompanyProvider'
@@ -15,9 +15,20 @@ import { DemoPage } from '@/pages/DemoPage'
 import { CreateCompanyPage } from '@/pages/CreateCompanyPage'
 import { CompanyCreatedPage } from '@/pages/CompanyCreatedPage'
 import { CompanySetupPage } from '@/pages/CompanySetupPage'
+import { ExperienceWizardPage } from '@/pages/ExperienceWizardPage'
+import { ExperienceReadyPage } from '@/pages/ExperienceReadyPage'
 import { BudgetsPage } from '@/pages/BudgetsPage'
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
 import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
+import { ActualPage } from '@/pages/ActualPage'
+import { ImportStatementPage } from '@/pages/ImportStatementPage'
+import { ClassifyTransactionsPage } from '@/pages/ClassifyTransactionsPage'
+import { ActualsPage } from '@/pages/ActualsPage'
+import { ActualWizardPage } from '@/pages/ActualWizardPage'
+import { ActualDetailPage } from '@/pages/ActualDetailPage'
+import { BudgetVsActualPage } from '@/pages/BudgetVsActualPage'
+import { IndicatorsPage } from '@/pages/IndicatorsPage'
+import { ACTUAL_PATHS } from '@/features/actual/model'
 
 export default function App() {
   return (
@@ -40,6 +51,14 @@ export default function App() {
                   path="/app/configurar-ambiente"
                   element={<CompanySetupPage />}
                 />
+                <Route
+                  path="/app/conhecer-empresa"
+                  element={<ExperienceWizardPage />}
+                />
+                <Route
+                  path="/app/ambiente-pronto"
+                  element={<ExperienceReadyPage />}
+                />
                 <Route path="/app" element={<AppHomePage />} />
                 <Route path="/app/orcamentos" element={<BudgetsPage />} />
                 <Route path="/app/orcamentos/novo" element={<BudgetWizardPage />} />
@@ -48,6 +67,31 @@ export default function App() {
                   path="/app/orcamentos/:id/editar"
                   element={<BudgetWizardPage />}
                 />
+                <Route path={ACTUAL_PATHS.root} element={<ActualPage />} />
+                <Route
+                  path={ACTUAL_PATHS.import}
+                  element={<ImportStatementPage />}
+                />
+                <Route
+                  path={ACTUAL_PATHS.unappropriated}
+                  element={<ClassifyTransactionsPage />}
+                />
+                <Route
+                  path="/app/realizado/classificar"
+                  element={<RedirectUnappropriated />}
+                />
+                <Route path={ACTUAL_PATHS.byBudget} element={<ActualsPage />} />
+                <Route path="/app/realizado/novo" element={<ActualWizardPage />} />
+                <Route path="/app/realizado/:id" element={<ActualDetailPage />} />
+                <Route
+                  path="/app/realizado/:id/editar"
+                  element={<ActualWizardPage />}
+                />
+                <Route
+                  path="/app/orcado-realizado"
+                  element={<BudgetVsActualPage />}
+                />
+                <Route path="/app/indicadores" element={<IndicatorsPage />} />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
               </Route>
@@ -58,5 +102,16 @@ export default function App() {
         </Routes>
       </BrowserRouter>
     </AuthProvider>
+  )
+}
+
+function RedirectUnappropriated() {
+  const [params] = useSearchParams()
+  const search = params.toString()
+  return (
+    <Navigate
+      to={`${ACTUAL_PATHS.unappropriated}${search ? `?${search}` : ''}`}
+      replace
+    />
   )
 }

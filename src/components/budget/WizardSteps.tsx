@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils'
 
-const STEPS = [
+const DEFAULT_STEPS = [
   { id: 1, label: 'Período' },
   { id: 2, label: 'Itens' },
   { id: 3, label: 'Revisar' },
@@ -8,12 +8,16 @@ const STEPS = [
 
 interface WizardStepsProps {
   current: number
+  steps?: ReadonlyArray<{ id: number; label: string }>
 }
 
-export function WizardSteps({ current }: WizardStepsProps) {
+export function WizardSteps({
+  current,
+  steps = DEFAULT_STEPS,
+}: WizardStepsProps) {
   return (
     <ol className="flex flex-wrap items-center gap-2">
-      {STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const done = current > step.id
         const active = current === step.id
         return (
@@ -36,7 +40,7 @@ export function WizardSteps({ current }: WizardStepsProps) {
             >
               {step.label}
             </span>
-            {index < STEPS.length - 1 ? (
+            {index < steps.length - 1 ? (
               <span className="mx-1 hidden text-paper-muted sm:inline">→</span>
             ) : null}
           </li>

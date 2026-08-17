@@ -6,7 +6,7 @@ import { features } from '@/content/features'
 export function FeaturesPage() {
   return (
     <div className="min-h-svh bg-paper">
-      <div className="bg-hero-atmosphere pb-16">
+      <div className="bg-ink bg-hero-atmosphere pb-16">
         <PublicHeader />
         <div className="mx-auto max-w-6xl px-6 pt-10 sm:px-10">
           <h1 className="animate-fade-up font-display text-4xl font-bold text-white sm:text-5xl">
