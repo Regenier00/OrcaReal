@@ -144,11 +144,20 @@ export async function loadActualCatalog(companyId: string): Promise<ActualCatalo
 export { costCentersForDepartment }
 
 export async function listBankAccounts(companyId: string): Promise<BankAccount[]> {
+  const { error: ensureError } = await supabase.rpc(
+    'ensure_company_default_bank_accounts',
+    { p_company_id: companyId },
+  )
+  if (ensureError) {
+    console.error('Erro ao garantir contas bancárias padrão:', ensureError)
+  }
+
   const { data, error } = await supabase
     .from('bank_accounts')
     .select('*')
     .eq('company_id', companyId)
     .eq('is_active', true)
+    .order('bank_code', { ascending: true, nullsFirst: false })
     .order('name')
 
   if (error) {

@@ -140,21 +140,21 @@ export function ImportStatementPage() {
     >
       <form className="mt-8 grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
         <section className="rounded-2xl border border-paper-muted bg-white p-6">
-          <h2 className="font-display text-lg font-semibold text-navy">Conta</h2>
+          <h2 className="font-display text-lg font-semibold text-navy">Banco</h2>
           <p className="mt-1 text-sm text-mist">
-            As movimentações ficam vinculadas à conta da empresa ativa, independente do banco de origem.
+            Selecione o banco do extrato. As contas padrão já vêm com os principais bancos do mercado.
           </p>
           {accounts.length > 0 ? (
             <div className="mt-4 max-w-md">
               <Select
-                label="Conta bancária"
+                label="Banco / conta"
                 value={accountId}
                 onChange={(event) => setAccountId(event.target.value)}
               >
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
+                    {account.bank_code ? `${account.bank_code} · ` : ''}
                     {account.name}
-                    {account.bank_name ? ` · ${account.bank_name}` : ''}
                   </option>
                 ))}
               </Select>
@@ -162,10 +162,10 @@ export function ImportStatementPage() {
           ) : null}
           <div className="mt-4 flex max-w-xl flex-wrap items-end gap-3">
             <Input
-              label={accounts.length > 0 ? 'Nova conta' : 'Nome da conta'}
+              label="Outro banco"
               value={newAccountName}
               onChange={(event) => setNewAccountName(event.target.value)}
-              placeholder="Conta principal"
+              placeholder="Nome do banco"
             />
             <Button
               type="button"
@@ -173,7 +173,7 @@ export function ImportStatementPage() {
               disabled={busy || !newAccountName.trim()}
               onClick={() => void handleCreateAccount()}
             >
-              Criar conta
+              Adicionar banco
             </Button>
           </div>
         </section>
