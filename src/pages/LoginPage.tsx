@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
-import { isSupabaseConfigured, mapAuthError } from '@/features/auth/authErrors'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { MISSING_SUPABASE_CONFIG_MESSAGE } from '@/lib/supabaseEnv'
+import { mapAuthError } from '@/features/auth/authErrors'
+import { MissingAuthConfigNotice } from '@/features/auth/MissingAuthConfigNotice'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -22,10 +24,8 @@ export function LoginPage() {
     setMessage('')
 
     try {
-      if (!isSupabaseConfigured()) {
-        setMessage(
-          'Configuração de autenticação ausente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'
-        )
+      if (!isSupabaseConfigured) {
+        setMessage(MISSING_SUPABASE_CONFIG_MESSAGE)
         return
       }
 
@@ -52,6 +52,8 @@ export function LoginPage() {
       <div className="mx-auto max-w-md px-5 py-12">
         <h1 className="font-display text-3xl font-bold text-ink">Entrar</h1>
         <p className="mt-2 text-sm text-mist">Acesse sua conta OrcaReal.</p>
+
+        <MissingAuthConfigNotice />
 
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
           <Input
@@ -81,7 +83,11 @@ export function LoginPage() {
             </Link>
           </div>
 
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button
+            type="submit"
+            disabled={loading || !isSupabaseConfigured}
+            className="w-full"
+          >
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>

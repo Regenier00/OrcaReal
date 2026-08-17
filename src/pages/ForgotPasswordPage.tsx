@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { MISSING_SUPABASE_CONFIG_MESSAGE } from '@/lib/supabaseEnv'
 import { mapAuthError } from '@/features/auth/authErrors'
+import { MissingAuthConfigNotice } from '@/features/auth/MissingAuthConfigNotice'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -17,6 +19,12 @@ export function ForgotPasswordPage() {
     setLoading(true)
     setMessage('')
     setError('')
+
+    if (!isSupabaseConfigured) {
+      setError(MISSING_SUPABASE_CONFIG_MESSAGE)
+      setLoading(false)
+      return
+    }
 
     try {
       const redirectTo = `${window.location.origin}/login`
@@ -55,6 +63,8 @@ export function ForgotPasswordPage() {
           Informe seu e-mail para receber o link de redefinição.
         </p>
 
+        <MissingAuthConfigNotice />
+
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
           <Input
             label="E-mail"
@@ -64,7 +74,11 @@ export function ForgotPasswordPage() {
             required
             autoComplete="email"
           />
-          <Button type="submit" disabled={loading} className="w-full">
+          <Button
+            type="submit"
+            disabled={loading || !isSupabaseConfigured}
+            className="w-full"
+          >
             {loading ? 'Enviando...' : 'Enviar link'}
           </Button>
         </form>

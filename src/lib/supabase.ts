@@ -1,13 +1,15 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { resolveSupabaseCredentials } from '@/lib/supabaseEnv'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const { url: supabaseUrl, key: supabaseAnonKey } = resolveSupabaseCredentials(
+  import.meta.env as unknown as Record<string, unknown>
+)
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 
 if (!isSupabaseConfigured) {
   console.warn(
-    'Variáveis VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY não configuradas. Páginas públicas e a demonstração seguem disponíveis.'
+    'Variáveis VITE_SUPABASE_URL / VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY) não configuradas. Páginas públicas e a demonstração seguem disponíveis.'
   )
 }
 

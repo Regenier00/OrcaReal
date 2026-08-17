@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { supabase } from '@/lib/supabase'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
+import { MISSING_SUPABASE_CONFIG_MESSAGE } from '@/lib/supabaseEnv'
 import { ensureUserProfile } from '@/features/auth/profileService'
-import {
-  isSupabaseConfigured,
-  mapAuthError,
-} from '@/features/auth/authErrors'
+import { mapAuthError } from '@/features/auth/authErrors'
+import { MissingAuthConfigNotice } from '@/features/auth/MissingAuthConfigNotice'
 import { PublicHeader } from '@/components/layout/PublicHeader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -27,10 +26,8 @@ export function SignUpPage() {
     setMessage('')
     setError('')
 
-    if (!isSupabaseConfigured()) {
-      setError(
-        'Configuração de autenticação ausente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.'
-      )
+    if (!isSupabaseConfigured) {
+      setError(MISSING_SUPABASE_CONFIG_MESSAGE)
       setLoading(false)
       return
     }
@@ -96,6 +93,8 @@ export function SignUpPage() {
             : 'Padrão simples de cadastro — depois você cria sua empresa.'}
         </p>
 
+        <MissingAuthConfigNotice />
+
         <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
           <Input
             label="Nome"
@@ -123,7 +122,11 @@ export function SignUpPage() {
             hint="Mínimo de 6 caracteres"
           />
 
-          <Button type="submit" disabled={loading} className="mt-2 w-full">
+          <Button
+            type="submit"
+            disabled={loading || !isSupabaseConfigured}
+            className="mt-2 w-full"
+          >
             {loading ? 'Criando...' : 'Cadastrar'}
           </Button>
         </form>

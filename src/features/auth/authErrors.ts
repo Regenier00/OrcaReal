@@ -62,9 +62,3 @@ export function mapAuthError(message: string): string {
 
   return message
 }
-
-export function isSupabaseConfigured(): boolean {
-  return Boolean(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  )
-}
