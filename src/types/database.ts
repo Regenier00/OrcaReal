@@ -43,11 +43,20 @@ export interface CompanyProfile {
   segment_id: string | null
   custom_segment: string | null
   company_size: string | null
+  employee_count_range: string | null
+  state: string | null
+  city: string | null
+  operation_model: string | null
+  revenue_model: string | null
+  primary_activity: string | null
   financial_control_method: string | null
   main_objective: string | null
   maturity_level: string | null
   profile_summary: string | null
+  profile_facts: Record<string, unknown>
   onboarding_completed: boolean
+  questionnaire_completed: boolean
+  experience_ready: boolean
   created_at: string
   updated_at: string
 }

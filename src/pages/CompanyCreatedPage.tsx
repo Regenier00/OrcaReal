@@ -48,7 +48,7 @@ export function CompanyCreatedPage() {
           ) : null}
         </div>
       ) : (
-        <Link to="/app/configurar-ambiente" className="mt-8 inline-flex">
+        <Link to="/app/conhecer-empresa" className="mt-8 inline-flex">
           <Button>Continuar</Button>
         </Link>
       )}

@@ -15,6 +15,8 @@ import { DemoPage } from '@/pages/DemoPage'
 import { CreateCompanyPage } from '@/pages/CreateCompanyPage'
 import { CompanyCreatedPage } from '@/pages/CompanyCreatedPage'
 import { CompanySetupPage } from '@/pages/CompanySetupPage'
+import { ExperienceWizardPage } from '@/pages/ExperienceWizardPage'
+import { ExperienceReadyPage } from '@/pages/ExperienceReadyPage'
 import { BudgetsPage } from '@/pages/BudgetsPage'
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
 import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
@@ -48,6 +50,14 @@ export default function App() {
                 <Route
                   path="/app/configurar-ambiente"
                   element={<CompanySetupPage />}
+                />
+                <Route
+                  path="/app/conhecer-empresa"
+                  element={<ExperienceWizardPage />}
+                />
+                <Route
+                  path="/app/ambiente-pronto"
+                  element={<ExperienceReadyPage />}
                 />
                 <Route path="/app" element={<AppHomePage />} />
                 <Route path="/app/orcamentos" element={<BudgetsPage />} />

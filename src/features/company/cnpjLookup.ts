@@ -17,6 +17,8 @@ export interface CnpjLookupResult {
   description: string
   status: string
   suggestedSegment: SegmentCode | null
+  state: string
+  city: string
 }
 
 function suggestSegmentFromCnae(cnae: string): SegmentCode | null {
@@ -80,5 +82,7 @@ export async function lookupCnpj(
     description: cnae,
     status: data.descricao_situacao_cadastral?.trim() ?? '',
     suggestedSegment: cnae ? suggestSegmentFromCnae(cnae) : null,
+    state: data.uf?.trim() ?? '',
+    city: data.municipio?.trim() ?? '',
   }
 }

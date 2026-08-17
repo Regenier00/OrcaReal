@@ -1,0 +1,14 @@
+import { ANALYSIS_UNITS } from './units'
+import { QUESTIONS } from './questions'
+import { INDICATORS } from './indicators'
+import { STRUCTURES, structureFor } from './structures'
+import type { ExperienceCatalog } from '../types'
+
+export const builtinCatalog: ExperienceCatalog = {
+  analysisUnits: ANALYSIS_UNITS,
+  questions: QUESTIONS,
+  indicators: INDICATORS,
+  structures: STRUCTURES,
+}
+
+export { ANALYSIS_UNITS, QUESTIONS, INDICATORS, STRUCTURES, structureFor }
