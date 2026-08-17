@@ -16,6 +16,8 @@ interface BudgetItemsTableProps {
   months: BudgetMonth[]
   labels: StructureLabels
   readOnly?: boolean
+  emptyMessage?: string
+  totalLabel?: string
   onEdit?: (localId: string) => void
   onDuplicate?: (localId: string) => void
   onDelete?: (localId: string) => void
@@ -26,6 +28,8 @@ export function BudgetItemsTable({
   months,
   labels,
   readOnly,
+  emptyMessage,
+  totalLabel = 'Total do orçamento',
   onEdit,
   onDuplicate,
   onDelete,
@@ -33,7 +37,8 @@ export function BudgetItemsTable({
   if (items.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-5 py-10 text-center text-sm text-mist">
-        Nenhum item neste orçamento. Clique em “+ Adicionar item” para começar.
+        {emptyMessage ??
+          'Nenhum item neste orçamento. Clique em “+ Adicionar item” para começar.'}
       </div>
     )
   }
@@ -118,7 +123,7 @@ export function BudgetItemsTable({
         <tfoot>
           <tr className="border-t border-paper-muted bg-paper">
             <td className="sticky left-0 z-10 bg-paper px-3 py-3 font-semibold text-ink">
-              Total do orçamento
+              {totalLabel}
             </td>
             {months.map((month) => (
               <td

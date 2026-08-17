@@ -8,12 +8,16 @@ interface BudgetSummaryBarProps {
   draft: DraftBudget
   months: BudgetMonth[]
   companyName?: string
+  fallbackName?: string
+  totalLabel?: string
 }
 
 export function BudgetSummaryBar({
   draft,
   months,
   companyName,
+  fallbackName = 'Novo orçamento',
+  totalLabel = 'Total orçado',
 }: BudgetSummaryBarProps) {
   const total = grandTotal(draft.items, months)
   const currentMonthKey = months[0]?.key
@@ -29,7 +33,7 @@ export function BudgetSummaryBar({
             Editando
           </p>
           <h2 className="font-display text-2xl font-semibold text-ink">
-            {draft.name.trim() || 'Novo orçamento'}
+            {draft.name.trim() || fallbackName}
           </h2>
           <p className="mt-1 text-sm text-mist">
             {draft.periodLabel} · {formatPeriodRange(draft.startDate, draft.endDate)}
@@ -52,7 +56,7 @@ export function BudgetSummaryBar({
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase tracking-wide text-mist">Total orçado</p>
+            <p className="text-xs uppercase tracking-wide text-mist">{totalLabel}</p>
             <p className="mt-1 text-lg font-semibold tabular-nums text-navy">
               {formatMoney(total)}
             </p>

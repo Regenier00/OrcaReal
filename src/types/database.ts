@@ -163,3 +163,52 @@ export interface BudgetItemValue {
   month: number
   amount: number
 }
+
+export interface Actual {
+  id: string
+  company_id: string
+  budget_id: string
+  name: string
+  fiscal_year: number
+  period_label: string
+  period_kind: BudgetPeriodKind
+  start_date: string
+  end_date: string
+  business_unit_id: string | null
+  notes: string | null
+  status: BudgetStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ActualItem {
+  id: string
+  actual_id: string
+  company_id: string
+  business_unit_id: string | null
+  department_id: string
+  cost_center_id: string
+  activity_id: string | null
+  category_id: string | null
+  sort_order: number
+}
+
+export interface ActualItemValue {
+  id: string
+  actual_item_id: string
+  company_id: string
+  year: number
+  month: number
+  amount: number
+}
+
+export interface SystemIndicator {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  formula_hint: string | null
+  sort_order: number
+  is_active: boolean
+}

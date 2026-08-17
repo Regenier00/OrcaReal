@@ -18,6 +18,11 @@ import { CompanySetupPage } from '@/pages/CompanySetupPage'
 import { BudgetsPage } from '@/pages/BudgetsPage'
 import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
 import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
+import { ActualsPage } from '@/pages/ActualsPage'
+import { ActualWizardPage } from '@/pages/ActualWizardPage'
+import { ActualDetailPage } from '@/pages/ActualDetailPage'
+import { BudgetVsActualPage } from '@/pages/BudgetVsActualPage'
+import { IndicatorsPage } from '@/pages/IndicatorsPage'
 
 export default function App() {
   return (
@@ -48,6 +53,18 @@ export default function App() {
                   path="/app/orcamentos/:id/editar"
                   element={<BudgetWizardPage />}
                 />
+                <Route path="/app/realizado" element={<ActualsPage />} />
+                <Route path="/app/realizado/novo" element={<ActualWizardPage />} />
+                <Route path="/app/realizado/:id" element={<ActualDetailPage />} />
+                <Route
+                  path="/app/realizado/:id/editar"
+                  element={<ActualWizardPage />}
+                />
+                <Route
+                  path="/app/orcado-realizado"
+                  element={<BudgetVsActualPage />}
+                />
+                <Route path="/app/indicadores" element={<IndicatorsPage />} />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
               </Route>
