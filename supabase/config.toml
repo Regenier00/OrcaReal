@@ -117,12 +117,21 @@ enabled = true
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
-# Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+[storage.buckets.statement-imports]
+public = false
+file_size_limit = "20MiB"
+allowed_mime_types = [
+  "application/x-ofx",
+  "application/ofx",
+  "application/xml",
+  "text/xml",
+  "text/csv",
+  "text/plain",
+  "application/csv",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/pdf",
+  "application/octet-stream",
+]
 
 # Allow connections via S3 compatible clients
 [storage.s3_protocol]
@@ -374,6 +383,11 @@ enabled = false
 authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
+
+[functions.process-statement]
+# JWT is validated inside the function so OPTIONS preflight (no Authorization)
+# is not rejected by the gateway as a CORS/fetch failure.
+verify_jwt = false
 
 [edge_runtime]
 enabled = true

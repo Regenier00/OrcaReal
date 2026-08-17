@@ -138,6 +138,12 @@ export function BudgetDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link to={`/app/realizado/novo?orcamento=${budget.id}`}>
+            <Button variant="secondary">Lançar realizado</Button>
+          </Link>
+          <Link to={`/app/orcado-realizado?orcamento=${budget.id}`}>
+            <Button variant="secondary">Orçado × Realizado</Button>
+          </Link>
           <Link to={`/app/orcamentos/${budget.id}/editar`}>
             <Button>Editar</Button>
           </Link>

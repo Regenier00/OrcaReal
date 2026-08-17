@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import { formatBRL, formatSignedPct } from '@/lib/money'
 
 interface VarianceRow {
+  key?: string
   label: string
   detail?: string
   budget: number
@@ -30,7 +31,7 @@ export function VarianceTable({ rows, className }: VarianceTableProps) {
             const variance = row.actual - row.budget
             const over = variance > 0
             return (
-              <tr key={row.label} className="border-t border-paper-muted bg-white">
+              <tr key={row.key ?? row.label} className="border-t border-paper-muted bg-white">
                 <td className="px-4 py-3">
                   <p className="font-medium text-ink">{row.label}</p>
                   {row.detail ? <p className="text-xs text-mist">{row.detail}</p> : null}
@@ -49,7 +50,7 @@ export function VarianceTable({ rows, className }: VarianceTableProps) {
                 >
                   {formatBRL(variance)}
                   <span className="ml-1 text-xs opacity-70">
-                    {formatSignedPct(row.budget === 0 ? 0 : variance / row.budget)}
+                    {formatSignedPct(row.budget === 0 ? Number.NaN : variance / row.budget)}
                   </span>
                 </td>
               </tr>

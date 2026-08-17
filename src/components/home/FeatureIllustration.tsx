@@ -1,7 +1,7 @@
 import type { FeatureId } from '@/content/features'
 
 interface FeatureIllustrationProps {
-  id: FeatureId
+  id: FeatureId | 'actual'
 }
 
 function Bar({
@@ -63,6 +63,31 @@ export function FeatureIllustration({ id }: FeatureIllustrationProps) {
               <span>{row.label}</span>
             </div>
             <div className="h-2 overflow-hidden rounded-sm bg-paper-muted">
+              <div className="h-full rounded-sm bg-ink/65" style={{ width: row.width }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (id === 'actual') {
+    return (
+      <div className="overflow-hidden rounded-lg border border-paper-muted">
+        {[
+          { label: 'Janeiro', width: '72%' },
+          { label: 'Fevereiro', width: '64%' },
+          { label: 'Março', width: '81%' },
+          { label: 'Abril', width: '58%' },
+        ].map((row, index) => (
+          <div
+            key={row.label}
+            className={`flex items-center justify-between px-3 py-2.5 text-xs ${
+              index % 2 === 0 ? 'bg-paper' : 'bg-white'
+            }`}
+          >
+            <span className="text-mist">{row.label}</span>
+            <div className="h-1.5 w-20 overflow-hidden rounded-sm bg-paper-muted">
               <div className="h-full rounded-sm bg-ink/65" style={{ width: row.width }} />
             </div>
           </div>

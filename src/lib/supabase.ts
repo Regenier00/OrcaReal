@@ -13,11 +13,17 @@ if (!isSupabaseConfigured) {
   )
 }
 
-// createClient lança se a URL for vazia — isso deixava o app inteiro em tela branca.
+// createClient lança se a URL for vazia ou inválida — isso deixava o app em tela branca.
 const FALLBACK_URL = 'https://placeholder.supabase.co'
 const FALLBACK_KEY = 'public-anon-placeholder'
 
-export const supabase: SupabaseClient = createClient(
-  supabaseUrl || FALLBACK_URL,
-  supabaseAnonKey || FALLBACK_KEY
-)
+function createSupabaseClient(): SupabaseClient {
+  try {
+    return createClient(supabaseUrl || FALLBACK_URL, supabaseAnonKey || FALLBACK_KEY)
+  } catch (error) {
+    console.error('Não foi possível iniciar o cliente Supabase:', error)
+    return createClient(FALLBACK_URL, FALLBACK_KEY)
+  }
+}
+
+export const supabase: SupabaseClient = createSupabaseClient()

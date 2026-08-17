@@ -1,0 +1,11 @@
+export const MAX_STATEMENT_BYTES = 20 * 1024 * 1024
+export const MAX_TRANSACTIONS = 10_000
+export const MAX_CSV_ROWS = 12_000
+export const MAX_CSV_LINE_CHARS = 8_000
+export const MAX_DESCRIPTION_CHARS = 500
+export const MAX_WARNINGS = 20
+export const MAX_ZIP_ENTRIES = 80
+export const MAX_UNCOMPRESSED_ENTRY = 8 * 1024 * 1024
+export const MAX_UNCOMPRESSED_TOTAL = 16 * 1024 * 1024
+export const MAX_PDF_STREAMS = 250
+export const MAX_TEXT_SAMPLE = 256_000

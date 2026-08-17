@@ -45,7 +45,7 @@ export function DemoPage() {
 
   return (
     <div className="min-h-svh bg-paper">
-      <div className="bg-hero-atmosphere">
+      <div className="bg-ink bg-hero-atmosphere">
         <PublicHeader />
         <div className="mx-auto max-w-6xl px-6 pb-10 pt-6 sm:px-10">
           <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">

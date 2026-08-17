@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test:statement": "node --experimental-strip-types src/features/actual/statementParse.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
