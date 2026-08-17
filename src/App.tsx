@@ -15,6 +15,9 @@ import { DemoPage } from '@/pages/DemoPage'
 import { CreateCompanyPage } from '@/pages/CreateCompanyPage'
 import { CompanyCreatedPage } from '@/pages/CompanyCreatedPage'
 import { CompanySetupPage } from '@/pages/CompanySetupPage'
+import { BudgetsPage } from '@/pages/BudgetsPage'
+import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
+import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
 
 export default function App() {
   return (
@@ -38,6 +41,13 @@ export default function App() {
                   element={<CompanySetupPage />}
                 />
                 <Route path="/app" element={<AppHomePage />} />
+                <Route path="/app/orcamentos" element={<BudgetsPage />} />
+                <Route path="/app/orcamentos/novo" element={<BudgetWizardPage />} />
+                <Route path="/app/orcamentos/:id" element={<BudgetDetailPage />} />
+                <Route
+                  path="/app/orcamentos/:id/editar"
+                  element={<BudgetWizardPage />}
+                />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
               </Route>

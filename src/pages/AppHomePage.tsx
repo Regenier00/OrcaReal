@@ -55,8 +55,11 @@ export function AppHomePage() {
           ) : null}
 
           <div className="mt-6 flex flex-wrap gap-3">
+            <Link to="/app/orcamentos">
+              <Button>Orçamentos</Button>
+            </Link>
             <Link to="/app/empresa">
-              <Button>Configurações da empresa</Button>
+              <Button variant="secondary">Configurações da empresa</Button>
             </Link>
           </div>
         </section>

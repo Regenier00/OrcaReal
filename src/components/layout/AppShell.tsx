@@ -2,11 +2,13 @@ import { type ReactNode } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
+import { CompanySwitcher } from '@/components/company/CompanySwitcher'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
 const links = [
   { to: '/app', label: 'Início', end: true },
+  { to: '/app/orcamentos', label: 'Orçamentos' },
   { to: '/app/empresa', label: 'Empresa' },
   { to: '/app/perfil', label: 'Perfil' },
 ]
@@ -18,7 +20,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   return (
     <div className="min-h-svh bg-paper">
       <header className="border-b border-paper-muted bg-ink text-paper">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
+        <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-5 py-4">
           <div className="min-w-0">
             <Link to="/app" className="font-display text-xl font-bold tracking-tight">
               <span className="text-white">Orca</span>
@@ -38,7 +40,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </nav>
 
           <div className="flex items-center gap-3">
-            <span className="hidden max-w-40 truncate text-xs text-white/55 md:inline">
+            <CompanySwitcher />
+            <span className="hidden max-w-40 truncate text-xs text-white/55 xl:inline">
               {user?.email}
             </span>
             <Button variant="ghost" className="!py-2 !text-xs" onClick={() => void signOut()}>
@@ -47,14 +50,14 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 pb-3 sm:hidden">
+        <nav className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-5 pb-3 sm:hidden">
           {links.map((link) => (
             <NavItem key={link.to} {...link} />
           ))}
         </nav>
       </header>
 
-      <main className="mx-auto max-w-6xl px-5 py-8">{children ?? <Outlet />}</main>
+      <main className="mx-auto max-w-[90rem] px-5 py-8">{children ?? <Outlet />}</main>
     </div>
   )
 }

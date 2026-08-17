@@ -10,6 +10,7 @@ export interface CompanyContextValue {
   memberships: CompanyMembership[]
   companies: Company[]
   activeCompany: Company | null
+  company: Company | null
   activeMembership: CompanyMembership | null
   companyProfile: CompanyProfile | null
   segments: Segment[]
@@ -17,7 +18,9 @@ export interface CompanyContextValue {
   error: string | null
   isAdmin: boolean
   setActiveCompanyId: (companyId: string) => void
+  selectCompany: (companyId: string) => void
   refresh: () => Promise<void>
+  refreshCompanies: () => Promise<void>
 }
 
 export const CompanyContext = createContext<CompanyContextValue | undefined>(

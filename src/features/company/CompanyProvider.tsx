@@ -163,6 +163,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       memberships,
       companies,
       activeCompany,
+      company: activeCompany,
       activeMembership,
       companyProfile,
       segments,
@@ -170,7 +171,9 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       error,
       isAdmin,
       setActiveCompanyId,
+      selectCompany: setActiveCompanyId,
       refresh,
+      refreshCompanies: refresh,
     }),
     [
       memberships,
