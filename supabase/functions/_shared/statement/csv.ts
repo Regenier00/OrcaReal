@@ -1,7 +1,8 @@
 import { detectBank } from './banks.ts'
 import {
-  detectTabularLayout,
+  detectTabularLayouts,
   movementsFromMappedRows,
+  type TabularLayoutOptions,
 } from './columns.ts'
 import { MAX_CSV_LINE_CHARS, MAX_CSV_ROWS, MAX_WARNINGS } from './limits.ts'
 import { capWarnings, emptyResult, finalizeMovements } from './normalize.ts'
@@ -76,7 +77,10 @@ function denseRow(row: string[]) {
   return next
 }
 
-export function parseTabularRows(rows: string[][]): ParseResult {
+export function parseTabularRows(
+  rows: string[][],
+  options?: TabularLayoutOptions,
+): ParseResult {
   const result = emptyResult('csv')
   rows = rows.map(denseRow)
   if (rows.length === 0) {
@@ -90,8 +94,8 @@ export function parseTabularRows(rows: string[][]): ParseResult {
     return result
   }
 
-  const layout = detectTabularLayout(rows)
-  if (!layout) {
+  const layouts = detectTabularLayouts(rows, options)
+  if (layouts.length === 0) {
     result.warnings.push({
       message:
         'Não foi possível identificar as colunas de data, descrição e valor neste extrato.',
@@ -99,12 +103,32 @@ export function parseTabularRows(rows: string[][]): ParseResult {
     return result
   }
 
-  const movements = movementsFromMappedRows(rows, layout, (message, row) => {
-    if (result.warnings.length > MAX_WARNINGS * 4) return
-    result.warnings.push({ message, row })
-  })
+  let bestMovements: ReturnType<typeof movementsFromMappedRows> = []
+  let bestCount = -1
+  const collected: ParseResult['warnings'] = []
 
-  result.movements = finalizeMovements(movements)
+  for (const layout of layouts) {
+    const warnings: ParseResult['warnings'] = []
+    const movements = movementsFromMappedRows(rows, layout, (message, row) => {
+      if (warnings.length > MAX_WARNINGS * 4) return
+      warnings.push({ message, row })
+    })
+    const preferred =
+      options?.preferredHeaderIndex != null &&
+      layout.headerIndex === options.preferredHeaderIndex
+    if (
+      movements.length > bestCount ||
+      (movements.length === bestCount && preferred)
+    ) {
+      bestCount = movements.length
+      bestMovements = movements
+      collected.length = 0
+      collected.push(...warnings)
+    }
+  }
+
+  result.warnings.push(...collected)
+  result.movements = finalizeMovements(bestMovements)
   result.warnings = capWarnings(result.warnings)
   return result
 }

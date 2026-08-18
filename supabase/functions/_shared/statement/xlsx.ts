@@ -182,12 +182,89 @@ function columnIndex(ref: string) {
   return index - 1
 }
 
+function parseCellRef(ref: string) {
+  const match = ref.toUpperCase().match(/^([A-Z]+)(\d+)$/)
+  if (!match) return null
+  const col = columnIndex(match[1])
+  const row = Number(match[2])
+  if (col < 0 || !Number.isFinite(row) || row < 1) return null
+  return { row, col }
+}
+
+function parseA1Range(ref: string) {
+  const [startRaw, endRaw] = ref.split(':')
+  const start = parseCellRef(startRaw ?? '')
+  const end = parseCellRef(endRaw ?? startRaw ?? '')
+  if (!start || !end) return null
+  return {
+    r1: Math.min(start.row, end.row),
+    r2: Math.max(start.row, end.row),
+    c1: Math.min(start.col, end.col),
+    c2: Math.max(start.col, end.col),
+  }
+}
+
 function denseRow(values: string[]) {
   const row = Array<string>(values.length)
   for (let i = 0; i < values.length; i += 1) {
     row[i] = values[i] ?? ''
   }
   return row
+}
+
+function ensureRow(rows: Map<number, string[]>, excelRow: number) {
+  let row = rows.get(excelRow)
+  if (!row) {
+    row = []
+    rows.set(excelRow, row)
+  }
+  return row
+}
+
+function setCell(rows: Map<number, string[]>, excelRow: number, col: number, value: string) {
+  if (col < 0) return
+  const row = ensureRow(rows, excelRow)
+  while (row.length <= col) row.push('')
+  if (!row[col]) row[col] = value
+}
+
+function getCell(rows: Map<number, string[]>, excelRow: number, col: number) {
+  return rows.get(excelRow)?.[col] ?? ''
+}
+
+function parseFrozenThroughRow(xml: string) {
+  const pane = xml.match(/<(?:[\w.-]+:)?pane\b([^>]*)\/?>/i)?.[1] ?? ''
+  if (!/state="frozen"/i.test(pane) && !/state='frozen'/i.test(pane)) return null
+  const topLeft = pane.match(/topLeftCell="([A-Z]+)(\d+)"/i)
+  if (topLeft) return Number(topLeft[2]) - 1
+  const ySplit = pane.match(/ySplit="([0-9]+(?:\.[0-9]+)?)"/i)
+  if (!ySplit) return null
+  const frozen = Number(ySplit[1])
+  return Number.isFinite(frozen) && frozen >= 1 && frozen <= 80 ? Math.floor(frozen) : null
+}
+
+function applyMerges(rows: Map<number, string[]>, xml: string) {
+  const refs = [
+    ...xml.matchAll(/<(?:[\w.-]+:)?mergeCell\b[^>]*\bref="([^"]+)"/gi),
+  ]
+  for (const match of refs) {
+    const range = parseA1Range(match[1] ?? '')
+    if (!range) continue
+    const value = getCell(rows, range.r1, range.c1).trim()
+    if (!value) continue
+    for (let row = range.r1; row <= range.r2; row += 1) {
+      for (let col = range.c1; col <= range.c2; col += 1) {
+        if (row === range.r1 && col === range.c1) continue
+        setCell(rows, row, col, value)
+      }
+    }
+  }
+}
+
+function compactSheetRows(byRow: Map<number, string[]>) {
+  const excelRows = [...byRow.keys()].sort((a, b) => a - b)
+  const rows = excelRows.map((excelRow) => denseRow(byRow.get(excelRow) ?? []))
+  return { rows, excelRows }
 }
 
 function readCellValue(attrs: string, body: string, shared: string[]) {
@@ -211,35 +288,52 @@ function parseSheet(xml: string, shared: string[]) {
   if (xml.length > 2_000_000) {
     throw new Error('A planilha é grande demais para leitura segura.')
   }
-  const rows: string[][] = []
+  const byRow = new Map<number, string[]>()
   const rowBlocks = [
     ...xml.matchAll(
       /<(?:[\w.-]+:)?row\b([^>]*)>([\s\S]*?)<\/(?:[\w.-]+:)?row>/gi,
     ),
   ]
+  let inferredRow = 0
   for (const block of rowBlocks) {
+    const attrs = block[1] ?? ''
     const inner = block[2] ?? ''
+    inferredRow += 1
+    const excelRow = Number(attrs.match(/\br="(\d+)"/i)?.[1] ?? inferredRow)
     const cells = [
       ...inner.matchAll(
         /<(?:[\w.-]+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:[\w.-]+:)?c>)/gi,
       ),
     ]
-    const values: string[] = []
     for (const cell of cells) {
-      const attrs = cell[1] ?? ''
+      const cellAttrs = cell[1] ?? ''
       const body = cell[2] ?? ''
-      const ref = attrs.match(/\br="([^"]+)"/i)?.[1]
-      const value = readCellValue(attrs, body, shared)
+      const ref = cellAttrs.match(/\br="([^"]+)"/i)?.[1]
+      const value = readCellValue(cellAttrs, body, shared)
       if (ref) {
-        const index = columnIndex(ref)
-        if (index >= 0) values[index] = value
+        const parsed = parseCellRef(ref)
+        if (parsed) setCell(byRow, parsed.row, parsed.col, value)
       } else {
-        values.push(value)
+        const row = ensureRow(byRow, excelRow)
+        row.push(value)
       }
     }
-    rows.push(denseRow(values))
   }
-  return rows
+
+  applyMerges(byRow, xml)
+  const { rows, excelRows } = compactSheetRows(byRow)
+  const frozenExcelRow = parseFrozenThroughRow(xml)
+  const preferredHeaderIndex =
+    frozenExcelRow == null
+      ? -1
+      : excelRows.reduce(
+          (found, excelRow, index) => (excelRow <= frozenExcelRow ? index : found),
+          -1,
+        )
+  return {
+    rows,
+    preferredHeaderIndex: preferredHeaderIndex >= 0 ? preferredHeaderIndex : undefined,
+  }
 }
 
 export const xlsxParser: StatementParser = {
@@ -270,9 +364,11 @@ export const xlsxParser: StatementParser = {
       let best: ParseResult | null = null
       let sample = ''
       for (const [, sheet] of sheets) {
-        const rows = parseSheet(decodeXml(sheet), shared)
-        sample += ` ${rows.slice(0, 8).flat().join(' ')}`
-        const current = parseTabularRows(rows)
+        const parsed = parseSheet(decodeXml(sheet), shared)
+        sample += ` ${parsed.rows.slice(0, 8).flat().join(' ')}`
+        const current = parseTabularRows(parsed.rows, {
+          preferredHeaderIndex: parsed.preferredHeaderIndex,
+        })
         current.format = 'xlsx'
         if (!best || current.movements.length > best.movements.length) {
           best = current
