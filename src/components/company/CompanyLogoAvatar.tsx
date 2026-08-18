@@ -93,7 +93,7 @@ export function CompanyLogoAvatar({
       <div className="flex flex-col items-center gap-1">
         <button
           type="button"
-          className="group rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-bright"
+          className="group cursor-pointer rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-bright"
           aria-label={logoUrl ? 'Trocar logo da empresa' : 'Definir logo da empresa'}
           disabled={busy}
           onClick={() => inputRef.current?.click()}

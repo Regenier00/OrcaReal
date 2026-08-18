@@ -18,7 +18,7 @@ export function FeatureCards({ activeId, onSelect }: FeatureCardsProps) {
               onClick={() => onSelect(feature.id)}
               aria-pressed={selected}
               className={cn(
-                'flex h-full w-full flex-col rounded-2xl border p-6 text-left transition duration-200',
+                'flex h-full w-full cursor-pointer flex-col rounded-2xl border p-6 text-left transition duration-200',
                 'outline-none focus-visible:border-ink/40',
                 selected
                   ? 'border-ink/35 bg-white'

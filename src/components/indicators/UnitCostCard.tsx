@@ -14,11 +14,13 @@ export function UnitCostCard({
   months,
   saving,
   onSave,
+  kicker,
 }: {
   card: UnitCostCardModel
   months: BudgetMonth[]
   saving?: boolean
   onSave: (quantity: number, monthKey: string) => Promise<unknown>
+  kicker?: string
 }) {
   const [open, setOpen] = useState(false)
 
@@ -28,11 +30,13 @@ export function UnitCostCard({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'w-full rounded-2xl border border-paper-muted bg-white px-4 py-4 text-left transition',
+          'w-full cursor-pointer rounded-2xl border border-paper-muted bg-white px-4 py-4 text-left transition',
           'hover:border-ink/20 hover:shadow-soft'
         )}
       >
-        <p className="text-[11px] uppercase tracking-wide text-mist">{card.segmentLabel}</p>
+        <p className="text-[11px] uppercase tracking-wide text-mist">
+          {kicker ?? card.segmentLabel}
+        </p>
         <h3 className="mt-1 font-display text-lg font-semibold text-ink">{card.def.indicatorName}</h3>
         <p className="mt-3 font-numeric text-2xl font-semibold text-ink">
           {card.unitCost == null ? 'Informar quantidade' : formatMoney(card.unitCost)}

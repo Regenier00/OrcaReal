@@ -183,10 +183,15 @@ export function useUnitCostCards(input?: {
     return saved
   }
 
+  const monthLabel =
+    months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey
+
   return {
     cards,
     months,
     monthKey,
+    monthLabel,
+    totalCost: monthKey ? (costByMonth[monthKey] ?? 0) : 0,
     loading,
     error,
     savingCode,
