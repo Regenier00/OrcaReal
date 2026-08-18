@@ -9,29 +9,7 @@ import type {
 import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
 import { EMPLOYEE_COUNT_QUESTION, parseEmployeeCount } from '@/features/experience/employeeCount'
 import { operationIndicatorOptionsFor } from '@/features/experience/catalog/operationModels'
-
-const RETIRED_QUESTION_CODES = new Set([
-  'analysis_units',
-  'maturity',
-  'activities',
-  'tech_costs',
-  'hlt_costs',
-  'min_costs',
-  'media_costs',
-])
-
-const RETIRED_QUESTION_PROMPTS = new Set([
-  'Como você avalia a maturidade do controle financeiro?',
-  'Quais custos são mais relevantes?',
-  'Quais atividades a empresa realiza?',
-])
-
-function isRetiredQuestion(question: ExperienceQuestion): boolean {
-  return (
-    RETIRED_QUESTION_CODES.has(question.code) ||
-    RETIRED_QUESTION_PROMPTS.has(question.prompt)
-  )
-}
+import { isRetiredQuestion } from '@/features/experience/retiredQuestions'
 
 export function applicableQuestions(
   catalog: ExperienceCatalog,
