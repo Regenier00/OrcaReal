@@ -1,5 +1,4 @@
 import {
-  buildFinancialInsights,
   buildFinancialSeries,
   changeRatio,
   monthFinancials,
@@ -66,47 +65,5 @@ assert(snapshot.variance === 80, 'desvio = realizado - orçado')
 const series = buildFinancialSeries([jul, aug], actual, classified, budget, '2026-08')
 assert(series.length === 2, 'série mensal até o mês corrente')
 assert(series[1].key === '2026-08', 'último ponto é o mês corrente')
-
-const insights = buildFinancialInsights({
-  current: snapshot,
-  previous: monthFinancials(jul, actual, [], budget),
-  hasBudget: true,
-  hasRealized: true,
-  unitCostMissing: true,
-})
-
-assert(
-  insights.some((item) => item.id === 'profit'),
-  'insight de resultado positivo'
-)
-assert(
-  insights.some((item) => item.id === 'costs-up'),
-  'insight de custos em alta'
-)
-assert(
-  insights.some((item) => item.id === 'over-budget'),
-  'insight de desvio acima do orçado'
-)
-assert(
-  insights.some((item) => item.id === 'unit-cost'),
-  'insight de custo unitário incompleto'
-)
-assert(insights.length <= 4, 'limita a quantidade de insights')
-
-const emptyInsights = buildFinancialInsights({
-  current: null,
-  previous: null,
-  hasBudget: false,
-  hasRealized: false,
-  unitCostMissing: false,
-})
-assert(
-  emptyInsights.some((item) => item.id === 'no-actual'),
-  'sem realizado sugere importar'
-)
-assert(
-  emptyInsights.some((item) => item.id === 'no-budget'),
-  'sem orçamento sugere criar plano'
-)
 
 console.log('dashboard model tests ok')

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatMoney } from '@/features/budget/money'
-import { hasAnyAmount, type MonthFinancials } from '@/features/home/dashboardModel'
+import { type MonthFinancials } from '@/features/home/dashboardModel'
 import { SectionHeading } from '@/components/home/FinancialSummary'
 import { cn } from '@/lib/utils'
 
@@ -12,8 +12,7 @@ export function EvolutionChart({
   loading?: boolean
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null)
-  const ready = hasAnyAmount(series)
-  const showRevenue = series.some((item) => item.revenue !== 0)
+  const ready = series.some((item) => item.budgeted !== 0 || item.realized !== 0)
   const active = series.find((item) => item.key === activeKey) ?? series[series.length - 1]
 
   const geometry = useMemo(() => {
@@ -24,37 +23,48 @@ export function EvolutionChart({
     const innerHeight = height - pad.top - pad.bottom
     const maxValue = Math.max(
       1,
-      ...series.flatMap((item) => [
-        item.budgeted,
-        item.realized,
-        showRevenue ? item.revenue : 0,
-      ])
+      ...series.flatMap((item) => [item.budgeted, item.realized])
     )
-    const x = (index: number) =>
-      pad.left + (series.length <= 1 ? innerWidth / 2 : (index / (series.length - 1)) * innerWidth)
+    const slot = series.length === 0 ? innerWidth : innerWidth / series.length
+    const pairWidth = Math.min(slot * 0.72, 52)
+    const barWidth = pairWidth * 0.44
+    const barGap = pairWidth - barWidth * 2
     const y = (value: number) =>
       pad.top + innerHeight - (Math.max(0, value) / maxValue) * innerHeight
-
+    const groupX = (index: number) =>
+      pad.left + index * slot + (slot - pairWidth) / 2
     const ticks = [0, 0.5, 1].map((ratio) => ({
       value: maxValue * ratio,
       y: y(maxValue * ratio),
     }))
 
-    return { width, height, pad, innerHeight, innerWidth, x, y, ticks, maxValue }
-  }, [series, showRevenue])
+    return {
+      width,
+      height,
+      pad,
+      innerHeight,
+      innerWidth,
+      slot,
+      pairWidth,
+      barWidth,
+      barGap,
+      y,
+      groupX,
+      ticks,
+    }
+  }, [series])
 
   return (
     <section className="rounded-2xl border border-paper-muted bg-white p-5 shadow-card sm:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <SectionHeading
           kicker="Evolução"
-          title="Orçado e realizado no tempo"
-          subtitle="Acompanhe o ritmo do plano e das saídas mês a mês."
+          title="Orçado × realizado por mês"
+          subtitle="Compare o total planejado com o total executado em cada mês."
         />
         <ul className="flex flex-wrap gap-3 text-xs font-medium text-mist">
+          <LegendDot className="bg-navy-soft" label="Orçado" />
           <LegendDot className="bg-navy" label="Realizado" />
-          <LegendDot className="border border-sky bg-transparent" label="Orçado" />
-          {showRevenue ? <LegendDot className="bg-ok" label="Receita" /> : null}
         </ul>
       </div>
 
@@ -66,8 +76,8 @@ export function EvolutionChart({
             Sem série para exibir
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-mist">
-            Quando houver orçamento ou lançamentos apropriados, o gráfico mostra a
-            evolução financeira da empresa.
+            Quando houver orçamento ou lançamentos apropriados, o gráfico compara
+            o total orçado com o total realizado mês a mês.
           </p>
         </div>
       ) : (
@@ -76,7 +86,7 @@ export function EvolutionChart({
             viewBox={`0 0 ${geometry.width} ${geometry.height}`}
             className="h-auto w-full"
             role="img"
-            aria-label="Gráfico de evolução financeira"
+            aria-label="Gráfico de barras comparando orçado e realizado por mês"
           >
             {geometry.ticks.map((tick) => (
               <g key={tick.value}>
@@ -98,54 +108,47 @@ export function EvolutionChart({
               </g>
             ))}
 
-            <path
-              d={areaPath(series, geometry.x, geometry.y, geometry.height - geometry.pad.bottom)}
-              className="fill-navy/10"
-            />
-            <path
-              d={linePath(series, geometry.x, (item) => geometry.y(item.realized))}
-              className="stroke-navy"
-              fill="none"
-              strokeWidth="2.4"
-            />
-            <path
-              d={linePath(series, geometry.x, (item) => geometry.y(item.budgeted))}
-              className="stroke-sky"
-              fill="none"
-              strokeWidth="2"
-              strokeDasharray="5 4"
-            />
-            {showRevenue ? (
-              <path
-                d={linePath(series, geometry.x, (item) => geometry.y(item.revenue))}
-                className="stroke-ok"
-                fill="none"
-                strokeWidth="1.8"
-              />
-            ) : null}
-
             {series.map((item, index) => {
-              const cx = geometry.x(index)
               const selected = active?.key === item.key
+              const x = geometry.groupX(index)
+              const realizedX = x + geometry.barWidth + geometry.barGap
+              const budgetHeight = barHeight(item.budgeted, geometry)
+              const realizedHeight = barHeight(item.realized, geometry)
+
               return (
                 <g key={item.key}>
-                  <circle
-                    cx={cx}
-                    cy={geometry.y(item.realized)}
-                    r={selected ? 4.5 : 3.2}
-                    className="fill-navy"
+                  <rect
+                    x={x}
+                    y={geometry.y(item.budgeted)}
+                    width={geometry.barWidth}
+                    height={budgetHeight}
+                    rx="2"
+                    className={selected ? 'fill-sky' : 'fill-navy-soft'}
                   />
                   <rect
-                    x={cx - 18}
+                    x={realizedX}
+                    y={geometry.y(item.realized)}
+                    width={geometry.barWidth}
+                    height={realizedHeight}
+                    rx="2"
+                    className={selected ? 'fill-navy-mid' : 'fill-navy'}
+                  />
+                  <rect
+                    x={x - 4}
                     y={geometry.pad.top}
-                    width="36"
+                    width={geometry.pairWidth + 8}
                     height={geometry.innerHeight}
                     className="cursor-pointer fill-transparent"
                     onMouseEnter={() => setActiveKey(item.key)}
                     onFocus={() => setActiveKey(item.key)}
-                  />
+                  >
+                    <title>
+                      {item.label}: orçado {formatMoney(item.budgeted)}, realizado{' '}
+                      {formatMoney(item.realized)}
+                    </title>
+                  </rect>
                   <text
-                    x={cx}
+                    x={x + geometry.pairWidth / 2}
                     y={geometry.height - 10}
                     textAnchor="middle"
                     className={cn(
@@ -162,17 +165,10 @@ export function EvolutionChart({
 
           {active ? (
             <div className="mt-4 grid gap-3 rounded-xl bg-paper px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-              <ChartStat label={active.label} value="Período em foco" muted />
-              <ChartStat label="Realizado" value={formatMoney(active.realized)} />
+              <ChartStat label={active.label} value="Mês em foco" muted />
               <ChartStat label="Orçado" value={formatMoney(active.budgeted)} />
-              {showRevenue ? (
-                <ChartStat label="Receita" value={formatMoney(active.revenue)} />
-              ) : (
-                <ChartStat
-                  label="Desvio"
-                  value={formatMoney(active.variance)}
-                />
-              )}
+              <ChartStat label="Realizado" value={formatMoney(active.realized)} />
+              <ChartStat label="Desvio" value={formatMoney(active.variance)} />
             </div>
           ) : null}
         </div>
@@ -181,10 +177,17 @@ export function EvolutionChart({
   )
 }
 
+function barHeight(
+  value: number,
+  geometry: { pad: { top: number }; innerHeight: number; y: (value: number) => number }
+) {
+  return Math.max(0, geometry.pad.top + geometry.innerHeight - geometry.y(value))
+}
+
 function LegendDot({ className, label }: { className: string; label: string }) {
   return (
     <li className="inline-flex items-center gap-1.5">
-      <span className={cn('h-2.5 w-2.5 rounded-full', className)} />
+      <span className={cn('h-2.5 w-2.5 rounded-sm', className)} />
       {label}
     </li>
   )
@@ -209,32 +212,6 @@ function ChartStat({
       </p>
     </div>
   )
-}
-
-function linePath(
-  series: MonthFinancials[],
-  x: (index: number) => number,
-  y: (item: MonthFinancials) => number
-) {
-  return series
-    .map((item, index) => {
-      const command = index === 0 ? 'M' : 'L'
-      return `${command}${x(index)} ${y(item)}`
-    })
-    .join(' ')
-}
-
-function areaPath(
-  series: MonthFinancials[],
-  x: (index: number) => number,
-  y: (value: number) => number,
-  baseline: number
-) {
-  if (series.length === 0) return ''
-  const line = series
-    .map((item, index) => `${index === 0 ? 'M' : 'L'}${x(index)} ${y(item.realized)}`)
-    .join(' ')
-  return `${line} L${x(series.length - 1)} ${baseline} L${x(0)} ${baseline} Z`
 }
 
 function compactBRL(value: number) {
