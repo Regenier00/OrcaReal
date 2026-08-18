@@ -76,7 +76,7 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'transacao',
     'payee',
     'desc',
-    'historico',
+    'titulo',
   ],
   amount: [
     'valor',
@@ -91,6 +91,9 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'valoroperacao',
     'valorrs',
     'valorr',
+    'valorbruto',
+    'valorliquido',
+    'valorpago',
   ],
   debit: [
     'debito',
@@ -145,7 +148,7 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'tipomovimento',
     'creddeb',
   ],
-  id: ['id', 'fitid', 'uuid', 'hash', 'chave'],
+  id: ['id', 'fitid', 'uuid', 'hash', 'chave', 'identificador'],
   counterparty: [
     'contraparte',
     'favorecido',
@@ -158,8 +161,13 @@ const ALIASES: Record<ColumnRole, string[]> = {
 
 const SKIP_DESCRIPTION = /^(saldoanterior|saldoinicial|saldofinal|saldoatual|saldododia|openingbalance|closingbalance|previousbalance|total|totais|subtotal|soma|transportado)$/
 
-export function normalizeHeader(value: string) {
-  return value
+export function cellText(value: unknown) {
+  if (value == null) return ''
+  return String(value)
+}
+
+export function normalizeHeader(value: unknown) {
+  return cellText(value)
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -220,7 +228,7 @@ function mapFromHeaders(headers: string[]) {
   const ranked: Array<{ role: ColumnRole; index: number; score: number }> = []
 
   headers.forEach((header, index) => {
-    const match = bestRoleForHeader(header)
+    const match = bestRoleForHeader(header ?? '')
     if (!match) return
     ranked.push({ role: match.role, index, score: match.score })
   })
@@ -244,8 +252,8 @@ function headerRowScore(row: string[]) {
   if (roles.length === 0) return 0
 
   let score = 0
-  for (const cell of row) {
-    const match = bestRoleForHeader(cell)
+  for (let i = 0; i < row.length; i += 1) {
+    const match = bestRoleForHeader(row[i] ?? '')
     if (match) score += match.score
   }
   if (map.date >= 0) score += 40
@@ -254,9 +262,10 @@ function headerRowScore(row: string[]) {
   if (roles.length >= 3) score += 50
 
   const dataLike = row.filter((cell) => {
-    const date = parseBrazilianDate(cell)
-    const amount = parseAmount(cell)
-    return Boolean(date) || (amount != null && /\d/.test(cell) && !bestRoleForHeader(cell))
+    const text = cell ?? ''
+    const date = parseBrazilianDate(text)
+    const amount = parseAmount(text)
+    return Boolean(date) || (amount != null && /\d/.test(text) && !bestRoleForHeader(text))
   }).length
   if (dataLike >= 2 && roles.length < 2) score -= 100
   return score

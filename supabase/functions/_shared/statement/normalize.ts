@@ -48,8 +48,8 @@ export function excelSerialToIso(serial: number) {
   return new Date(epoch + Math.round(serial) * 86400000).toISOString().slice(0, 10)
 }
 
-export function parseBrazilianDate(value: string): string | null {
-  const raw = value.trim()
+export function parseBrazilianDate(value: unknown): string | null {
+  const raw = String(value ?? '').trim()
   if (!raw) return null
 
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
@@ -87,8 +87,8 @@ export function parseBrazilianDate(value: string): string | null {
   return null
 }
 
-export function parseAmount(value: string): number | null {
-  let raw = value.trim().replace(/[rR]\$\s?/g, '').replace(/\s/g, '')
+export function parseAmount(value: unknown): number | null {
+  let raw = String(value ?? '').trim().replace(/[rR]\$\s?/g, '').replace(/\s/g, '')
   if (!raw) return null
 
   const negative =
@@ -131,10 +131,10 @@ export function typeFromSignedAmount(
 }
 
 export function typeFromLabel(
-  value: string,
+  value: unknown,
   description = '',
 ): MovementType | null {
-  const key = value
+  const key = String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

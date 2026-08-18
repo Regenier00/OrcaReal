@@ -36,12 +36,35 @@ function isSafeZipName(name: string) {
   )
 }
 
+function normalizeZipName(name: string) {
+  return name.replaceAll('\\', '/')
+}
+
 function isNeededXlsxEntry(name: string) {
+  const normalized = normalizeZipName(name)
   return (
-    name === '[Content_Types].xml' ||
-    name === 'xl/sharedStrings.xml' ||
-    /^xl\/worksheets\/sheet\d+\.xml$/.test(name)
+    normalized === '[Content_Types].xml' ||
+    /^xl\/sharedStrings\.xml$/i.test(normalized) ||
+    /^xl\/worksheets\/[^/]+\.xml$/i.test(normalized)
   )
+}
+
+function findFile(
+  files: Map<string, Uint8Array>,
+  test: (name: string) => boolean,
+) {
+  for (const [name, content] of files) {
+    if (test(name)) return content
+  }
+  return undefined
+}
+
+function worksheetEntries(files: Map<string, Uint8Array>) {
+  return [...files.entries()]
+    .filter(([name]) => /^xl\/worksheets\/[^/]+\.xml$/i.test(name))
+    .sort(([left], [right]) =>
+      left.localeCompare(right, undefined, { numeric: true }),
+    )
 }
 
 async function unzip(bytes: Uint8Array) {
@@ -100,7 +123,7 @@ async function unzip(bytes: Uint8Array) {
     if (totalUncompressed > MAX_UNCOMPRESSED_TOTAL) {
       throw new Error('A planilha compactada excede o limite seguro de leitura.')
     }
-    files.set(name, content)
+    files.set(normalizeZipName(name), content)
   }
 
   return files
@@ -110,8 +133,8 @@ function decodeXml(bytes: Uint8Array) {
   return new TextDecoder('utf-8').decode(bytes)
 }
 
-function unescapeXml(value: string) {
-  return value
+function unescapeXml(value: string | undefined) {
+  return String(value ?? '')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
@@ -119,28 +142,69 @@ function unescapeXml(value: string) {
     .replace(/&apos;/g, "'")
 }
 
+function xmlInner(xml: string, tag: string) {
+  const match = xml.match(
+    new RegExp(
+      `<(?:[\\w.-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)</(?:[\\w.-]+:)?${tag}>`,
+      'i',
+    ),
+  )
+  return match?.[1]
+}
+
 function parseSharedStrings(xml: string) {
   if (xml.length > 2_000_000) {
     throw new Error('A planilha é grande demais para leitura segura.')
   }
   const values: string[] = []
-  const items = xml.match(/<si[\s\S]*?<\/si>/g) ?? []
+  const items =
+    xml.match(/<(?:[\w.-]+:)?si\b[\s\S]*?<\/(?:[\w.-]+:)?si>/gi) ?? []
   for (const item of items) {
-    const texts = [...item.matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((match) =>
-      unescapeXml(match[1]),
-    )
+    const texts = [
+      ...item.matchAll(
+        /<(?:[\w.-]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?t>/gi,
+      ),
+    ].map((match) => unescapeXml(match[1]))
     values.push(texts.join(''))
   }
   return values
 }
 
 function columnIndex(ref: string) {
-  const letters = ref.replace(/\d+/g, '')
+  const letters = ref.replace(/[^A-Za-z]/g, '').toUpperCase()
+  if (!letters) return -1
   let index = 0
   for (const char of letters) {
-    index = index * 26 + (char.charCodeAt(0) - 64)
+    const code = char.charCodeAt(0) - 64
+    if (code < 1 || code > 26) return -1
+    index = index * 26 + code
   }
   return index - 1
+}
+
+function denseRow(values: string[]) {
+  const row = Array<string>(values.length)
+  for (let i = 0; i < values.length; i += 1) {
+    row[i] = values[i] ?? ''
+  }
+  return row
+}
+
+function readCellValue(attrs: string, body: string, shared: string[]) {
+  const type = attrs.match(/\bt="([^"]+)"/)?.[1] ?? ''
+  if (type === 's') {
+    const index = Number(xmlInner(body, 'v') ?? '')
+    return shared[index] ?? ''
+  }
+  if (type === 'inlineStr' || type === 'str') {
+    return unescapeXml(xmlInner(body, 't') ?? xmlInner(body, 'v') ?? '')
+  }
+  if (type === 'd') {
+    return (xmlInner(body, 'v') ?? '').slice(0, 10)
+  }
+  const inline = xmlInner(body, 't')
+  if (inline != null) return unescapeXml(inline)
+  return xmlInner(body, 'v') ?? ''
 }
 
 function parseSheet(xml: string, shared: string[]) {
@@ -148,31 +212,32 @@ function parseSheet(xml: string, shared: string[]) {
     throw new Error('A planilha é grande demais para leitura segura.')
   }
   const rows: string[][] = []
-  const rowBlocks = xml.match(/<row[^>]*>[\s\S]*?<\/row>/g) ?? []
+  const rowBlocks = [
+    ...xml.matchAll(
+      /<(?:[\w.-]+:)?row\b([^>]*)>([\s\S]*?)<\/(?:[\w.-]+:)?row>/gi,
+    ),
+  ]
   for (const block of rowBlocks) {
-    const cells = [...block.matchAll(/<c([^>]*)>([\s\S]*?)<\/c>/g)]
+    const inner = block[2] ?? ''
+    const cells = [
+      ...inner.matchAll(
+        /<(?:[\w.-]+:)?c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/(?:[\w.-]+:)?c>)/gi,
+      ),
+    ]
     const values: string[] = []
     for (const cell of cells) {
-      const attrs = cell[1]
-      const body = cell[2]
-      const ref = attrs.match(/\br="([A-Z]+\d+)"/i)?.[1]
-      const type = attrs.match(/\bt="([^"]+)"/)?.[1]
-      let value = ''
-      if (type === 's') {
-        const index = Number(body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? '')
-        value = shared[index] ?? ''
-      } else if (type === 'inlineStr' || type === 'str') {
-        value = unescapeXml(body.match(/<t[^>]*>([\s\S]*?)<\/t>/)?.[1] ?? body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? '')
-      } else if (type === 'd') {
-        const raw = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? ''
-        value = raw.slice(0, 10)
+      const attrs = cell[1] ?? ''
+      const body = cell[2] ?? ''
+      const ref = attrs.match(/\br="([^"]+)"/i)?.[1]
+      const value = readCellValue(attrs, body, shared)
+      if (ref) {
+        const index = columnIndex(ref)
+        if (index >= 0) values[index] = value
       } else {
-        value = body.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? ''
+        values.push(value)
       }
-      if (ref) values[columnIndex(ref)] = value
-      else values.push(value)
     }
-    rows.push(values.map((item) => item ?? ''))
+    rows.push(denseRow(values))
   }
   return rows
 }
@@ -185,32 +250,36 @@ export const xlsxParser: StatementParser = {
   async parse(file: DetectedFile): Promise<ParseResult> {
     try {
       const files = await unzip(file.bytes)
-      if (!files.has('[Content_Types].xml')) {
+      if (!findFile(files, (name) => name === '[Content_Types].xml')) {
         const result = emptyResult('xlsx')
         result.warnings.push({ message: 'O arquivo ZIP não é uma planilha XLSX válida.' })
         return result
       }
-      const sharedXml = files.get('xl/sharedStrings.xml')
+      const sharedXml = findFile(files, (name) =>
+        /^xl\/sharedStrings\.xml$/i.test(name),
+      )
       const shared = sharedXml ? parseSharedStrings(decodeXml(sharedXml)) : []
-      const sheet =
-        files.get('xl/worksheets/sheet1.xml') ??
-        [...files.entries()].find(([name]) =>
-          name.startsWith('xl/worksheets/sheet'),
-        )?.[1]
+      const sheets = worksheetEntries(files)
 
-      if (!sheet) {
+      if (sheets.length === 0) {
         const result = emptyResult('xlsx')
         result.warnings.push({ message: 'Planilha XLSX sem aba de dados' })
         return result
       }
 
-      const rows = parseSheet(decodeXml(sheet), shared)
-      const result = parseTabularRows(rows)
-      result.format = 'xlsx'
-      const sample = rows
-        .slice(0, 8)
-        .flat()
-        .join(' ')
+      let best: ParseResult | null = null
+      let sample = ''
+      for (const [, sheet] of sheets) {
+        const rows = parseSheet(decodeXml(sheet), shared)
+        sample += ` ${rows.slice(0, 8).flat().join(' ')}`
+        const current = parseTabularRows(rows)
+        current.format = 'xlsx'
+        if (!best || current.movements.length > best.movements.length) {
+          best = current
+        }
+      }
+
+      const result = best ?? emptyResult('xlsx')
       const detected = detectBank(sample)
       result.bankCode = detected.bankCode
       result.bankName = detected.bankName

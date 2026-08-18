@@ -32,7 +32,7 @@ export function detectBank(text: string, bankId?: string | null): {
     if (byCode) return { bankCode: byCode.code, bankName: byCode.name }
   }
 
-  const haystack = text.toLowerCase()
+  const haystack = String(text ?? '').toLowerCase()
   for (const bank of BANKS) {
     if (bank.aliases.some((alias) => haystack.includes(alias))) {
       return { bankCode: bank.code, bankName: bank.name }

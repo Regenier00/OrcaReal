@@ -241,6 +241,211 @@ function testDefaultBankFilter() {
   )
 }
 
+function testSparseExcelLikeRows() {
+  const header: string[] = []
+  header[1] = 'Data'
+  header[3] = 'Título'
+  header[5] = 'Valor (R$)'
+  const pix: string[] = []
+  pix[1] = '01/08/2026'
+  pix[3] = 'PIX RECEBIDO - Maria Oliveira'
+  pix[5] = '350,00'
+  const tarifa: string[] = []
+  tarifa[1] = '02/08/2026'
+  tarifa[3] = 'TARIFA MANUTENCAO'
+  tarifa[5] = '-12,90'
+
+  const result = parseTabularRows([header, pix, tarifa])
+  assert(result.warnings.every((item) => !item.message.includes('toLowerCase')), 'não deve quebrar no cabeçalho')
+  assert(result.movements.length === 2, `linhas esparsas: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix esparso')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa esparsa')
+}
+
+function crc32(data: Uint8Array) {
+  let crc = 0xffffffff
+  for (const byte of data) {
+    crc ^= byte
+    for (let i = 0; i < 8; i += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function concatBytes(parts: Uint8Array[]) {
+  const total = parts.reduce((sum, part) => sum + part.byteLength, 0)
+  const out = new Uint8Array(total)
+  let offset = 0
+  for (const part of parts) {
+    out.set(part, offset)
+    offset += part.byteLength
+  }
+  return out
+}
+
+function u16(value: number) {
+  return Uint8Array.of(value & 0xff, (value >> 8) & 0xff)
+}
+
+function u32(value: number) {
+  return Uint8Array.of(
+    value & 0xff,
+    (value >> 8) & 0xff,
+    (value >> 16) & 0xff,
+    (value >> 24) & 0xff,
+  )
+}
+
+function zipStore(files: Record<string, string>) {
+  const encoder = new TextEncoder()
+  const locals: Uint8Array[] = []
+  const centrals: Uint8Array[] = []
+  let offset = 0
+
+  for (const [name, content] of Object.entries(files)) {
+    const nameBytes = encoder.encode(name)
+    const data = encoder.encode(content)
+    const crc = crc32(data)
+    const local = concatBytes([
+      u32(0x04034b50),
+      u16(20),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(crc),
+      u32(data.byteLength),
+      u32(data.byteLength),
+      u16(nameBytes.byteLength),
+      u16(0),
+      nameBytes,
+      data,
+    ])
+    const central = concatBytes([
+      u32(0x02014b50),
+      u16(20),
+      u16(20),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(crc),
+      u32(data.byteLength),
+      u32(data.byteLength),
+      u16(nameBytes.byteLength),
+      u16(0),
+      u16(0),
+      u16(0),
+      u16(0),
+      u32(0),
+      u32(offset),
+      nameBytes,
+    ])
+    locals.push(local)
+    centrals.push(central)
+    offset += local.byteLength
+  }
+
+  const centralDir = concatBytes(centrals)
+  return concatBytes([
+    ...locals,
+    centralDir,
+    u32(0x06054b50),
+    u16(0),
+    u16(0),
+    u16(centrals.length),
+    u16(centrals.length),
+    u32(centralDir.byteLength),
+    u32(offset),
+    u16(0),
+  ])
+}
+
+function cell(ref: string, value: string, shared = false) {
+  if (shared) return `<c r="${ref}" t="s"><v>${value}</v></c>`
+  if (/^-?\d+(\.\d+)?$/.test(value)) return `<c r="${ref}"><v>${value}</v></c>`
+  return `<c r="${ref}" t="str"><v>${value}</v></c>`
+}
+
+function xlsxFiles(sheets: Record<string, string>, sharedXml?: string) {
+  const files: Record<string, string> = {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"></Types>',
+  }
+  if (sharedXml) files['xl/sharedStrings.xml'] = sharedXml
+  for (const [name, xml] of Object.entries(sheets)) {
+    files[`xl/worksheets/${name}`] = xml
+  }
+  return files
+}
+
+async function testSparseXlsxDoesNotCrash() {
+  const sheet = `<?xml version="1.0"?>
+<worksheet><sheetData>
+  <row r="1">${cell('B1', 'Data')}${cell('D1', 'Título')}${cell('F1', 'Valor (R$)')}</row>
+  <row r="2">${cell('B2', '01/08/2026')}${cell('D2', 'PIX RECEBIDO - Maria Oliveira')}${cell('F2', '350.00')}</row>
+  <row r="3">${cell('B3', '02/08/2026')}${cell('D3', 'TARIFA MANUTENCAO')}${cell('F3', '-12.90')}</row>
+</sheetData></worksheet>`
+
+  const result = await parseStatement(
+    'extrato-inter.xlsx',
+    zipStore(xlsxFiles({ 'sheet1.xml': sheet })),
+  )
+  assert(
+    !result.warnings.some((item) => item.message.includes('toLowerCase')),
+    result.warnings[0]?.message ?? 'xlsx esparso quebrou',
+  )
+  assert(result.format === 'xlsx', `formato ${result.format}`)
+  assert(result.movements.length === 2, `xlsx esparso: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix xlsx')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa xlsx')
+}
+
+async function testNamespacedXlsxAndSecondSheet() {
+  const cover = `<?xml version="1.0"?>
+<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <x:sheetData>
+    <x:row r="1"><x:c r="C1" t="str"><x:v>BANCO INTER - EXTRATO</x:v></x:c></x:row>
+    <x:row r="3"><x:c r="C3" t="str"><x:v>Agencia 0001 Conta 12345-6</x:v></x:c></x:row>
+  </x:sheetData>
+</x:worksheet>`
+
+  const extrato = `<?xml version="1.0"?>
+<x:worksheet xmlns:x="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <x:sheetData>
+    <x:row r="1">
+      <x:c r="A1" t="str"><x:v>Data da transação</x:v></x:c>
+      <x:c r="B1" t="str"><x:v>Descrição</x:v></x:c>
+      <x:c r="C1" t="str"><x:v>Valor líquido</x:v></x:c>
+    </x:row>
+    <x:row r="2">
+      <x:c r="A2" t="str"><x:v>10/08/2026</x:v></x:c>
+      <x:c r="B2" t="str"><x:v>PIX RECEBIDO CLIENTE</x:v></x:c>
+      <x:c r="C2"><x:v>200.5</x:v></x:c>
+    </x:row>
+    <x:row r="3">
+      <x:c r="A3" t="str"><x:v>11/08/2026</x:v></x:c>
+      <x:c r="B3" t="str"><x:v>PAGAMENTO FORNECEDOR</x:v></x:c>
+      <x:c r="C3"><x:v>-80</x:v></x:c>
+    </x:row>
+  </x:sheetData>
+</x:worksheet>`
+
+  const result = await parseStatement(
+    'extrato-formato-diferente.xlsx',
+    zipStore(xlsxFiles({ 'sheet1.xml': cover, 'sheet2.xml': extrato })),
+  )
+  assert(
+    !result.warnings.some((item) => item.message.includes('toLowerCase')),
+    result.warnings[0]?.message ?? 'capa namespaced quebrou',
+  )
+  assert(result.movements.length === 2, `aba 2: ${result.movements.length}`)
+  assert(result.bankName === 'Inter', `banco ${result.bankName}`)
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.amount === 200.5, 'valor líquido')
+  assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.type === 'expense', 'saída na segunda aba')
+}
+
 await testOfx()
 await testCsv()
 testHeaderWithCurrencyAndSlash()
@@ -252,7 +457,10 @@ testExcelSerialDates()
 testTipoOverridesUnsignedAmount()
 await testCsvWithPreamble()
 testCommonBrazilianLayouts()
+testSparseExcelLikeRows()
 testRejectsExecutable()
 await testUnknownFormat()
 testDefaultBankFilter()
+await testSparseXlsxDoesNotCrash()
+await testNamespacedXlsxAndSecondSheet()
 console.log('statement parse tests ok')
