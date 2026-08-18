@@ -124,15 +124,11 @@ export function buildFinancialSeries(
   months: BudgetMonth[],
   actual: { items: AmountItem[] } | null,
   classified: ClassifiedSlice[],
-  budget: { items: AmountItem[] } | null,
-  upToKey?: string
+  budget: { items: AmountItem[] } | null
 ): MonthFinancials[] {
-  const visible =
-    upToKey && months.some((item) => item.key === upToKey)
-      ? months.filter((item) => item.key <= upToKey)
-      : months
-  const source = visible.length >= 2 ? visible : months
-  return source.map((month) => monthFinancials(month, actual, classified, budget))
+  return months
+    .map((month) => monthFinancials(month, actual, classified, budget))
+    .filter((item) => item.budgeted !== 0 || item.realized !== 0)
 }
 
 function matchesCategory(categoryType: string | null, types: CategoryFilter) {

@@ -62,8 +62,25 @@ assert(snapshot.profit === 770, 'resultado = receita - realizado')
 assert(snapshot.budgeted === 550, 'orçado ignora receita')
 assert(snapshot.variance === 80, 'desvio = realizado - orçado')
 
-const series = buildFinancialSeries([jul, aug], actual, classified, budget, '2026-08')
-assert(series.length === 2, 'série mensal até o mês corrente')
-assert(series[1].key === '2026-08', 'último ponto é o mês corrente')
+const sep = month('2026-09', 'Setembro/2026', 'Set')
+const oct = month('2026-10', 'Outubro/2026', 'Out')
+
+const budgetWithFuture = {
+  items: [
+    { categoryType: 'cost' as const, amounts: { '2026-07': 450, '2026-08': 450, '2026-09': 500 } },
+    { categoryType: 'expense' as const, amounts: { '2026-07': 100, '2026-08': 100, '2026-09': 80 } },
+  ],
+}
+
+const series = buildFinancialSeries(
+  [jul, aug, sep, oct],
+  actual,
+  classified,
+  budgetWithFuture
+)
+assert(series.length === 3, 'mostra meses com orçado ou realizado')
+assert(series.some((item) => item.key === '2026-09'), 'inclui mês orçado sem realizado')
+assert(series.find((item) => item.key === '2026-09')?.realized === 0, 'mês futuro pode ter realizado zero')
+assert(!series.some((item) => item.key === '2026-10'), 'omite mês sem orçado e sem realizado')
 
 console.log('dashboard model tests ok')

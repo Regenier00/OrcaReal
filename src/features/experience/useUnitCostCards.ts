@@ -210,15 +210,8 @@ export function useUnitCostCards(input?: {
   const previousTotalCost = previous ? (costByMonth[previous.key] ?? 0) : null
 
   const series = useMemo(
-    () =>
-      buildFinancialSeries(
-        months,
-        actual,
-        classified,
-        fetchedBudget,
-        monthKey
-      ),
-    [months, actual, classified, fetchedBudget, monthKey]
+    () => buildFinancialSeries(months, actual, classified, fetchedBudget),
+    [months, actual, classified, fetchedBudget]
   )
 
   const currentFinancials = useMemo(

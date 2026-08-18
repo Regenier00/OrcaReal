@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatMoney } from '@/features/budget/money'
 import { type MonthFinancials } from '@/features/home/dashboardModel'
-import { SectionHeading } from '@/components/home/FinancialSummary'
 import { cn } from '@/lib/utils'
 
 export function EvolutionChart({
@@ -13,12 +12,14 @@ export function EvolutionChart({
 }) {
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const ready = series.some((item) => item.budgeted !== 0 || item.realized !== 0)
-  const active = series.find((item) => item.key === activeKey) ?? series[series.length - 1]
+  const fallback =
+    [...series].reverse().find((item) => item.realized !== 0) ?? series[series.length - 1]
+  const active = series.find((item) => item.key === activeKey) ?? fallback
 
   const geometry = useMemo(() => {
     const width = 640
-    const height = 248
-    const pad = { top: 18, right: 12, bottom: 34, left: 52 }
+    const height = 118
+    const pad = { top: 6, right: 8, bottom: 18, left: 34 }
     const innerWidth = width - pad.left - pad.right
     const innerHeight = height - pad.top - pad.bottom
     const maxValue = Math.max(
@@ -26,14 +27,14 @@ export function EvolutionChart({
       ...series.flatMap((item) => [item.budgeted, item.realized])
     )
     const slot = series.length === 0 ? innerWidth : innerWidth / series.length
-    const pairWidth = Math.min(slot * 0.72, 52)
+    const pairWidth = Math.min(slot * 0.72, 28)
     const barWidth = pairWidth * 0.44
     const barGap = pairWidth - barWidth * 2
     const y = (value: number) =>
       pad.top + innerHeight - (Math.max(0, value) / maxValue) * innerHeight
     const groupX = (index: number) =>
       pad.left + index * slot + (slot - pairWidth) / 2
-    const ticks = [0, 0.5, 1].map((ratio) => ({
+    const ticks = [0, 1].map((ratio) => ({
       value: maxValue * ratio,
       y: y(maxValue * ratio),
     }))
@@ -43,8 +44,6 @@ export function EvolutionChart({
       height,
       pad,
       innerHeight,
-      innerWidth,
-      slot,
       pairWidth,
       barWidth,
       barGap,
@@ -55,36 +54,35 @@ export function EvolutionChart({
   }, [series])
 
   return (
-    <section className="rounded-2xl border border-paper-muted bg-white p-5 shadow-card sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <SectionHeading
-          kicker="Evolução"
-          title="Orçado × realizado por mês"
-          subtitle="Compare o total planejado com o total executado em cada mês."
-        />
-        <ul className="flex flex-wrap gap-3 text-xs font-medium text-mist">
+    <section className="rounded-2xl border border-paper-muted bg-white px-4 py-3 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-navy-bright">
+            Evolução
+          </p>
+          <h2 className="mt-0.5 font-display text-sm font-semibold text-navy">
+            Orçado × realizado por mês
+          </h2>
+        </div>
+        <ul className="flex flex-wrap gap-3 text-[11px] font-medium text-mist">
           <LegendDot className="bg-navy-soft" label="Orçado" />
           <LegendDot className="bg-navy" label="Realizado" />
         </ul>
       </div>
 
       {loading && series.length === 0 ? (
-        <div className="mt-6 h-52 animate-pulse rounded-xl bg-paper" />
+        <div className="mt-3 h-[10rem] animate-pulse rounded-xl bg-paper" />
       ) : !ready ? (
-        <div className="mt-6 rounded-xl bg-paper px-4 py-10 text-center">
-          <p className="font-display text-base font-semibold text-navy">
-            Sem série para exibir
-          </p>
-          <p className="mx-auto mt-1 max-w-md text-sm text-mist">
-            Quando houver orçamento ou lançamentos apropriados, o gráfico compara
-            o total orçado com o total realizado mês a mês.
+        <div className="mt-3 rounded-xl bg-paper px-3 py-4 text-center">
+          <p className="text-sm text-mist">
+            Quando houver orçamento, o gráfico mostra todos os meses planejados.
           </p>
         </div>
       ) : (
-        <div className="mt-5">
+        <div className="mt-2">
           <svg
             viewBox={`0 0 ${geometry.width} ${geometry.height}`}
-            className="h-auto w-full"
+            className="h-[10rem] w-full"
             role="img"
             aria-label="Gráfico de barras comparando orçado e realizado por mês"
           >
@@ -98,10 +96,10 @@ export function EvolutionChart({
                   className="stroke-paper-muted"
                 />
                 <text
-                  x={geometry.pad.left - 8}
-                  y={tick.y + 4}
+                  x={geometry.pad.left - 6}
+                  y={tick.y + 3}
                   textAnchor="end"
-                  className="fill-mist text-[10px]"
+                  className="fill-mist text-[9px]"
                 >
                   {compactBRL(tick.value)}
                 </text>
@@ -122,7 +120,7 @@ export function EvolutionChart({
                     y={geometry.y(item.budgeted)}
                     width={geometry.barWidth}
                     height={budgetHeight}
-                    rx="2"
+                    rx="1.5"
                     className={selected ? 'fill-sky' : 'fill-navy-soft'}
                   />
                   <rect
@@ -130,13 +128,13 @@ export function EvolutionChart({
                     y={geometry.y(item.realized)}
                     width={geometry.barWidth}
                     height={realizedHeight}
-                    rx="2"
+                    rx="1.5"
                     className={selected ? 'fill-navy-mid' : 'fill-navy'}
                   />
                   <rect
-                    x={x - 4}
+                    x={x - 3}
                     y={geometry.pad.top}
-                    width={geometry.pairWidth + 8}
+                    width={geometry.pairWidth + 6}
                     height={geometry.innerHeight}
                     className="cursor-pointer fill-transparent"
                     onMouseEnter={() => setActiveKey(item.key)}
@@ -149,10 +147,10 @@ export function EvolutionChart({
                   </rect>
                   <text
                     x={x + geometry.pairWidth / 2}
-                    y={geometry.height - 10}
+                    y={geometry.height - 4}
                     textAnchor="middle"
                     className={cn(
-                      'text-[10px]',
+                      'text-[9px]',
                       selected ? 'fill-navy font-semibold' : 'fill-mist'
                     )}
                   >
@@ -164,12 +162,12 @@ export function EvolutionChart({
           </svg>
 
           {active ? (
-            <div className="mt-4 grid gap-3 rounded-xl bg-paper px-4 py-3 sm:grid-cols-2 lg:grid-cols-4">
-              <ChartStat label={active.label} value="Mês em foco" muted />
-              <ChartStat label="Orçado" value={formatMoney(active.budgeted)} />
-              <ChartStat label="Realizado" value={formatMoney(active.realized)} />
-              <ChartStat label="Desvio" value={formatMoney(active.variance)} />
-            </div>
+            <p className="mt-1.5 font-numeric text-xs text-mist">
+              <span className="font-medium text-navy">{active.label}</span>
+              {' · '}orçado {formatMoney(active.budgeted)}
+              {' · '}realizado {formatMoney(active.realized)}
+              {' · '}desvio {formatMoney(active.variance)}
+            </p>
           ) : null}
         </div>
       )}
@@ -187,30 +185,9 @@ function barHeight(
 function LegendDot({ className, label }: { className: string; label: string }) {
   return (
     <li className="inline-flex items-center gap-1.5">
-      <span className={cn('h-2.5 w-2.5 rounded-sm', className)} />
+      <span className={cn('h-2 w-2 rounded-sm', className)} />
       {label}
     </li>
-  )
-}
-
-function ChartStat({
-  label,
-  value,
-  muted,
-}: {
-  label: string
-  value: string
-  muted?: boolean
-}) {
-  return (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-mist">
-        {muted ? value : label}
-      </p>
-      <p className={cn('mt-1 font-numeric text-sm font-semibold', muted ? 'text-navy' : 'text-ink')}>
-        {muted ? label : value}
-      </p>
-    </div>
   )
 }
 
