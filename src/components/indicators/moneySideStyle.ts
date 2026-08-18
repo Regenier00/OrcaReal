@@ -3,7 +3,7 @@ import type { MoneySide } from '@/features/indicators/formula'
 
 export function moneySideCardClass(side: MoneySide | null | undefined, interactive = false) {
   return cn(
-    side === 'revenue' && 'border-navy/20 bg-navy-soft',
+    side === 'revenue' && 'border-navy/20 bg-revenue-soft',
     side === 'cost' && 'border-danger/20 bg-danger-soft',
     !side && 'border-paper-muted bg-white',
     interactive && 'hover:-translate-y-0.5 hover:shadow-soft',
