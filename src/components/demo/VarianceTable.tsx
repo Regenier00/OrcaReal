@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { formatBRL, formatSignedPct } from '@/lib/money'
+import { formatBRL, formatSignedPct, sum } from '@/lib/money'
 
 interface VarianceRow {
   key?: string
@@ -14,7 +14,36 @@ interface VarianceTableProps {
   className?: string
 }
 
+function VarianceAmount({
+  variance,
+  budget,
+  emphasize,
+}: {
+  variance: number
+  budget: number
+  emphasize?: boolean
+}) {
+  const over = variance > 0
+  return (
+    <td
+      className={cn(
+        'px-4 py-3 text-right tabular-nums',
+        emphasize && 'font-semibold',
+        over ? 'text-danger' : 'text-ok'
+      )}
+    >
+      {formatBRL(variance)}
+      <span className="ml-1 text-xs opacity-70">
+        {formatSignedPct(budget === 0 ? Number.NaN : variance / budget)}
+      </span>
+    </td>
+  )
+}
+
 export function VarianceTable({ rows, className }: VarianceTableProps) {
+  const totalBudget = sum(rows.map((row) => row.budget))
+  const totalActual = sum(rows.map((row) => row.actual))
+
   return (
     <div className={cn('overflow-hidden rounded-xl border border-paper-muted', className)}>
       <table className="w-full text-left text-sm">
@@ -29,7 +58,6 @@ export function VarianceTable({ rows, className }: VarianceTableProps) {
         <tbody>
           {rows.map((row) => {
             const variance = row.actual - row.budget
-            const over = variance > 0
             return (
               <tr key={row.key ?? row.label} className="border-t border-paper-muted bg-white">
                 <td className="px-4 py-3">
@@ -42,21 +70,27 @@ export function VarianceTable({ rows, className }: VarianceTableProps) {
                 <td className="px-4 py-3 text-right tabular-nums text-ink">
                   {formatBRL(row.actual)}
                 </td>
-                <td
-                  className={cn(
-                    'px-4 py-3 text-right tabular-nums',
-                    over ? 'text-danger' : 'text-ok'
-                  )}
-                >
-                  {formatBRL(variance)}
-                  <span className="ml-1 text-xs opacity-70">
-                    {formatSignedPct(row.budget === 0 ? Number.NaN : variance / row.budget)}
-                  </span>
-                </td>
+                <VarianceAmount variance={variance} budget={row.budget} />
               </tr>
             )
           })}
         </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-ink/15 bg-paper">
+            <td className="px-4 py-3 font-semibold text-ink">Total</td>
+            <td className="px-4 py-3 text-right font-semibold tabular-nums text-ink">
+              {formatBRL(totalBudget)}
+            </td>
+            <td className="px-4 py-3 text-right font-semibold tabular-nums text-ink">
+              {formatBRL(totalActual)}
+            </td>
+            <VarianceAmount
+              variance={totalActual - totalBudget}
+              budget={totalBudget}
+              emphasize
+            />
+          </tr>
+        </tfoot>
       </table>
     </div>
   )
