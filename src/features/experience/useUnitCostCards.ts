@@ -7,8 +7,6 @@ import { listCompanyOperations, getCompanyExperienceAnswers } from '@/features/e
 import { listUnitVolumes, saveUnitVolume } from '@/features/experience/unitVolumeService'
 import {
   defaultUnitCostMonth,
-  realizedCostForMonth,
-  unitCostForMonth,
   type MonthlyVolumes,
 } from '@/features/experience/unitCost'
 import { listCompanyComparisonOptions, loadComparisonPair } from '@/features/comparison/comparisonService'
@@ -22,19 +20,53 @@ import {
   changeRatio,
   previousMonth,
 } from '@/features/home/dashboardModel'
+import {
+  buildActualTotals,
+  consolidatedQuantity,
+  defaultCustomFormula,
+  evaluateFormula,
+  formulaHint,
+  formulaUsesQuantity,
+  type ActualSideTotals,
+  type CustomFormula,
+} from '@/features/indicators/formula'
+import {
+  customIndicatorVolumeCode,
+  deleteCompanyCustomIndicator,
+  listCompanyCustomIndicators,
+  listCompanyCustomUnits,
+  parseIndicatorFormula,
+} from '@/features/indicators/customIndicatorService'
+import { customIndicatorDefFromUnit } from '@/features/indicators/units'
+import type { CompanyCustomIndicator, CompanyCustomUnit } from '@/types/database'
+
+export interface IndicatorCardDef {
+  indicatorCode: string
+  indicatorName: string
+  displayUnit: string
+  quantityPrompt: string
+  quantityHelp: string
+  quantityNoun: string
+  quantityNounSingular: string
+}
 
 export interface UnitCostCardModel {
-  def: SegmentUnitCostDef
+  def: IndicatorCardDef
+  kind: 'catalog' | 'custom'
+  customId?: string
   segmentLabel: string
   volumes: MonthlyVolumes
   monthKey: string
   monthLabel: string
-  totalCost: number
   quantity: number | null
   unitCost: number | null
   previousUnitCost: number | null
   unitCostChange: number | null
-  costByMonth: Record<string, number>
+  formula: CustomFormula
+  formulaHint: string
+  usesQuantity: boolean
+  totalsByMonth: Record<string, ActualSideTotals>
+  consolidated: ActualSideTotals
 }
 
 export function useUnitCostCards(input?: {
@@ -45,6 +77,8 @@ export function useUnitCostCards(input?: {
 }) {
   const { activeCompany, companyProfile, segments } = useCompany()
   const [defs, setDefs] = useState<SegmentUnitCostDef[]>([])
+  const [customIndicators, setCustomIndicators] = useState<CompanyCustomIndicator[]>([])
+  const [customUnits, setCustomUnits] = useState<CompanyCustomUnit[]>([])
   const [volumes, setVolumes] = useState<Record<string, MonthlyVolumes>>({})
   const [fetchedMonths, setFetchedMonths] = useState<BudgetMonth[]>([])
   const [fetchedActual, setFetchedActual] = useState<LoadedActual | null>(null)
@@ -55,6 +89,7 @@ export function useUnitCostCards(input?: {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [savingCode, setSavingCode] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   const providedRealized = input?.actual !== undefined || input?.classified !== undefined
   const months = input?.months ?? fetchedMonths
@@ -62,16 +97,20 @@ export function useUnitCostCards(input?: {
   const classified =
     input?.classified !== undefined ? input.classified : fetchedClassified
 
+  const reloadCustom = () => setReloadKey((value) => value + 1)
+
   useEffect(() => {
     if (!activeCompany) return
     let mounted = true
 
     void (async () => {
       setLoading(true)
-      const [ops, answers, budgets] = await Promise.all([
+      const [ops, answers, budgets, customResult, unitsResult] = await Promise.all([
         listCompanyOperations(activeCompany.id),
         getCompanyExperienceAnswers(activeCompany.id),
         providedRealized ? Promise.resolve([]) : listCompanyComparisonOptions(activeCompany.id).catch(() => []),
+        listCompanyCustomIndicators(activeCompany.id),
+        listCompanyCustomUnits(activeCompany.id),
       ])
       if (!mounted) return
 
@@ -95,11 +134,15 @@ export function useUnitCostCards(input?: {
 
       const nextDefs = unitCostsForSegments([...codes])
       setDefs(nextDefs)
+      if (customResult.ok) setCustomIndicators(customResult.data)
+      else setError(customResult.message)
+      if (unitsResult.ok) setCustomUnits(unitsResult.data)
 
-      const volumeResult = await listUnitVolumes(
-        activeCompany.id,
-        nextDefs.map((item) => item.indicatorCode)
-      )
+      const volumeCodes = [
+        ...nextDefs.map((item) => item.indicatorCode),
+        ...(customResult.ok ? customResult.data.map((item) => customIndicatorVolumeCode(item.id)) : []),
+      ]
+      const volumeResult = await listUnitVolumes(activeCompany.id, volumeCodes)
       if (!mounted) return
       if (volumeResult.ok) setVolumes(volumeResult.data)
 
@@ -132,57 +175,78 @@ export function useUnitCostCards(input?: {
         }
       }
 
-      setError('')
+      if (customResult.ok) setError('')
       setLoading(false)
     })()
 
     return () => {
       mounted = false
     }
-  }, [activeCompany, companyProfile, segments, providedRealized])
+  }, [activeCompany, companyProfile, segments, providedRealized, reloadKey])
 
   const monthKey = useMemo(
     () => defaultUnitCostMonth(months, input?.preferredMonth) ?? months[months.length - 1]?.key ?? '',
     [months, input?.preferredMonth]
   )
 
-  const costByMonth = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const month of months) {
-      map[month.key] = realizedCostForMonth(actual, classified, month.key)
-    }
-    return map
-  }, [months, actual, classified])
+  const totals = useMemo(
+    () => buildActualTotals(months, actual, classified),
+    [months, actual, classified]
+  )
 
   const previous = useMemo(() => previousMonth(months, monthKey), [months, monthKey])
 
   const cards = useMemo<UnitCostCardModel[]>(() => {
     const month = months.find((item) => item.key === monthKey)
-    const totalCost = monthKey ? (costByMonth[monthKey] ?? 0) : 0
-    const previousCost = previous ? (costByMonth[previous.key] ?? 0) : 0
-
-    return defs.map((def) => {
-      const qty = volumes[def.indicatorCode]?.[monthKey] ?? null
-      const previousQty = previous
-        ? (volumes[def.indicatorCode]?.[previous.key] ?? null)
-        : null
-      const unitCost = unitCostForMonth(totalCost, qty)
-      const previousUnitCost = unitCostForMonth(previousCost, previousQty)
-      return {
-        def,
+    const catalogCards = defs.map((def) =>
+      buildCard({
+        def: {
+          indicatorCode: def.indicatorCode,
+          indicatorName: def.indicatorName,
+          displayUnit: def.displayUnit,
+          quantityPrompt: def.quantityPrompt,
+          quantityHelp: def.quantityHelp,
+          quantityNoun: def.quantityNoun,
+          quantityNounSingular: def.quantityNounSingular,
+        },
+        kind: 'catalog',
         segmentLabel: segmentLabel(def.segmentCode as SegmentCode),
+        formula: defaultCustomFormula(),
         volumes: volumes[def.indicatorCode] ?? {},
         monthKey,
         monthLabel: month?.fullLabel ?? monthKey,
-        totalCost,
-        quantity: qty,
-        unitCost,
-        previousUnitCost,
-        unitCostChange: changeRatio(unitCost ?? Number.NaN, previousUnitCost),
-        costByMonth,
-      }
+        previousKey: previous?.key ?? null,
+        totals,
+      })
+    )
+
+    const customCards = customIndicators.map((item) => {
+      const code = customIndicatorVolumeCode(item.id)
+      const formula = parseIndicatorFormula(item.formula)
+      return buildCard({
+        def: customIndicatorDefFromUnit({
+          code: item.unit_code,
+          name: item.unit_name,
+          quantityNoun: item.quantity_noun,
+          quantityNounSingular: item.quantity_noun_singular,
+          indicatorName: item.name,
+          displayUnit: item.display_unit,
+          indicatorCode: code,
+        }),
+        kind: 'custom',
+        customId: item.id,
+        segmentLabel: 'Personalizado',
+        formula,
+        volumes: volumes[code] ?? {},
+        monthKey,
+        monthLabel: month?.fullLabel ?? monthKey,
+        previousKey: previous?.key ?? null,
+        totals,
+      })
     })
-  }, [defs, volumes, months, monthKey, costByMonth, previous])
+
+    return [...catalogCards, ...customCards]
+  }, [defs, customIndicators, volumes, months, monthKey, totals, previous])
 
   const saveQuantity = async (indicatorCode: string, quantity: number, month: string) => {
     if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
@@ -204,10 +268,21 @@ export function useUnitCostCards(input?: {
     return saved
   }
 
+  const deleteCustom = async (indicatorId: string) => {
+    if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
+    const result = await deleteCompanyCustomIndicator(activeCompany.id, indicatorId)
+    if (!result.ok) {
+      setError(result.message)
+      return result
+    }
+    setCustomIndicators((current) => current.filter((item) => item.id !== indicatorId))
+    return result
+  }
+
   const monthLabel =
     months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey
-  const totalCost = monthKey ? (costByMonth[monthKey] ?? 0) : 0
-  const previousTotalCost = previous ? (costByMonth[previous.key] ?? 0) : null
+  const totalCost = monthKey ? (totals.byMonth[monthKey]?.cost ?? 0) : 0
+  const previousTotalCost = previous ? (totals.byMonth[previous.key]?.cost ?? 0) : null
 
   const series = useMemo(
     () => buildFinancialSeries(months, actual, classified, fetchedBudget),
@@ -225,6 +300,9 @@ export function useUnitCostCards(input?: {
 
   return {
     cards,
+    customUnits,
+    reloadCustom,
+    deleteCustom,
     months,
     monthKey,
     monthLabel,
@@ -235,10 +313,66 @@ export function useUnitCostCards(input?: {
     series,
     currentFinancials,
     previousFinancials,
+    formulaContext: {
+      period: monthKey ? (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 }) : { revenue: 0, cost: 0 },
+      consolidated: totals.consolidated,
+      periodQuantity: null,
+      consolidatedQuantity: null,
+    },
     loading: Boolean(activeCompany) && loading,
     error,
     savingCode,
     saveQuantity,
+  }
+}
+
+function buildCard(input: {
+  def: IndicatorCardDef
+  kind: 'catalog' | 'custom'
+  customId?: string
+  segmentLabel: string
+  formula: CustomFormula
+  volumes: MonthlyVolumes
+  monthKey: string
+  monthLabel: string
+  previousKey: string | null
+  totals: ReturnType<typeof buildActualTotals>
+}): UnitCostCardModel {
+  const periodQty = input.volumes[input.monthKey] ?? null
+  const previousQty = input.previousKey ? (input.volumes[input.previousKey] ?? null) : null
+  const qtyAll = consolidatedQuantity(input.volumes)
+  const unitCost = evaluateFormula(input.formula, {
+    period: input.totals.byMonth[input.monthKey] ?? { revenue: 0, cost: 0 },
+    consolidated: input.totals.consolidated,
+    periodQuantity: periodQty,
+    consolidatedQuantity: qtyAll,
+  })
+  const previousUnitCost = input.previousKey
+    ? evaluateFormula(input.formula, {
+        period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0 },
+        consolidated: input.totals.consolidated,
+        periodQuantity: previousQty,
+        consolidatedQuantity: qtyAll,
+      })
+    : null
+
+  return {
+    def: input.def,
+    kind: input.kind,
+    customId: input.customId,
+    segmentLabel: input.segmentLabel,
+    volumes: input.volumes,
+    monthKey: input.monthKey,
+    monthLabel: input.monthLabel,
+    quantity: periodQty,
+    unitCost,
+    previousUnitCost,
+    unitCostChange: changeRatio(unitCost ?? Number.NaN, previousUnitCost),
+    formula: input.formula,
+    formulaHint: formulaHint(input.formula),
+    usesQuantity: formulaUsesQuantity(input.formula),
+    totalsByMonth: input.totals.byMonth,
+    consolidated: input.totals.consolidated,
   }
 }
 

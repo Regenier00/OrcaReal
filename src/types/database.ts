@@ -223,6 +223,37 @@ export interface SystemIndicator {
   is_active: boolean
 }
 
+export interface CompanyCustomUnit {
+  id: string
+  company_id: string
+  code: string
+  name: string
+  description: string | null
+  quantity_noun: string
+  quantity_noun_singular: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyCustomIndicator {
+  id: string
+  company_id: string
+  name: string
+  description: string | null
+  unit_source: 'catalog' | 'custom'
+  unit_code: string
+  unit_name: string
+  quantity_noun: string
+  quantity_noun_singular: string
+  custom_unit_id: string | null
+  formula: unknown
+  display_unit: string
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type BankAccountType = 'checking' | 'savings' | 'payment' | 'other'
 export type StatementFileType = 'ofx' | 'csv' | 'xlsx' | 'pdf' | 'unknown'
 export type StatementImportStatus =

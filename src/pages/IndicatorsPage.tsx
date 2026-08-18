@@ -9,11 +9,15 @@ import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { PeriodFilter } from '@/components/comparison/PeriodFilter'
 import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudgetSelect'
 import { UnitCostSection } from '@/components/indicators/UnitCostSection'
+import { useCompany } from '@/features/company/useCompany'
 import type { SystemIndicator } from '@/types/database'
 
 export function IndicatorsPage() {
   const data = useComparisonData()
+  const { activeMembership } = useCompany()
   const [indicators, setIndicators] = useState<SystemIndicator[]>([])
+  const [creating, setCreating] = useState(false)
+  const canCreate = activeMembership?.role !== 'viewer'
 
   useEffect(() => {
     let mounted = true
@@ -45,14 +49,26 @@ export function IndicatorsPage() {
   if (data.budgets.length === 0) {
     return (
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
-          <p className="mt-2 max-w-2xl text-sm text-mist">
-            O custo por unidade vem do ramo da empresa. Clique no card para
-            informar a quantidade do mês e calcular com o realizado.
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
+            <p className="mt-2 max-w-2xl text-sm text-mist">
+              O custo por unidade vem do ramo da empresa. Crie indicadores com
+              unidades da empresa e um cálculo só com o realizado: receitas e custos
+              separados, no mês ou no consolidado.
+            </p>
+          </div>
+          {canCreate ? (
+            <Button type="button" onClick={() => setCreating(true)}>
+              Criar indicador
+            </Button>
+          ) : null}
         </div>
-        <UnitCostSection />
+        <UnitCostSection
+          allowCreate
+          creating={creating}
+          onCreatingChange={setCreating}
+        />
         <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
           <p className="font-display text-xl font-semibold text-ink">
             Sem orçamento para os demais indicadores
@@ -79,11 +95,19 @@ export function IndicatorsPage() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            A unidade de operação vem do ramo. Clique no card para informar a
-            quantidade do mês; a conta usa o custo total realizado daquele mês.
+            A unidade de operação vem do ramo, e você também pode criar unidades
+            da empresa. O cálculo personalizado usa só o realizado: receitas e
+            custos separados, por período ou consolidado.
           </p>
         </div>
-        <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
+        <div className="flex flex-wrap items-center gap-3">
+          {canCreate ? (
+            <Button type="button" onClick={() => setCreating(true)}>
+              Criar indicador
+            </Button>
+          ) : null}
+          <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
+        </div>
       </div>
 
       {data.error ? (
@@ -110,6 +134,9 @@ export function IndicatorsPage() {
       ) : null}
 
       <UnitCostSection
+        allowCreate
+        creating={creating}
+        onCreatingChange={setCreating}
         months={data.months}
         preferredMonth={data.month}
         actual={data.pair?.actual ?? null}
