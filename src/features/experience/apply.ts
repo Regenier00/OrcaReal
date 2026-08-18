@@ -7,6 +7,7 @@ import {
   revenueUnitCostsFor,
   selectedRevenueModels,
 } from '@/features/experience/catalog/revenueModels'
+import { operationModelLabel } from '@/features/experience/catalog/operationModels'
 import { defaultUnitCodesForSegments, unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { buildDashboardLayout, selectIndicators } from '@/features/experience/indicators'
 import type {
@@ -196,6 +197,9 @@ export function buildProfileSummary(
         ? `Funcionários: ${labelFor(profile.employee_count_range)}`
         : null,
     revenueSummary(profile.revenue_model),
+    profile.operation_model
+      ? `Operação: ${operationModelLabel(profile.operation_model) || profile.operation_model}`
+      : null,
     profile.state
       ? `Local: ${[profile.city, profile.state].filter(Boolean).join(' / ')}`
       : null,

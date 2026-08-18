@@ -4,6 +4,14 @@ import { builtinCatalog } from '@/features/experience/catalog'
 import { mergeCatalog } from '@/features/experience/mergeCatalog'
 import type { AppliedExperience, DashboardLayout, ExperienceAnswers, ExperienceCatalog } from '@/features/experience/types'
 import type { ServiceResult } from '@/features/company/companyService'
+import {
+  OPERATION_PRIORITIES_QUESTION,
+  OPERATION_MODELS,
+} from '@/features/experience/catalog/operationModels'
+
+const OPERATIONAL_INDICATOR_CODES = OPERATION_MODELS.flatMap((model) =>
+  model.indicators.map((item) => item.code)
+)
 
 function fail(error: unknown): ServiceResult<never> {
   return { ok: false, message: mapCompanyError(error) }
@@ -55,13 +63,14 @@ export async function loadExperienceCatalog(): Promise<ExperienceCatalog> {
       helpText: (row.help_text as string | null) ?? undefined,
       answerType: (row.answer_type as 'single' | 'multiple' | 'text' | 'number' | 'scale') ?? 'single',
       options: normalizeOptions(row.options),
-      optionSource: (row.option_source as 'static' | 'analysis_units' | 'segments' | null) ?? 'static',
+      optionSource: (row.option_source as 'static' | 'analysis_units' | 'segments' | 'operation_indicators' | null) ?? 'static',
       segmentCode: (row.segment_code as string | null) ?? null,
       showWhen: (row.show_when as ExperienceCatalog['questions'][number]['showWhen']) ?? undefined,
       mapsTo: (row.maps_to as string | null) ?? undefined,
       sortOrder: Number(row.sort_order ?? 0),
       optional: Boolean(row.is_optional),
       continuous: Boolean(row.is_continuous),
+      ...(row.option_source === 'operation_indicators' ? { optionLayout: 'cards' as const } : {}),
     })),
     indicators: (indicatorsResult.data ?? []).map((row) => ({
       code: row.code as string,
@@ -282,6 +291,41 @@ export async function toggleCompanyIndicator(input: {
     .eq('id', input.indicatorId)
 
   if (error) return fail(error)
+  return { ok: true, data: true }
+}
+
+export async function saveCompanyOperationalPriorities(input: {
+  companyId: string
+  codes: string[]
+}): Promise<ServiceResult<true>> {
+  const saved = await saveExperienceProgress({
+    companyId: input.companyId,
+    answers: { [OPERATION_PRIORITIES_QUESTION]: input.codes },
+  })
+  if (!saved.ok) return saved
+
+  const { data: rows, error } = await supabase
+    .from('system_indicators')
+    .select('id, code')
+    .in('code', OPERATIONAL_INDICATOR_CODES)
+
+  if (error) return fail(error)
+
+  const selected = new Set(input.codes)
+  for (const row of rows ?? []) {
+    const enabled = selected.has(String(row.code))
+    const { error: upsertError } = await supabase.from('company_indicators').upsert(
+      {
+        company_id: input.companyId,
+        indicator_id: row.id,
+        enabled,
+        dashboard_visible: enabled,
+      },
+      { onConflict: 'company_id,indicator_id' }
+    )
+    if (upsertError) return fail(upsertError)
+  }
+
   return { ok: true, data: true }
 }
 

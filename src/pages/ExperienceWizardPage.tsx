@@ -281,10 +281,19 @@ export function ExperienceWizardPage() {
           value={answers[current.code] ?? null}
           onChange={(value) => {
             setError('')
-            setAnswers((currentAnswers) => ({
-              ...currentAnswers,
-              [current.code]: value,
-            }))
+            setAnswers((currentAnswers) => {
+              const next = {
+                ...currentAnswers,
+                [current.code]: value,
+              }
+              if (
+                current.code === 'operation_model' &&
+                String(currentAnswers.operation_model ?? '') !== String(value)
+              ) {
+                delete next.operation_priorities
+              }
+              return next
+            })
           }}
         />
       </div>

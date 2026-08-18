@@ -8,6 +8,7 @@ import type {
 } from '@/features/experience/types'
 import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
 import { EMPLOYEE_COUNT_QUESTION, parseEmployeeCount } from '@/features/experience/employeeCount'
+import { operationIndicatorOptionsFor } from '@/features/experience/catalog/operationModels'
 
 const RETIRED_QUESTION_CODES = new Set([
   'analysis_units',
@@ -98,6 +99,13 @@ export function resolveQuestionOptions(
   if (question.optionSource === 'segments') {
     return SEGMENT_OPTIONS.filter((option) => option.code !== ctx.segmentCode).map(
       (option) => ({ value: option.code, label: option.label })
+    )
+  }
+
+  if (question.optionSource === 'operation_indicators') {
+    const modelValue = ctx.answers.operation_model
+    return operationIndicatorOptionsFor(
+      Array.isArray(modelValue) ? modelValue[0] : modelValue != null ? String(modelValue) : null
     )
   }
 

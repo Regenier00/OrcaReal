@@ -1,5 +1,6 @@
 import { BRAZIL_STATES, YES_NO, opts, q } from './helpers'
 import { REVENUE_MODEL_OPTIONS } from './revenueModels'
+import { OPERATION_MODEL_OPTIONS, OPERATION_MODELS } from './operationModels'
 import type { ExperienceQuestion } from '../types'
 
 const common: ExperienceQuestion[] = [
@@ -71,16 +72,30 @@ const common: ExperienceQuestion[] = [
     {
       code: 'operation_model',
       prompt: 'Qual é o modelo de operação?',
-      options: opts(
-        'Operação própria',
-        'Arrendada',
-        'Terceirizada',
-        'Mista',
-        'Franquia'
-      ),
+      options: OPERATION_MODEL_OPTIONS,
       mapsTo: 'profile.operation_model',
     },
     70
+  ),
+  q(
+    {
+      code: 'operation_priorities',
+      prompt: 'Selecione quais informações são mais importantes para sua empresa?',
+      helpText:
+        'Marque os indicadores do seu modelo de operação. Eles aparecem em Indicadores operacionais e podem ser alterados depois no perfil da empresa.',
+      answerType: 'multiple',
+      optionSource: 'operation_indicators',
+      optionLayout: 'cards',
+      mapsTo: 'fact.operation_priorities',
+      optional: true,
+      showWhen: {
+        in: {
+          answer: 'operation_model',
+          values: OPERATION_MODELS.flatMap((model) => [model.value, ...model.aliases]),
+        },
+      },
+    },
+    75
   ),
   q(
     {

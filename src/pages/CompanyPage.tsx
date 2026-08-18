@@ -22,6 +22,7 @@ import {
   parseRevenueModelValues,
   revenueModelLabel,
 } from '@/features/experience/catalog/revenueModels'
+import { operationModelLabel } from '@/features/experience/catalog/operationModels'
 import {
   addCompanyOperation,
   listCompanyAnalysisUnits,
@@ -33,6 +34,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
+import { OperationalPrioritiesEditor } from '@/components/company/OperationalPrioritiesEditor'
 import { cn } from '@/lib/utils'
 import type {
   CompanyMember,
@@ -869,9 +871,15 @@ function CompanyExperienceTab({
           label="Geração de receita"
           value={formatRevenueModels(revenueModel)}
         />
-        <ProfileFact label="Modelo de operação" value={operationModel} />
+        <ProfileFact label="Modelo de operação" value={operationModelLabel(operationModel) || operationModel} />
         <ProfileFact label="Indicadores ativos" value={String(indicators)} />
       </dl>
+
+      <OperationalPrioritiesEditor
+        companyId={companyId}
+        canEdit={canEdit}
+        operationModel={operationModel}
+      />
 
       <form
         onSubmit={(event) => void handleSaveEmployeeCount(event)}

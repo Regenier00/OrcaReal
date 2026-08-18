@@ -40,6 +40,37 @@ export function QuestionCard({
 
   if (question.answerType === 'multiple') {
     const selected = Array.isArray(value) ? value : value ? [String(value)] : []
+    const layout = question.optionLayout === 'cards' ? 'cards' : 'chips'
+    if (layout === 'cards') {
+      return (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {options.map((option) => {
+            const active = selected.includes(option.value)
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(
+                    active
+                      ? selected.filter((item) => item !== option.value)
+                      : [...selected, option.value]
+                  )
+                }}
+                className={cn(
+                  'rounded-xl border px-3 py-3 text-left text-sm leading-snug transition',
+                  active
+                    ? 'border-navy bg-navy text-paper shadow-card'
+                    : 'border-paper-muted bg-paper text-ink-soft hover:border-navy-bright'
+                )}
+              >
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
+      )
+    }
     return (
       <div className="flex flex-wrap gap-2">
         {options.map((option) => {

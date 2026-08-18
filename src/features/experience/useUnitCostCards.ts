@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCompany } from '@/features/company/useCompany'
 import { isSegmentCode, segmentLabel, type SegmentCode } from '@/features/company/segmentOptions'
 import { extraSegmentCodesFromAnswers } from '@/features/experience/conditions'
-import { unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
+import { unitCostsForSegments, type SegmentUnitCostDef } from '@/features/experience/catalog/segmentUnits'
 import { EMPLOYEE_HEADCOUNT_COSTS, formulaForUnitCost } from '@/features/experience/catalog/employeeHeadcount'
 import {
   revenueIndicatorGroupLabel,

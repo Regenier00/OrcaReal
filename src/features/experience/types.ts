@@ -8,7 +8,7 @@ export type DashboardSectionId =
   | 'budget_vs_actual'
   | 'profitability'
 
-export type OptionSource = 'static' | 'analysis_units' | 'segments'
+export type OptionSource = 'static' | 'analysis_units' | 'segments' | 'operation_indicators'
 
 export interface QuestionOption {
   value: string
@@ -45,6 +45,7 @@ export interface ExperienceQuestion {
   sortOrder: number
   optional?: boolean
   continuous?: boolean
+  optionLayout?: 'chips' | 'cards'
 }
 
 export interface AnalysisUnitDef {

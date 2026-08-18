@@ -33,7 +33,7 @@ export const appModules: AppModule[] = [
   {
     id: 'indicators',
     title: 'Indicadores',
-    summary: 'Custo por unidade do ramo, desvio e concentração, com a fórmula à vista.',
+    summary: 'Operacionais do modelo da empresa e personalizados do ramo, com a fórmula à vista.',
     to: '/app/indicadores',
   },
 ]

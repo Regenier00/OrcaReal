@@ -28,6 +28,7 @@ import { ActualWizardPage } from '@/pages/ActualWizardPage'
 import { ActualDetailPage } from '@/pages/ActualDetailPage'
 import { BudgetVsActualPage } from '@/pages/BudgetVsActualPage'
 import { IndicatorsPage } from '@/pages/IndicatorsPage'
+import { CustomIndicatorsPage } from '@/pages/CustomIndicatorsPage'
 import { ACTUAL_PATHS } from '@/features/actual/model'
 
 export default function App() {
@@ -92,6 +93,10 @@ export default function App() {
                   element={<BudgetVsActualPage />}
                 />
                 <Route path="/app/indicadores" element={<IndicatorsPage />} />
+                <Route
+                  path="/app/indicadores/personalizados"
+                  element={<CustomIndicatorsPage />}
+                />
                 <Route path="/app/empresa" element={<CompanyPage />} />
                 <Route path="/app/perfil" element={<ProfilePage />} />
               </Route>
