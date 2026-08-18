@@ -12,6 +12,7 @@
     "test:unit-cost": "node --experimental-strip-types src/features/experience/unitCost.test.ts",
     "test:greeting": "node --experimental-strip-types src/lib/greeting.test.ts",
     "test:dashboard": "node --experimental-strip-types src/features/home/dashboardModel.test.ts",
+    "test:comparison": "node --experimental-strip-types src/features/comparison/model.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

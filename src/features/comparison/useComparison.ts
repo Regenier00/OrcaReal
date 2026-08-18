@@ -149,11 +149,11 @@ export function useComparisonData() {
     [lines, months, month]
   )
 
-  const hasRealized = useMemo(() => {
-    if (pair?.actual) return true
-    if ((pair?.classifiedActuals.length ?? 0) > 0) return true
-    return lines.some((line) => Object.values(line.actual).some((value) => value !== 0))
-  }, [pair, lines])
+  const hasClassifiedOrActual = Boolean(pair?.actual) || (pair?.classifiedActuals.length ?? 0) > 0
+  const hasRealized = useMemo(
+    () => lines.some((line) => Object.values(line.actual).some((value) => value !== 0)),
+    [lines]
+  )
 
   const setBudgetId = (budgetId: string) => {
     const next = new URLSearchParams(params)
@@ -193,5 +193,6 @@ export function useComparisonData() {
     setBudgetId,
     selectedBudgetId: requestedBudgetId,
     hasRealized,
+    hasClassifiedOrActual,
   }
 }

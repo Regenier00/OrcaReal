@@ -92,7 +92,7 @@ function testCalculation() {
 
   const classified = [
     { monthKey: '2026-08', amount: 50, type: 'expense' },
-    { monthKey: '2026-08', amount: -30, type: 'income' },
+    { monthKey: '2026-08', amount: 30, type: 'income' },
   ]
 
   const total = realizedCostForMonth(actual, classified, '2026-08')

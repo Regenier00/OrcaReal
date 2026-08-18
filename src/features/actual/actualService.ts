@@ -5,7 +5,6 @@ import {
   type CompanyStructure,
 } from '@/features/company/structureService'
 import {
-  classifiedAmountForComparison,
   fileTypeFromName,
   groupTransactionsBySuggestion,
   isDefaultBankAccount,
@@ -463,10 +462,7 @@ export async function listClassifiedActualSlices(
         departmentName: department?.name || 'Departamento',
         costCenterName: costCenter?.name || 'Centro de custo',
         monthKey: monthKey(Number(match[1]), Number(match[2])),
-        amount: classifiedAmountForComparison(
-          row.type as ActualTransactionType,
-          Number(row.amount),
-        ),
+        amount: Number(row.amount),
         type: (row.type as ActualTransactionType) ?? 'unknown',
       })
     }
