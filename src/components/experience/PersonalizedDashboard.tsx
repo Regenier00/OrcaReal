@@ -14,7 +14,13 @@ import { FinancialInsights } from '@/components/home/FinancialInsights'
 import type { HomeDashboardData } from '@/features/experience/useUnitCostCards'
 import type { ExperienceAnswers } from '@/features/experience/types'
 
-export function PersonalizedDashboard({ data }: { data: HomeDashboardData }) {
+export function PersonalizedDashboard({
+  data,
+  greeting,
+}: {
+  data: HomeDashboardData
+  greeting?: string
+}) {
   const { activeCompany, companyProfile, segments } = useCompany()
   const dashboard = data
   const [answers, setAnswers] = useState<ExperienceAnswers>({})
@@ -55,6 +61,7 @@ export function PersonalizedDashboard({ data }: { data: HomeDashboardData }) {
         current={dashboard.currentFinancials}
         previous={dashboard.previousFinancials}
         monthLabel={dashboard.monthLabel}
+        greeting={greeting}
         loading={dashboard.loading}
       />
 

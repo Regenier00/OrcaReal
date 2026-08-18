@@ -13,20 +13,19 @@ export function FinancialSummary({
   current,
   previous,
   monthLabel,
+  greeting,
   loading,
 }: {
   current: MonthFinancials | null
   previous: MonthFinancials | null
   monthLabel: string
+  greeting?: string
   loading?: boolean
 }) {
   if (loading && !current) {
     return (
       <section>
-        <SectionHeading
-          kicker="Resumo financeiro"
-          title="Principais indicadores do mês"
-        />
+        <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, index) => (
             <div
@@ -56,15 +55,7 @@ export function FinancialSummary({
 
   return (
     <section>
-      <SectionHeading
-        kicker="Resumo financeiro"
-        title="Principais indicadores do mês"
-        subtitle={
-          monthLabel
-            ? `Leitura consolidada de ${monthLabel}.`
-            : 'Leitura consolidada do período ativo.'
-        }
-      />
+      <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           to="/app/orcado-realizado"
@@ -125,6 +116,30 @@ export function FinancialSummary({
         />
       </div>
     </section>
+  )
+}
+
+function SummaryIntro({
+  greeting,
+  monthLabel,
+}: {
+  greeting?: string
+  monthLabel: string
+}) {
+  return (
+    <div>
+      <h2 className="font-display text-xl font-semibold text-navy sm:text-2xl">
+        {greeting || 'Veja como está o resultado financeiro no mês.'}
+      </h2>
+      <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-navy-bright">
+        Resumo financeiro
+      </p>
+      {monthLabel ? (
+        <p className="mt-1 text-sm text-mist">Leitura consolidada de {monthLabel}.</p>
+      ) : (
+        <p className="mt-1 text-sm text-mist">Leitura consolidada do período ativo.</p>
+      )}
+    </div>
   )
 }
 
