@@ -11,6 +11,7 @@ import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
 const RETIRED_QUESTION_CODES = new Set([
   'analysis_units',
   'maturity',
+  'activities',
   'tech_costs',
   'hlt_costs',
   'min_costs',
@@ -20,6 +21,7 @@ const RETIRED_QUESTION_CODES = new Set([
 const RETIRED_QUESTION_PROMPTS = new Set([
   'Como você avalia a maturidade do controle financeiro?',
   'Quais custos são mais relevantes?',
+  'Quais atividades a empresa realiza?',
 ])
 
 function isRetiredQuestion(question: ExperienceQuestion): boolean {
