@@ -46,7 +46,7 @@ export function sniffFormat(
   fileName: string,
   bytes: Uint8Array,
 ): StatementFormat {
-  const name = fileName.toLowerCase()
+  const name = String(fileName ?? '').toLowerCase()
   const sample = decodeText(bytes.subarray(0, Math.min(bytes.length, MAX_TEXT_SAMPLE)))
   const head = sample.slice(0, 4000).toUpperCase()
 

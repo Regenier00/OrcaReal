@@ -68,8 +68,17 @@ function splitCsvLine(line: string, delimiter: string) {
   return cells
 }
 
+function denseRow(row: string[]) {
+  const next = Array<string>(row.length)
+  for (let i = 0; i < row.length; i += 1) {
+    next[i] = row[i] ?? ''
+  }
+  return next
+}
+
 export function parseTabularRows(rows: string[][]): ParseResult {
   const result = emptyResult('csv')
+  rows = rows.map(denseRow)
   if (rows.length === 0) {
     result.warnings.push({ message: 'Arquivo sem linhas' })
     return result
