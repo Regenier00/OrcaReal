@@ -96,15 +96,16 @@ export function IndicatorsPage() {
         budgets={data.budgets}
         value={data.selectedBudgetId}
         onChange={data.setBudgetId}
-        hasActual={data.hasRealized}
+        hasActual={data.hasClassifiedOrActual}
         actualHref="/app/realizado/nao-apropriados"
         createActualHref="/app/realizado/nao-apropriados"
       />
 
       {!data.hasRealized ? (
         <p className="rounded-xl border border-paper-muted bg-white px-4 py-3 text-sm text-mist">
-          Sem lançamentos apropriados, o desvio considera realizado zero. Apropie
-          os valores para ver os indicadores completos.
+          Sem saídas apropriadas, o desvio considera realizado zero. As entradas
+          entram na receita e nos demais indicadores; apropie as saídas para ver
+          o desvio completo.
         </p>
       ) : null}
 

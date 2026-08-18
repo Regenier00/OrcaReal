@@ -67,15 +67,6 @@ export const EDITABLE_TRANSACTION_TYPES: ActualTransactionType[] = [
   'unknown',
 ]
 
-export function classifiedAmountForComparison(
-  type: ActualTransactionType,
-  amount: number
-) {
-  if (type === 'expense') return amount
-  if (type === 'income') return -amount
-  return 0
-}
-
 export interface ClassifiedActualSlice {
   departmentId: string | null
   costCenterId: string
