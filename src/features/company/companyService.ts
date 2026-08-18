@@ -35,6 +35,7 @@ function asCompany(value: unknown): Company | null {
     trade_name: row.trade_name ?? null,
     document: row.document ?? null,
     description: row.description ?? null,
+    logo_url: typeof row.logo_url === 'string' && row.logo_url ? row.logo_url : null,
     created_at: row.created_at ?? '',
     updated_at: row.updated_at ?? '',
   }
@@ -351,6 +352,54 @@ export async function getCompanySettings(
 
   if (error) return fail(error)
   return { ok: true, data: (data as CompanySettings | null) ?? null }
+}
+
+export function logoUrlFromSettings(
+  settings: Record<string, unknown> | null | undefined
+): string | null {
+  const value = settings?.logo_url
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+export async function updateCompanyLogo(input: {
+  companyId: string
+  logoUrl: string | null
+}): Promise<ServiceResult<string | null>> {
+  const { data, error } = await supabase
+    .from('companies')
+    .update({
+      logo_url: input.logoUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.companyId)
+    .select()
+    .single()
+
+  if (!error) {
+    return { ok: true, data: asCompany(data)?.logo_url ?? input.logoUrl }
+  }
+
+  const settingsResult = await getCompanySettings(input.companyId)
+  if (!settingsResult.ok) return fail(error)
+
+  if (!settingsResult.data) {
+    const { error: insertError } = await supabase.from('company_settings').insert({
+      company_id: input.companyId,
+      settings: { logo_url: input.logoUrl },
+    })
+    if (insertError) return fail(error)
+    return { ok: true, data: input.logoUrl }
+  }
+
+  const updated = await updateCompanySettings({
+    companyId: input.companyId,
+    settings: {
+      ...settingsResult.data.settings,
+      logo_url: input.logoUrl,
+    },
+  })
+  if (!updated.ok) return fail(error)
+  return { ok: true, data: input.logoUrl }
 }
 
 export async function updateCompanySettings(input: {

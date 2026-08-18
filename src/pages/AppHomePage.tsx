@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
+import { updateCompanyLogo } from '@/features/company/companyService'
 import { segmentLabel } from '@/features/company/segmentOptions'
-import { formatCnpj } from '@/features/company/cnpj'
 import { appModules } from '@/content/appModules'
 import { Button } from '@/components/ui/Button'
-import { FeatureIllustration } from '@/components/home/FeatureIllustration'
+import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { PersonalizedDashboard } from '@/components/experience/PersonalizedDashboard'
 
 export function AppHomePage() {
@@ -14,7 +14,9 @@ export function AppHomePage() {
     companyProfile,
     segments,
     memberships,
+    isAdmin,
     setActiveCompanyId,
+    refresh,
   } = useCompany()
 
   const segment = segments.find((item) => item.id === companyProfile?.segment_id)
@@ -22,98 +24,75 @@ export function AppHomePage() {
     companyProfile?.custom_segment ||
     segment?.name ||
     (segment ? segmentLabel(segment.code) : null)
+  const activity = companyProfile?.primary_activity?.trim() || null
+
+  const handleLogoChange = async (logoUrl: string | null) => {
+    if (!activeCompany) return
+    const result = await updateCompanyLogo({
+      companyId: activeCompany.id,
+      logoUrl,
+    })
+    if (!result.ok) {
+      throw new Error(result.message)
+    }
+    await refresh()
+  }
 
   return (
     <div>
-      <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
-      <p className="mt-2 max-w-2xl text-sm text-mist">
-        Visão financeira, operacional e orçado × realizado montada a partir do
-        perfil da empresa.
-      </p>
-
       {activeCompany ? (
-        <section className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mist">
-            Empresa ativa
-          </p>
-          <h2 className="mt-2 font-display text-2xl font-semibold text-navy">
-            {activeCompany.trade_name || activeCompany.name}
-          </h2>
-          {activeCompany.trade_name && activeCompany.trade_name !== activeCompany.name ? (
-            <p className="mt-1 text-sm text-mist">{activeCompany.name}</p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
-            {activeCompany.document ? (
-              <p>CNPJ: {formatCnpj(activeCompany.document)}</p>
-            ) : null}
-            {segmentName ? <p>Ramo: {segmentName}</p> : null}
-            {companyProfile?.primary_activity ? (
-              <p>Atividade: {companyProfile.primary_activity}</p>
-            ) : null}
-          </div>
-          {companyProfile?.profile_summary ? (
-            <p className="mt-4 text-sm leading-relaxed text-mist">
-              {companyProfile.profile_summary}
-            </p>
-          ) : null}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link to="/app/orcamentos">
-              <Button>Orçamentos</Button>
-            </Link>
-            <Link to="/app/conhecer-empresa">
-              <Button variant="secondary">Aprofundar perfil</Button>
-            </Link>
-            <Link to="/app/empresa">
-              <Button variant="secondary">Empresa</Button>
-            </Link>
+        <section className="rounded-2xl border border-paper-muted bg-white px-5 py-5 sm:px-6">
+          <div className="flex items-center gap-4">
+            <CompanyLogoAvatar
+              name={activeCompany.trade_name || activeCompany.name}
+              logoUrl={activeCompany.logo_url}
+              editable={isAdmin}
+              onChange={isAdmin ? handleLogoChange : undefined}
+            />
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-mist">
+                Empresa ativa
+              </p>
+              <h1 className="mt-1 truncate font-display text-2xl font-semibold text-navy sm:text-3xl">
+                {activeCompany.trade_name || activeCompany.name}
+              </h1>
+              {segmentName || activity ? (
+                <p className="mt-1 truncate text-sm text-mist">
+                  {segmentName ? `Ramo: ${segmentName}` : null}
+                  {segmentName && activity ? ' · ' : null}
+                  {activity ? `Atividade: ${activity}` : null}
+                </p>
+              ) : null}
+            </div>
           </div>
         </section>
-      ) : null}
+      ) : (
+        <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
+      )}
 
       {activeCompany ? <PersonalizedDashboard /> : null}
 
       {activeCompany ? (
         <section className="mt-8">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mist">
-            Funcionalidades
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-mist">
+            Atalhos
           </p>
-          <h2 className="mt-2 font-display text-2xl font-semibold text-navy">
-            Tudo disponível para esta empresa
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-mist">
-            Com usuário e empresa cadastrados, orçamento, realizado, a comparação
-            e os indicadores ficam no mesmo ambiente.
-          </p>
-
-          <ul className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {appModules.map((module) => (
-              <li key={module.id}>
-                <Link
-                  to={module.to}
-                  className="flex h-full flex-col rounded-2xl border border-paper-muted bg-white p-6 transition hover:border-ink/20"
-                >
-                  <h3 className="font-display text-xl font-semibold text-ink">
-                    {module.title}
-                  </h3>
-                  <p className="mt-2 flex-1 text-sm leading-relaxed text-ink-soft/75">
-                    {module.summary}
-                  </p>
-                  <div className="mt-5 rounded-xl bg-paper px-4 py-4">
-                    <FeatureIllustration id={module.id} />
-                  </div>
-                  <span className="mt-5 inline-flex items-center justify-center rounded-xl border border-paper-muted bg-white px-5 py-2.5 text-sm font-semibold text-ink">
-                    Abrir
-                  </span>
-                </Link>
-              </li>
+              <Link
+                key={module.id}
+                to={module.to}
+                className="rounded-full border border-paper-muted bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/20 hover:bg-paper"
+              >
+                {module.title}
+              </Link>
             ))}
-          </ul>
+          </div>
         </section>
       ) : null}
 
       {companies.length > 1 ? (
-        <section className="mt-6 rounded-2xl border border-paper-muted bg-white p-6">
+        <section className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">
           <h2 className="font-display text-xl font-semibold text-navy">
             Suas empresas
           </h2>

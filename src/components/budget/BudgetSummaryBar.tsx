@@ -43,7 +43,7 @@ export function BudgetSummaryBar({
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-mist">Itens</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
+            <p className="mt-1 font-numeric text-lg font-semibold text-ink">
               {draft.items.length}
             </p>
           </div>
@@ -51,13 +51,13 @@ export function BudgetSummaryBar({
             <p className="text-xs uppercase tracking-wide text-mist">
               {months[0] ? months[0].label : 'Mês'}
             </p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
+            <p className="mt-1 font-numeric text-lg font-semibold text-ink">
               {formatMoney(firstMonthTotal)}
             </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-mist">{totalLabel}</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums text-navy">
+            <p className="mt-1 font-numeric text-lg font-semibold tabular-nums text-navy">
               {formatMoney(total)}
             </p>
           </div>

@@ -29,12 +29,11 @@ export function UnitCostSection({
 
   return (
     <section>
-      <h2 className="font-display text-xl font-semibold text-navy">
-        Custo por unidade de operação
+      <h2 className="font-display text-lg font-semibold text-navy">
+        Custo por unidade
       </h2>
-      <p className="mt-2 max-w-2xl text-sm text-mist">
-        A unidade vem do ramo da empresa. Clique no card, informe a quantidade do
-        mês e o sistema divide o custo total realizado pelo volume da operação.
+      <p className="mt-1 max-w-2xl text-sm text-mist">
+        Clique no card e informe a quantidade do mês.
       </p>
       {data.error ? (
         <p className="mt-3 rounded-xl border border-danger/20 bg-white px-4 py-3 text-sm text-danger">

@@ -31,7 +31,7 @@ function Stat({
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
       <dd
         className={cn(
-          'mt-1 font-display text-xl font-semibold',
+          'mt-1 font-numeric text-xl font-semibold',
           tone === 'danger'
             ? 'text-danger'
             : tone === 'ok'

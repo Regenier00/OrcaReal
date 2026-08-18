@@ -129,7 +129,7 @@ function Indicator({
   return (
     <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
-      <dd className="mt-1 font-display text-xl font-semibold text-ink">{value}</dd>
+      <dd className="mt-1 font-numeric text-xl font-semibold text-ink">{value}</dd>
       <p className="mt-2 font-mono text-[11px] text-mist">{hint}</p>
     </div>
   )

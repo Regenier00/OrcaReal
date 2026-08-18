@@ -162,17 +162,17 @@ export function BudgetDetailPage() {
       <div className="grid gap-4 rounded-2xl border border-paper-muted bg-white p-5 sm:grid-cols-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-mist">Itens</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+          <p className="mt-1 font-numeric text-xl font-semibold tabular-nums text-ink">
             {budget.items.length}
           </p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-wide text-mist">Meses</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-ink">{months.length}</p>
+          <p className="mt-1 font-numeric text-xl font-semibold tabular-nums text-ink">{months.length}</p>
         </div>
         <div>
           <p className="text-xs uppercase tracking-wide text-mist">Total orçado</p>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-navy">
+          <p className="mt-1 font-numeric text-xl font-semibold tabular-nums text-navy">
             {formatMoney(total)}
           </p>
         </div>

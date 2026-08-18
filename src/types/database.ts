@@ -14,6 +14,7 @@ export interface Company {
   trade_name: string | null
   document: string | null
   description: string | null
+  logo_url: string | null
   created_at: string
   updated_at: string
 }

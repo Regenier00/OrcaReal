@@ -86,10 +86,10 @@ function Stat({
       <dd
         className={
           tone === 'danger'
-            ? 'mt-1 font-display text-xl font-semibold text-danger'
+            ? 'mt-1 font-numeric text-xl font-semibold text-danger'
             : tone === 'ok'
-              ? 'mt-1 font-display text-xl font-semibold text-ok'
-              : 'mt-1 font-display text-xl font-semibold text-ink'
+              ? 'mt-1 font-numeric text-xl font-semibold text-ok'
+              : 'mt-1 font-numeric text-xl font-semibold text-ink'
         }
       >
         {value}
