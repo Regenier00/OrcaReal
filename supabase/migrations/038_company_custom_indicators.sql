@@ -21,7 +21,7 @@ create table if not exists public.company_custom_indicators (
   company_id uuid not null references public.companies (id) on delete cascade,
   name text not null,
   description text,
-  unit_source text not null check (unit_source in ('catalog', 'custom')),
+  unit_source text not null,
   unit_code text not null,
   unit_name text not null,
   quantity_noun text not null,
@@ -33,7 +33,9 @@ create table if not exists public.company_custom_indicators (
   created_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint company_custom_indicators_unit_source_check check (
+  constraint company_custom_indicators_unit_source_values_check
+    check (unit_source in ('catalog', 'custom')),
+  constraint company_custom_indicators_custom_unit_id_check check (
     (unit_source = 'custom' and custom_unit_id is not null)
     or (unit_source = 'catalog' and custom_unit_id is null)
   )
