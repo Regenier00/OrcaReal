@@ -26,12 +26,29 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
+import {
+  FloatingNotice,
+  SuggestionBalloon,
+} from '@/components/actual/SuggestionBalloon'
 import { cn } from '@/lib/utils'
 
 function formatDate(value: string) {
   const [year, month, day] = value.split('-')
   if (!year || !month || !day) return value
   return `${day}/${month}/${year}`
+}
+
+function suggestionLabel(
+  item: ActualTransaction,
+  catalog: ActualCatalog | null,
+) {
+  const parts = [
+    catalog?.departments.find((entry) => entry.id === item.suggested_department_id)
+      ?.name,
+    catalog?.costCenters.find((entry) => entry.id === item.suggested_cost_center_id)
+      ?.name,
+  ].filter((value): value is string => Boolean(value))
+  return parts.join(' · ')
 }
 
 export function ClassifyTransactionsPage() {
@@ -48,6 +65,7 @@ export function ClassifyTransactionsPage() {
   const [nextType, setNextType] = useState<ActualTransactionType | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
 
   const loadKey = company
@@ -99,9 +117,56 @@ export function ClassifyTransactionsPage() {
 
   const loading = Boolean(loadKey) && fetchedFor !== loadKey
   const selectedItems = items.filter((item) => selected.includes(item.id))
+  const selectedWithSuggestion = selectedItems.filter(
+    (item) => item.status === 'pending' && hasSuggestion(item),
+  )
   const costCenters = catalog
     ? costCentersForDepartment(catalog, departmentId)
     : []
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = window.setTimeout(() => setNotice(''), 4200)
+    return () => window.clearTimeout(timer)
+  }, [notice])
+
+  useEffect(() => {
+    const suggested = items.filter(
+      (item) =>
+        selected.includes(item.id) &&
+        item.status === 'pending' &&
+        hasSuggestion(item),
+    )
+    if (suggested.length === 0) return
+    const nextDepartmentId = suggested[0]?.suggested_department_id ?? ''
+    const nextCostCenterId = suggested[0]?.suggested_cost_center_id ?? ''
+    const sameSuggestion = suggested.every(
+      (item) =>
+        (item.suggested_department_id ?? '') === nextDepartmentId &&
+        (item.suggested_cost_center_id ?? '') === nextCostCenterId,
+    )
+    if (!sameSuggestion || !nextDepartmentId) return
+    setDepartmentId(nextDepartmentId)
+    setCostCenterId(nextCostCenterId)
+  }, [items, selected])
+
+  const suggestionPreview = useMemo(() => {
+    const labels = [
+      ...new Set(
+        selectedWithSuggestion
+          .map((item) => suggestionLabel(item, catalog))
+          .filter(Boolean),
+      ),
+    ]
+    if (labels.length === 0) return null
+    return {
+      lines: labels,
+      hint:
+        selectedWithSuggestion.length === 1
+          ? 'Clique em Aplicar sugestão para apropriar com estes valores.'
+          : `${selectedWithSuggestion.length} lançamentos selecionados. Clique em Aplicar sugestão para apropriar com o histórico.`,
+    }
+  }, [catalog, selectedWithSuggestion])
 
   const allSelected = items.length > 0 && selected.length === items.length
 
@@ -191,8 +256,14 @@ export function ClassifyTransactionsPage() {
 
   const applySuggestions = async () => {
     if (!company) return
-    const targets = selectedItems.length > 0 ? selectedItems : items.filter(hasSuggestion)
-    if (targets.length === 0) return
+    const targets = selectedWithSuggestion
+    if (targets.length === 0) {
+      setError('Selecione um lançamento com sugestão de histórico.')
+      return
+    }
+    const labels = [
+      ...new Set(targets.map((item) => suggestionLabel(item, catalog)).filter(Boolean)),
+    ]
     setBusy(true)
     try {
       await applyTransactionSuggestions({
@@ -202,6 +273,11 @@ export function ClassifyTransactionsPage() {
       await reload()
       setSelected([])
       setError('')
+      setNotice(
+        targets.length === 1 && labels[0]
+          ? `Apropriado com a sugestão: ${labels[0]}`
+          : `${targets.length} lançamentos apropriados com sugestão de histórico.`,
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível aplicar as sugestões.')
     } finally {
@@ -256,6 +332,17 @@ export function ClassifyTransactionsPage() {
             : ''}
           {selected.length > 0 ? ` · ${selected.length} selecionada(s)` : ''}
         </p>
+        {suggestionPreview ? (
+          <div className="mt-4 mb-1 flex justify-end">
+            <SuggestionBalloon
+              className="w-full max-w-md"
+              pointer="right"
+              title="Sugestão do histórico"
+              lines={suggestionPreview.lines}
+              hint={suggestionPreview.hint}
+            />
+          </div>
+        ) : null}
         <div className="mt-4 grid gap-3 lg:grid-cols-4">
           <Select
             label="Departamento"
@@ -315,7 +402,7 @@ export function ClassifyTransactionsPage() {
             <Button
               type="button"
               variant="secondary"
-              disabled={busy || (selectedItems.length === 0 && summary.withSuggestion === 0)}
+              disabled={busy || selectedWithSuggestion.length === 0}
               onClick={() => void applySuggestions()}
             >
               Aplicar sugestão
@@ -367,7 +454,13 @@ export function ClassifyTransactionsPage() {
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={item.id} className="border-t border-paper-muted align-top">
+                <tr
+                  key={item.id}
+                  className={cn(
+                    'border-t border-paper-muted align-top',
+                    selected.includes(item.id) && 'bg-navy-soft/70',
+                  )}
+                >
                   <td className="px-3 py-3">
                     <input
                       type="checkbox"
@@ -382,15 +475,9 @@ export function ClassifyTransactionsPage() {
                   <td className="px-3 py-3">
                     <p className="font-medium text-ink">{item.description}</p>
                     {hasSuggestion(item) && item.status === 'pending' ? (
-                      <p className="mt-1 text-xs text-navy-bright">
-                        Sugestão de histórico:{' '}
-                        {[
-                          nameOf(catalog?.departments ?? [], item.suggested_department_id),
-                          nameOf(catalog?.costCenters ?? [], item.suggested_cost_center_id),
-                        ]
-                          .filter((value) => value !== '—')
-                          .join(' · ')}
-                      </p>
+                      <span className="mt-1.5 inline-flex rounded-full bg-navy-soft px-2.5 py-1 text-[11px] font-medium text-navy-bright">
+                        Sugestão: {suggestionLabel(item, catalog) || 'histórico disponível'}
+                      </span>
                     ) : null}
                   </td>
                   <td className="px-3 py-3">
@@ -436,6 +523,9 @@ export function ClassifyTransactionsPage() {
           </table>
         </div>
       )}
+      {notice ? (
+        <FloatingNotice message={notice} onDismiss={() => setNotice('')} />
+      ) : null}
     </ActualPageShell>
   )
 }
