@@ -13,6 +13,8 @@ const RETIRED_QUESTION_CODES = new Set([
   'analysis_units',
   'maturity',
   'activities',
+  'main_objective',
+  'primary_activity',
   'tech_costs',
   'hlt_costs',
   'min_costs',
@@ -23,6 +25,8 @@ const RETIRED_QUESTION_PROMPTS = new Set([
   'Como você avalia a maturidade do controle financeiro?',
   'Quais custos são mais relevantes?',
   'Quais atividades a empresa realiza?',
+  'Qual é o objetivo principal ao usar a plataforma?',
+  'Qual é a atividade principal da empresa?',
 ])
 
 function isRetiredQuestion(question: ExperienceQuestion): boolean {

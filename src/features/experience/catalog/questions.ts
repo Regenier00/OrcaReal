@@ -46,16 +46,6 @@ const common: ExperienceQuestion[] = [
   ),
   q(
     {
-      code: 'primary_activity',
-      prompt: 'Qual é a atividade principal da empresa?',
-      helpText: 'Descreva em poucas palavras o que a empresa faz no dia a dia.',
-      answerType: 'text',
-      mapsTo: 'profile.primary_activity',
-    },
-    50
-  ),
-  q(
-    {
       code: 'revenue_model',
       prompt: 'Como sua empresa gera receita?',
       options: opts(

@@ -54,14 +54,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     'single',
     '["Excel","Sistema contábil","ERP","Anotações manuais","Quase não controla"]'::jsonb,
     30
-  ),
-  (
-    'main_objective',
-    'Qual é o objetivo principal ao usar a plataforma?',
-    null,
-    'single',
-    '["Comparar orçado e realizado","Entender custos","Organizar o orçamento","Gerar indicadores e relatórios"]'::jsonb,
-    40
   );
 
 insert into public.import_templates (code, name, version, kind, schema_definition) values
