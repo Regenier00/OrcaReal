@@ -1,13 +1,18 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '@/features/auth/useAuth'
+import { getUserProfile } from '@/features/auth/profileService'
 import { useCompany } from '@/features/company/useCompany'
 import { updateCompanyLogo } from '@/features/company/companyService'
 import { segmentLabel } from '@/features/company/segmentOptions'
 import { appModules } from '@/content/appModules'
+import { monthResultGreeting } from '@/lib/greeting'
 import { Button } from '@/components/ui/Button'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { PersonalizedDashboard } from '@/components/experience/PersonalizedDashboard'
 
 export function AppHomePage() {
+  const { user } = useAuth()
   const {
     activeCompany,
     companies,
@@ -18,6 +23,9 @@ export function AppHomePage() {
     setActiveCompanyId,
     refresh,
   } = useCompany()
+  const [profileName, setProfileName] = useState(
+    String(user?.user_metadata?.name ?? '')
+  )
 
   const segment = segments.find((item) => item.id === companyProfile?.segment_id)
   const segmentName =
@@ -25,6 +33,15 @@ export function AppHomePage() {
     segment?.name ||
     (segment ? segmentLabel(segment.code) : null)
   const activity = companyProfile?.primary_activity?.trim() || null
+
+  useEffect(() => {
+    if (!user) return
+    const fallback = String(user.user_metadata?.name ?? '')
+    setProfileName(fallback)
+    void getUserProfile(user.id).then((profile) => {
+      setProfileName(profile?.name || fallback)
+    })
+  }, [user])
 
   const handleLogoChange = async (logoUrl: string | null) => {
     if (!activeCompany) return
@@ -70,6 +87,12 @@ export function AppHomePage() {
         <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
       )}
 
+      {activeCompany ? (
+        <h2 className="mt-6 font-display text-xl font-semibold text-navy sm:text-2xl">
+          {monthResultGreeting(profileName, user?.email)}
+        </h2>
+      ) : null}
+
       {activeCompany ? <PersonalizedDashboard /> : null}
 
       {activeCompany ? (
@@ -82,7 +105,7 @@ export function AppHomePage() {
               <Link
                 key={module.id}
                 to={module.to}
-                className="rounded-full border border-paper-muted bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/20 hover:bg-paper"
+                className="cursor-pointer rounded-full border border-paper-muted bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/20 hover:bg-paper"
               >
                 {module.title}
               </Link>

@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test:statement": "node --experimental-strip-types src/features/actual/statementParse.test.ts",
     "test:unit-cost": "node --experimental-strip-types src/features/experience/unitCost.test.ts",
+    "test:greeting": "node --experimental-strip-types src/lib/greeting.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
