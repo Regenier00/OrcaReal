@@ -15,15 +15,12 @@ const common: ExperienceQuestion[] = [
   q(
     {
       code: 'employee_count',
-      prompt: 'Qual é o número aproximado de funcionários?',
-      options: [
-        { value: '1_10', label: '1 a 10' },
-        { value: '11_50', label: '11 a 50' },
-        { value: '51_200', label: '51 a 200' },
-        { value: '201_500', label: '201 a 500' },
-        { value: '500_plus', label: 'Mais de 500' },
-      ],
-      mapsTo: 'profile.employee_count_range',
+      prompt:
+        'Informe a quantidade de funcionários que a empresa possui para uma experiência personalizada',
+      helpText:
+        'Esse número preenche os indicadores de receita e custo por funcionário. Você pode alterar depois no perfil da empresa.',
+      answerType: 'number',
+      mapsTo: 'profile.employee_count',
     },
     20
   ),

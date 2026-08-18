@@ -44,6 +44,7 @@ export interface CompanyProfile {
   segment_id: string | null
   custom_segment: string | null
   company_size: string | null
+  employee_count: number | null
   employee_count_range: string | null
   state: string | null
   city: string | null

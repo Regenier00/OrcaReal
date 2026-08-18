@@ -171,6 +171,19 @@ export async function applyCompanyExperience(input: {
   })
 
   if (error) return fail(error)
+
+  const employeeCount = input.experience.profile.employee_count
+  if (employeeCount != null && Number.isFinite(employeeCount) && employeeCount > 0) {
+    const { error: countError } = await supabase
+      .from('company_profiles')
+      .update({
+        employee_count: Math.round(employeeCount),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('company_id', input.companyId)
+    if (countError) return fail(countError)
+  }
+
   return { ok: true, data: true }
 }
 

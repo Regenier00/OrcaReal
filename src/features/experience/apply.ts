@@ -20,6 +20,17 @@ function asText(value: AnswerValue): string | null {
   return text || null
 }
 
+function asPositiveInt(value: AnswerValue): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.round(value)
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value.replace(',', '.').trim())
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed)
+  }
+  return null
+}
+
 function asList(value: AnswerValue): string[] {
   if (value == null) return []
   if (Array.isArray(value)) return value.map(String)
@@ -33,6 +44,7 @@ export function deriveProfile(
   const facts: Record<string, unknown> = {}
   const profile: AppliedExperience['profile'] = {
     company_size: null,
+    employee_count: null,
     employee_count_range: null,
     state: null,
     city: null,
@@ -49,12 +61,13 @@ export function deriveProfile(
     if (value == null || value === '__skipped__' || (Array.isArray(value) && value.length === 0)) continue
 
     if (question.mapsTo.startsWith('profile.')) {
-      const key = question.mapsTo.slice('profile.'.length) as keyof Omit<
-        AppliedExperience['profile'],
-        'profile_facts' | 'profile_summary'
-      >
-      if (key in profile) {
-        profile[key] = asText(value)
+      const key = question.mapsTo.slice('profile.'.length)
+      if (key === 'employee_count') {
+        profile.employee_count = asPositiveInt(value)
+        continue
+      }
+      if (key in profile && key !== 'profile_facts' && key !== 'profile_summary') {
+        profile[key as 'company_size'] = asText(value)
       }
       continue
     }
@@ -168,9 +181,11 @@ export function buildProfileSummary(
     extras.length ? `Outras operações: ${extras.join(', ')}` : null,
     profile.primary_activity ? `Atividade: ${profile.primary_activity}` : null,
     profile.company_size ? `Porte: ${labelFor(profile.company_size)}` : null,
-    profile.employee_count_range
-      ? `Funcionários: ${labelFor(profile.employee_count_range)}`
-      : null,
+    profile.employee_count
+      ? `Funcionários: ${profile.employee_count}`
+      : profile.employee_count_range
+        ? `Funcionários: ${labelFor(profile.employee_count_range)}`
+        : null,
     profile.state
       ? `Local: ${[profile.city, profile.state].filter(Boolean).join(' / ')}`
       : null,

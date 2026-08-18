@@ -2,13 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useCompany } from '@/features/company/useCompany'
 import { isSegmentCode, segmentLabel, type SegmentCode } from '@/features/company/segmentOptions'
 import { extraSegmentCodesFromAnswers } from '@/features/experience/conditions'
-import { unitCostsForSegments, type SegmentUnitCostDef } from '@/features/experience/catalog/segmentUnits'
+import { unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
+import { EMPLOYEE_HEADCOUNT_COSTS, formulaForUnitCost } from '@/features/experience/catalog/employeeHeadcount'
 import { listCompanyOperations, getCompanyExperienceAnswers } from '@/features/experience/experienceService'
 import { listUnitVolumes, saveUnitVolume } from '@/features/experience/unitVolumeService'
 import {
   defaultUnitCostMonth,
   type MonthlyVolumes,
 } from '@/features/experience/unitCost'
+import {
+  isEmployeeHeadcountIndicator,
+  parseEmployeeCount,
+  volumesFromEmployeeCount,
+} from '@/features/experience/employeeCount'
+import { updateCompanyEmployeeCount } from '@/features/company/companyService'
 import { listCompanyComparisonOptions, loadComparisonPair } from '@/features/comparison/comparisonService'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
 import type { LoadedBudget } from '@/features/budget/model'
@@ -23,7 +30,6 @@ import {
 import {
   buildActualTotals,
   consolidatedQuantity,
-  defaultCustomFormula,
   evaluateFormula,
   formulaHint,
   formulaUsesQuantity,
@@ -79,7 +85,7 @@ export function useUnitCostCards(input?: {
   actual?: LoadedActual | null
   classified?: ClassifiedActualSlice[]
 }) {
-  const { activeCompany, companyProfile, segments } = useCompany()
+  const { activeCompany, companyProfile, segments, refresh } = useCompany()
   const [defs, setDefs] = useState<SegmentUnitCostDef[]>([])
   const [customIndicators, setCustomIndicators] = useState<CompanyCustomIndicator[]>([])
   const [customUnits, setCustomUnits] = useState<CompanyCustomUnit[]>([])
@@ -136,7 +142,10 @@ export function useUnitCostCards(input?: {
         }
       }
 
-      const nextDefs = unitCostsForSegments([...codes])
+      const nextDefs = [
+        ...unitCostsForSegments([...codes]),
+        ...EMPLOYEE_HEADCOUNT_COSTS,
+      ]
       setDefs(nextDefs)
       if (customResult.ok) setCustomIndicators(customResult.data)
       else setError(customResult.message)
@@ -200,10 +209,17 @@ export function useUnitCostCards(input?: {
 
   const previous = useMemo(() => previousMonth(months, monthKey), [months, monthKey])
 
+  const employeeCount = parseEmployeeCount(companyProfile?.employee_count)
+
   const cards = useMemo<UnitCostCardModel[]>(() => {
     const month = months.find((item) => item.key === monthKey)
-    const catalogCards = defs.map((def) =>
-      buildCard({
+    const monthKeys = months.map((item) => item.key)
+    const catalogCards = defs.map((def) => {
+      const stored = volumes[def.indicatorCode] ?? {}
+      const nextVolumes = isEmployeeHeadcountIndicator(def.indicatorCode)
+        ? volumesFromEmployeeCount(employeeCount, monthKeys)
+        : stored
+      return buildCard({
         def: {
           indicatorCode: def.indicatorCode,
           indicatorName: def.indicatorName,
@@ -214,15 +230,17 @@ export function useUnitCostCards(input?: {
           quantityNounSingular: def.quantityNounSingular,
         },
         kind: 'catalog',
-        segmentLabel: segmentLabel(def.segmentCode as SegmentCode),
-        formula: defaultCustomFormula(),
-        volumes: volumes[def.indicatorCode] ?? {},
+        segmentLabel: isEmployeeHeadcountIndicator(def.indicatorCode)
+          ? 'Empresa'
+          : segmentLabel(def.segmentCode as SegmentCode),
+        formula: formulaForUnitCost(def.indicatorCode),
+        volumes: nextVolumes,
         monthKey,
         monthLabel: month?.fullLabel ?? monthKey,
         previousKey: previous?.key ?? null,
         totals,
       })
-    )
+    })
 
     const customCards = customIndicators.map((item) => {
       const code = customIndicatorVolumeCode(item.id)
@@ -250,11 +268,26 @@ export function useUnitCostCards(input?: {
     })
 
     return [...catalogCards, ...customCards]
-  }, [defs, customIndicators, volumes, months, monthKey, totals, previous])
+  }, [defs, customIndicators, volumes, months, monthKey, totals, previous, employeeCount])
 
   const saveQuantity = async (indicatorCode: string, quantity: number, month: string) => {
     if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
     setSavingCode(indicatorCode)
+
+    if (isEmployeeHeadcountIndicator(indicatorCode)) {
+      const saved = await updateCompanyEmployeeCount({
+        companyId: activeCompany.id,
+        employeeCount: quantity,
+      })
+      setSavingCode('')
+      if (!saved.ok) {
+        setError(saved.message)
+        return saved
+      }
+      await refresh()
+      return { ok: true as const, data: volumesFromEmployeeCount(quantity, months.map((item) => item.key)) }
+    }
+
     const current = volumes[indicatorCode] ?? {}
     const saved = await saveUnitVolume({
       companyId: activeCompany.id,
