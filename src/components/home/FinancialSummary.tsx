@@ -69,7 +69,7 @@ export function FinancialSummary({
           }
           change={changeRatio(current?.revenue ?? Number.NaN, previous?.revenue)}
           icon={<WalletIcon />}
-          tone="ok"
+          tone="navy"
           surface="revenue"
         />
         <KpiCard
@@ -85,7 +85,7 @@ export function FinancialSummary({
           change={changeRatio(current?.realized ?? Number.NaN, previous?.realized)}
           invertChange
           icon={<ReceiptIcon />}
-          tone="warn"
+          tone="danger"
           surface="cost"
         />
         <KpiCard
