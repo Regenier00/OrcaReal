@@ -48,14 +48,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     10
   ),
   (
-    'activities',
-    'Quais atividades a empresa realiza?',
-    'Selecione uma ou mais.',
-    'multiple',
-    '["Operação principal","Administrativo","Comercial","Produção"]'::jsonb,
-    20
-  ),
-  (
     'control_method',
     'Como a empresa controla as finanças hoje?',
     'Não há resposta certa — queremos entender o ponto de partida.',
