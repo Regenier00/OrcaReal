@@ -7,6 +7,7 @@ import {
 import {
   classifiedAmountForComparison,
   fileTypeFromName,
+  groupTransactionsBySuggestion,
   isDefaultBankAccount,
   MAX_STATEMENT_FILE_BYTES,
   type ClassifiedActualSlice,
@@ -518,22 +519,17 @@ export async function applyTransactionSuggestions(input: {
   companyId: string
   transactions: ActualTransaction[]
 }): Promise<number> {
-  const withSuggestion = input.transactions.filter(
-    (item) =>
-      item.suggested_category_id ||
-      item.suggested_department_id ||
-      item.suggested_cost_center_id,
-  )
-  if (withSuggestion.length === 0) return 0
+  const groups = groupTransactionsBySuggestion(input.transactions)
+  if (groups.length === 0) return 0
 
   let updated = 0
-  for (const item of withSuggestion) {
+  for (const group of groups) {
     updated += await classifyActualTransactions({
       companyId: input.companyId,
-      transactionIds: [item.id],
-      departmentId: item.suggested_department_id,
-      categoryId: item.suggested_category_id,
-      costCenterId: item.suggested_cost_center_id,
+      transactionIds: group.transactionIds,
+      departmentId: group.departmentId,
+      categoryId: group.categoryId,
+      costCenterId: group.costCenterId,
       status: 'classified',
     })
   }
