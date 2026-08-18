@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { CalendarIcon } from '@/components/home/DashboardIcons'
 
@@ -7,7 +6,6 @@ export function CompanyHero({
   segmentName,
   activity,
   periodLabel,
-  greeting,
   logoUrl,
   editable,
   onLogoChange,
@@ -16,7 +14,6 @@ export function CompanyHero({
   segmentName: string | null
   activity: string | null
   periodLabel: string
-  greeting: ReactNode
   logoUrl: string | null
   editable: boolean
   onLogoChange?: (logoUrl: string | null) => Promise<void>
@@ -50,11 +47,6 @@ export function CompanyHero({
                 <span className="truncate text-sm text-white/70">{activity}</span>
               ) : null}
             </div>
-            {greeting ? (
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/75 sm:text-base">
-                {greeting}
-              </p>
-            ) : null}
           </div>
         </div>
 

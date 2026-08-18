@@ -77,13 +77,15 @@ export function AppHomePage() {
         segmentName={segmentName}
         activity={activity}
         periodLabel={dashboard.monthLabel || currentPeriodLabel()}
-        greeting={monthResultGreeting(profileName || metadataName, user?.email)}
         logoUrl={activeCompany.logo_url}
         editable={isAdmin}
         onLogoChange={isAdmin ? handleLogoChange : undefined}
       />
 
-      <PersonalizedDashboard data={dashboard} />
+      <PersonalizedDashboard
+        data={dashboard}
+        greeting={monthResultGreeting(profileName || metadataName, user?.email)}
+      />
 
       <QuickAccess />
 
