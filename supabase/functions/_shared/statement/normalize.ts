@@ -42,10 +42,63 @@ function isoDate(year: number, month: number, day: number) {
   return `${year}-${pad2(month)}-${pad2(day)}`
 }
 
+const MONTH_INDEX: Record<string, number> = {
+  jan: 1,
+  janeiro: 1,
+  january: 1,
+  fev: 2,
+  fevereiro: 2,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  marco: 3,
+  march: 3,
+  abr: 4,
+  abril: 4,
+  apr: 4,
+  april: 4,
+  mai: 5,
+  maio: 5,
+  may: 5,
+  jun: 6,
+  junho: 6,
+  june: 6,
+  jul: 7,
+  julho: 7,
+  july: 7,
+  ago: 8,
+  agosto: 8,
+  aug: 8,
+  august: 8,
+  set: 9,
+  setembro: 9,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  out: 10,
+  outubro: 10,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  novembro: 11,
+  november: 11,
+  dez: 12,
+  dezembro: 12,
+  dec: 12,
+  december: 12,
+}
+
+function parseYearToken(token: string) {
+  if (token.length === 2) {
+    return Number(token) >= 70 ? Number(`19${token}`) : Number(`20${token}`)
+  }
+  return Number(token)
+}
+
 export function excelSerialToIso(serial: number) {
   if (!Number.isFinite(serial) || serial < 20000 || serial > 80000) return null
   const epoch = Date.UTC(1899, 11, 30)
-  return new Date(epoch + Math.round(serial) * 86400000).toISOString().slice(0, 10)
+  return new Date(epoch + Math.floor(serial + 1e-9) * 86400000).toISOString().slice(0, 10)
 }
 
 export function parseBrazilianDate(value: unknown): string | null {
@@ -61,16 +114,12 @@ export function parseBrazilianDate(value: unknown): string | null {
   }
 
   const parts = raw.match(
-    /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/,
+    /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)?$/,
   )
   if (parts) {
     let first = Number(parts[1])
     let second = Number(parts[2])
-    let year = Number(parts[3].length === 2
-      ? Number(parts[3]) >= 70
-        ? `19${parts[3]}`
-        : `20${parts[3]}`
-      : parts[3])
+    const year = parseYearToken(parts[3])
     if (second > 12 && first <= 12) {
       const swapped = first
       first = second
@@ -79,8 +128,20 @@ export function parseBrazilianDate(value: unknown): string | null {
     return isoDate(year, second, first)
   }
 
+  const named = raw.match(
+    /^(\d{1,2})[./\-\s]+([A-Za-zÀ-ÿ]{3,9})\.?[./\-\s]+(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/,
+  )
+  if (named) {
+    const monthKey = named[2]
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+    const month = MONTH_INDEX[monthKey]
+    if (month) return isoDate(parseYearToken(named[3]), month, Number(named[1]))
+  }
+
   const numeric = Number(raw.replace(',', '.'))
-  if (Number.isFinite(numeric) && numeric === Math.round(numeric)) {
+  if (Number.isFinite(numeric)) {
     return excelSerialToIso(numeric)
   }
 

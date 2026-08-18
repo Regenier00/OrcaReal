@@ -1,4 +1,5 @@
 import {
+  excelSerialToIso,
   parseAmount,
   parseBrazilianDate,
   typeFromCreditDebit,
@@ -35,7 +36,11 @@ export interface ColumnMap {
   counterparty: number
 }
 
-const HEADER_SCAN_ROWS = 40
+export interface TabularLayoutOptions {
+  preferredHeaderIndex?: number
+}
+
+const HEADER_SCAN_ROWS = 80
 const MIN_HEADER_SCORE = 60
 
 const ALIASES: Record<ColumnRole, string[]> = {
@@ -77,6 +82,9 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'payee',
     'desc',
     'titulo',
+    'movimentacao',
+    'detalhamento',
+    'historicocomplemento',
   ],
   amount: [
     'valor',
@@ -94,6 +102,7 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'valorbruto',
     'valorliquido',
     'valorpago',
+    'valormovimentacao',
   ],
   debit: [
     'debito',
@@ -271,19 +280,28 @@ function headerRowScore(row: string[]) {
   return score
 }
 
+function looksLikeExcelSerial(value: string) {
+  const compact = value.trim()
+  if (!/^-?\d+([.,]\d+)?$/.test(compact)) return false
+  return Boolean(excelSerialToIso(Number(compact.replace(',', '.'))))
+}
+
 function looksLikeTextDate(value: string) {
   const raw = value.trim()
   if (!raw) return false
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return true
   if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(raw)) return true
+  if (/^\d{1,2}[./\-\s]+[A-Za-zÀ-ÿ]{3,}/.test(raw)) {
+    return Boolean(parseBrazilianDate(raw))
+  }
   if (/^\d{8}(?:\d{6})?$/.test(raw)) {
     return Boolean(parseBrazilianDate(raw))
   }
-  return false
+  return looksLikeExcelSerial(raw)
 }
 
 function looksLikeAmount(value: string) {
-  if (looksLikeTextDate(value)) return false
+  if (looksLikeTextDate(value) || looksLikeExcelSerial(value)) return false
   const amount = parseAmount(value)
   if (amount == null) return false
   const compact = value.trim().replace(/\s/g, '')
@@ -332,7 +350,7 @@ function columnStats(rows: string[][], start: number): ColStats[] {
       const current = stats[col]
       current.filled += 1
       if (looksLikeTextDate(cell)) current.textDates += 1
-      else if (parseBrazilianDate(cell) && /^-?\d+(\.0+)?$/.test(cell)) {
+      else if (parseBrazilianDate(cell) && /^-?\d+([.,]\d+)?$/.test(cell)) {
         current.serialDates += 1
       }
       if (looksLikeAmount(cell)) {
@@ -436,29 +454,134 @@ function isComplete(map: ColumnMap) {
   )
 }
 
-export function detectTabularLayout(rows: string[][]): ColumnMap | null {
-  if (rows.length === 0) return null
+function combineHeaderRows(top: string[], bottom: string[]) {
+  const width = Math.max(top.length, bottom.length)
+  const combined: string[] = []
+  for (let i = 0; i < width; i += 1) {
+    const a = (top[i] ?? '').trim()
+    const b = (bottom[i] ?? '').trim()
+    if (a && b && normalizeHeader(a) !== normalizeHeader(b)) {
+      combined[i] = `${a} ${b}`
+    } else {
+      combined[i] = a || b
+    }
+  }
+  return combined
+}
 
-  let bestIndex = -1
-  let bestScore = 0
+function looksLikeDataRow(row: string[]) {
+  let dates = 0
+  let amounts = 0
+  for (const cell of row) {
+    const text = cell ?? ''
+    if (parseBrazilianDate(text)) dates += 1
+    if (looksLikeAmount(text)) amounts += 1
+  }
+  return dates >= 1 && amounts >= 1
+}
+
+function splitSparseAmountColumns(map: ColumnMap, rows: string[][], start: number) {
+  if (map.amount < 0 || map.debit >= 0 || map.credit >= 0) return map
+  const stats = columnStats(rows, start)
+  const amountCol = stats[map.amount]
+  const neighbor = stats[map.amount + 1]
+  if (!amountCol || !neighbor || neighbor.filled === 0) return map
+  if (ratio(amountCol.filled, Math.max(1, rows.length - start)) >= 0.6) return map
+  if (ratio(neighbor.amounts, neighbor.filled) < 0.4) return map
+  map.debit = map.amount
+  map.credit = neighbor.index
+  map.amount = -1
+  return map
+}
+
+interface HeaderCandidate {
+  index: number
+  headers: string[]
+  score: number
+}
+
+function headerCandidates(
+  rows: string[][],
+  preferredHeaderIndex?: number,
+): HeaderCandidate[] {
   const scan = Math.min(rows.length, HEADER_SCAN_ROWS)
+  const found: HeaderCandidate[] = []
+  const seen = new Set<string>()
+
+  const add = (headers: string[], index: number, bonus: number) => {
+    if (index < 0 || index >= rows.length) return
+    const score =
+      headerRowScore(headers) +
+      bonus +
+      (preferredHeaderIndex != null && index === preferredHeaderIndex ? 80 : 0)
+    const key = `${index}:${headers.map((item) => normalizeHeader(item)).join('|')}`
+    if (seen.has(key)) return
+    seen.add(key)
+    found.push({ index, headers, score })
+  }
+
   for (let i = 0; i < scan; i += 1) {
-    const score = headerRowScore(rows[i] ?? [])
-    if (score > bestScore) {
-      bestScore = score
-      bestIndex = i
+    const row = rows[i] ?? []
+    add(row, i, 0)
+    const next = rows[i + 1]
+    if (next && !looksLikeDataRow(next) && headerRowScore(next) > 0) {
+      add(combineHeaderRows(row, next), i + 1, 35)
     }
   }
 
-  let map = emptyMap(-1)
-  if (bestIndex >= 0 && bestScore >= MIN_HEADER_SCORE) {
-    map = mapFromHeaders(rows[bestIndex] ?? [])
-    map.headerIndex = bestIndex
+  found.sort((a, b) => b.score - a.score || a.index - b.index)
+  return found
+}
+
+function layoutKey(map: ColumnMap) {
+  return [
+    map.headerIndex,
+    map.date,
+    map.description,
+    map.amount,
+    map.debit,
+    map.credit,
+  ].join(':')
+}
+
+export function detectTabularLayouts(
+  rows: string[][],
+  options?: TabularLayoutOptions,
+): ColumnMap[] {
+  if (rows.length === 0) return []
+
+  const maps: ColumnMap[] = []
+  const seen = new Set<string>()
+  const pushMap = (map: ColumnMap) => {
+    if (!isComplete(map)) return
+    const key = layoutKey(map)
+    if (seen.has(key)) return
+    seen.add(key)
+    maps.push(map)
   }
 
-  const dataStart = map.headerIndex >= 0 ? map.headerIndex + 1 : 0
-  map = fillFromContent(map, rows, dataStart)
-  return isComplete(map) ? map : null
+  for (const candidate of headerCandidates(rows, options?.preferredHeaderIndex)) {
+    if (
+      candidate.score < MIN_HEADER_SCORE &&
+      candidate.index !== options?.preferredHeaderIndex
+    ) {
+      continue
+    }
+    const mapped = mapFromHeaders(candidate.headers)
+    mapped.headerIndex = candidate.index
+    const dataStart = mapped.headerIndex >= 0 ? mapped.headerIndex + 1 : 0
+    pushMap(splitSparseAmountColumns(fillFromContent(mapped, rows, dataStart), rows, dataStart))
+  }
+
+  pushMap(fillFromContent(emptyMap(-1), rows, 0))
+  return maps
+}
+
+export function detectTabularLayout(
+  rows: string[][],
+  options?: TabularLayoutOptions,
+): ColumnMap | null {
+  return detectTabularLayouts(rows, options)[0] ?? null
 }
 
 function isSkippableRow(description: string, typeLabel: string, amount: number | null) {
@@ -493,15 +616,17 @@ export function movementsFromMappedRows(
 ): RawMovement[] {
   const movements: RawMovement[] = []
   const start = map.headerIndex >= 0 ? map.headerIndex + 1 : 0
+  let lastDate = ''
 
   for (let i = start; i < rows.length; i += 1) {
     const row = rows[i]
     if (!row || row.every((cell) => !cell?.trim())) continue
 
-    const dateCell = row[map.date] ?? ''
+    let dateCell = (row[map.date] ?? '').trim()
     if (bestRoleForHeader(dateCell)?.role === 'date' && !parseBrazilianDate(dateCell)) {
       continue
     }
+    if (!dateCell && lastDate) dateCell = lastDate
 
     const posted = parseBrazilianDate(dateCell)
     const description = row[map.description] ?? ''
@@ -510,17 +635,27 @@ export function movementsFromMappedRows(
       onWarning('Linha ignorada por data ou descrição vazia', i + 1)
       continue
     }
+    lastDate = dateCell
 
     let signed: number | null = null
     let type: MovementType = 'unknown'
 
     if (map.amount >= 0) {
       signed = parseAmount(row[map.amount] ?? '')
+      if (signed == null && map.debit >= 0 && map.credit >= 0) {
+        const credit = parseAmount(row[map.credit] ?? '')
+        const debit = parseAmount(row[map.debit] ?? '')
+        const mapped = typeFromCreditDebit(credit, debit, description)
+        if (mapped) {
+          signed = mapped.type === 'expense' ? -mapped.amount : mapped.amount
+          type = resolveType(signed, description, typeLabel)
+        }
+      }
       if (signed == null) {
         onWarning('Valor inválido', i + 1)
         continue
       }
-      type = resolveType(signed, description, typeLabel)
+      if (type === 'unknown') type = resolveType(signed, description, typeLabel)
     } else {
       const credit = parseAmount(row[map.credit] ?? '')
       const debit = parseAmount(row[map.debit] ?? '')

@@ -380,6 +380,35 @@ function xlsxFiles(sheets: Record<string, string>, sharedXml?: string) {
   return files
 }
 
+function testDatetimeSerialsAndFilledDownDates() {
+  const serial =
+    (Date.UTC(2026, 7, 10) - Date.UTC(1899, 11, 30)) / 86400000 + 0.75
+  const result = parseTabularRows([
+    ['Data', 'Histórico', 'Valor'],
+    [String(serial), 'PIX RECEBIDO - Maria Oliveira', '350.00'],
+    ['', 'TARIFA MANUTENCAO', '-12.90'],
+    ['11/ago/2026', 'TED ENVIADA FORNECEDOR', '-80'],
+  ])
+  assert(result.movements.length === 3, `data+hora: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.postedAt === '2026-08-10', 'serial com hora')
+  assert(byDescription(result, 'TARIFA')?.postedAt === '2026-08-10', 'data repetida da célula mesclada/vazia')
+  assert(byDescription(result, 'TED ENVIADA')?.postedAt === '2026-08-11', 'data com mês por extenso')
+  assert(byDescription(result, 'TED ENVIADA')?.type === 'transfer', 'ted')
+}
+
+function testTwoRowDebitCreditHeader() {
+  const result = parseTabularRows([
+    ['Data', 'Histórico', 'Valor', 'Valor', 'Saldo'],
+    ['', '', 'Débito', 'Crédito', ''],
+    ['10/08/2026', 'PIX RECEBIDO CLIENTE', '', '200,50', '1.200,50'],
+    ['11/08/2026', 'PAGAMENTO FORNECEDOR', '80,00', '', '1.120,50'],
+  ])
+  assert(result.movements.length === 2, `débito/crédito em duas linhas: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.type === 'income', 'crédito')
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.amount === 200.5, 'valor crédito')
+  assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.type === 'expense', 'débito')
+}
+
 async function testSparseXlsxDoesNotCrash() {
   const sheet = `<?xml version="1.0"?>
 <worksheet><sheetData>
@@ -446,6 +475,47 @@ async function testNamespacedXlsxAndSecondSheet() {
   assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.type === 'expense', 'saída na segunda aba')
 }
 
+async function testFrozenPanesMergedHeaderAndDatetime() {
+  const serial =
+    (Date.UTC(2026, 7, 10) - Date.UTC(1899, 11, 30)) / 86400000 + 0.54167
+  const sheet = `<?xml version="1.0"?>
+<worksheet>
+  <sheetViews>
+    <sheetView workbookViewId="0">
+      <pane ySplit="5" topLeftCell="A6" activePane="bottomLeft" state="frozen"/>
+    </sheetView>
+  </sheetViews>
+  <sheetData>
+    <row r="1">${cell('A1', 'BANCO INTER - EXTRATO CONTA CORRENTE')}</row>
+    <row r="2">${cell('A2', 'Agencia 0001')} ${cell('C2', 'Conta 12345-6')}</row>
+    <row r="4">${cell('A4', 'Data')}${cell('B4', 'Histórico')}${cell('C4', 'Valor')}${cell('E4', 'Saldo')}</row>
+    <row r="5">${cell('C5', 'Débito')}${cell('D5', 'Crédito')}</row>
+    <row r="6">${cell('A6', String(serial))}${cell('B6', 'PIX RECEBIDO CLIENTE')}${cell('D6', '200.5')}${cell('E6', '1200.5')}</row>
+    <row r="7">${cell('B7', 'TARIFA MANUTENCAO')}${cell('C7', '12.9')}${cell('E7', '1187.6')}</row>
+    <row r="8">${cell('A8', '11/08/2026')}${cell('B8', 'PAGAMENTO FORNECEDOR')}${cell('C8', '80')}${cell('E8', '1107.6')}</row>
+  </sheetData>
+  <mergeCells count="3">
+    <mergeCell ref="A1:E1"/>
+    <mergeCell ref="C4:D4"/>
+    <mergeCell ref="A6:A7"/>
+  </mergeCells>
+</worksheet>`
+
+  const result = await parseStatement(
+    'extrato-congelado.xlsx',
+    zipStore(xlsxFiles({ 'sheet1.xml': sheet })),
+  )
+  assert(
+    result.movements.length === 3,
+    `congelado: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.type === 'income', 'crédito no painel congelado')
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.postedAt === '2026-08-10', 'data com hora')
+  assert(byDescription(result, 'TARIFA MANUTENCAO')?.postedAt === '2026-08-10', 'data da célula mesclada')
+  assert(byDescription(result, 'TARIFA MANUTENCAO')?.type === 'expense', 'débito')
+  assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.amount === 80, 'pagamento')
+}
+
 await testOfx()
 await testCsv()
 testHeaderWithCurrencyAndSlash()
@@ -455,6 +525,8 @@ testDebitCreditColumns()
 testEnglishHeaders()
 testExcelSerialDates()
 testTipoOverridesUnsignedAmount()
+testDatetimeSerialsAndFilledDownDates()
+testTwoRowDebitCreditHeader()
 await testCsvWithPreamble()
 testCommonBrazilianLayouts()
 testSparseExcelLikeRows()
@@ -463,4 +535,5 @@ await testUnknownFormat()
 testDefaultBankFilter()
 await testSparseXlsxDoesNotCrash()
 await testNamespacedXlsxAndSecondSheet()
+await testFrozenPanesMergedHeaderAndDatetime()
 console.log('statement parse tests ok')
