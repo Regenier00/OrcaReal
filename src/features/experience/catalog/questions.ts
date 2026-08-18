@@ -227,7 +227,6 @@ const tech: ExperienceQuestion[] = [
   q({ code: 'tech_users', segmentCode: 'tech', prompt: 'Qual é o número de usuários?', answerType: 'number', optional: true, mapsTo: 'fact.user_count' }, 150),
   q({ code: 'tech_projects', segmentCode: 'tech', prompt: 'Quantos projetos estão ativos?', answerType: 'number', optional: true, mapsTo: 'fact.active_projects' }, 160),
   q({ code: 'tech_hours', segmentCode: 'tech', prompt: 'Qual é o volume de horas trabalhadas?', answerType: 'number', optional: true, mapsTo: 'fact.worked_hours' }, 170),
-  q({ code: 'tech_costs', segmentCode: 'tech', prompt: 'Quais custos são mais relevantes?', answerType: 'multiple', options: opts('Pessoal', 'Infraestrutura', 'Serviços de terceiros', 'Aquisição de clientes'), mapsTo: 'fact.main_costs' }, 180),
   q({ code: 'tech_recurring', segmentCode: 'tech', prompt: 'A empresa possui receita recorrente?', options: YES_NO, mapsTo: 'fact.has_recurring_revenue' }, 190),
 ]
 
@@ -236,7 +235,6 @@ const health: ExperienceQuestion[] = [
   q({ code: 'hlt_units', segmentCode: 'health', prompt: 'Quantas unidades a empresa possui?', answerType: 'number', optional: true, mapsTo: 'fact.unit_count' }, 120),
   q({ code: 'hlt_pros', segmentCode: 'health', prompt: 'Quantos profissionais atuam na operação?', answerType: 'number', optional: true, mapsTo: 'fact.professional_count' }, 130),
   q({ code: 'hlt_volume', segmentCode: 'health', prompt: 'O que a empresa acompanha no atendimento?', answerType: 'multiple', options: opts('Consultas', 'Procedimentos', 'Pacientes', 'Convênios'), mapsTo: 'fact.health_volume' }, 140),
-  q({ code: 'hlt_costs', segmentCode: 'health', prompt: 'Quais custos são mais relevantes?', answerType: 'multiple', options: opts('Materiais', 'Medicamentos', 'Pessoal', 'Terceirizados'), mapsTo: 'fact.main_costs' }, 150),
 ]
 
 const education: ExperienceQuestion[] = [
@@ -277,7 +275,6 @@ const mining: ExperienceQuestion[] = [
   q({ code: 'min_sites', segmentCode: 'mining', prompt: 'Quais localidades são exploradas?', answerType: 'text', optional: true, mapsTo: 'fact.sites' }, 120),
   q({ code: 'min_area', segmentCode: 'mining', prompt: 'Qual é a área explorada?', answerType: 'number', optional: true, mapsTo: 'fact.explored_area' }, 130),
   q({ code: 'min_volume', segmentCode: 'mining', prompt: 'Qual é o volume extraído?', answerType: 'number', optional: true, mapsTo: 'fact.extracted_volume' }, 140),
-  q({ code: 'min_costs', segmentCode: 'mining', prompt: 'Quais custos são mais relevantes?', answerType: 'multiple', options: opts('Equipamentos', 'Combustível', 'Mão de obra', 'Beneficiamento', 'Transporte'), mapsTo: 'fact.main_costs' }, 150),
 ]
 
 const hospitality: ExperienceQuestion[] = [
@@ -300,7 +297,6 @@ const beauty: ExperienceQuestion[] = [
 const media: ExperienceQuestion[] = [
   q({ code: 'media_clients', segmentCode: 'media', prompt: 'Quantos clientes a empresa atende?', answerType: 'number', optional: true, mapsTo: 'fact.client_count' }, 110),
   q({ code: 'media_projects', segmentCode: 'media', prompt: 'Quantos projetos ou campanhas estão ativos?', answerType: 'number', optional: true, mapsTo: 'fact.project_count' }, 120),
-  q({ code: 'media_costs', segmentCode: 'media', prompt: 'Quais custos são mais relevantes?', answerType: 'multiple', options: opts('Pessoal', 'Horas trabalhadas', 'Terceirizados', 'Investimento em mídia', 'Contratos recorrentes'), mapsTo: 'fact.main_costs' }, 130),
 ]
 
 const marketing: ExperienceQuestion[] = [

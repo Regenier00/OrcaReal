@@ -70,14 +70,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     'single',
     '["Comparar orçado e realizado","Entender custos","Organizar o orçamento","Gerar indicadores e relatórios"]'::jsonb,
     40
-  ),
-  (
-    'maturity',
-    'Como você avalia a maturidade do controle financeiro?',
-    null,
-    'scale',
-    '["1","2","3","4","5"]'::jsonb,
-    50
   );
 
 insert into public.import_templates (code, name, version, kind, schema_definition) values
