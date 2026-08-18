@@ -19,6 +19,10 @@ import {
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
 import { SEGMENT_OPTIONS, isOtherSegment, segmentLabel } from '@/features/company/segmentOptions'
 import {
+  parseRevenueModelValues,
+  revenueModelLabel,
+} from '@/features/experience/catalog/revenueModels'
+import {
   addCompanyOperation,
   listCompanyAnalysisUnits,
   listCompanyOperations,
@@ -861,7 +865,10 @@ function CompanyExperienceTab({
       <dl className="grid gap-3 sm:grid-cols-2">
         <ProfileFact label="Atividade principal" value={primaryActivity} />
         <ProfileFact label="Porte" value={companySize} />
-        <ProfileFact label="Geração de receita" value={revenueModel} />
+        <ProfileFact
+          label="Geração de receita"
+          value={formatRevenueModels(revenueModel)}
+        />
         <ProfileFact label="Modelo de operação" value={operationModel} />
         <ProfileFact label="Indicadores ativos" value={String(indicators)} />
       </dl>
@@ -978,4 +985,9 @@ function ProfileFact({ label, value }: { label: string; value: string }) {
       <dd className="mt-1 text-sm font-medium text-ink">{value}</dd>
     </div>
   )
+}
+
+function formatRevenueModels(value: string) {
+  const labels = parseRevenueModelValues(value).map(revenueModelLabel)
+  return labels.length > 0 ? labels.join(', ') : value.replace(/_/g, ' ')
 }

@@ -1,4 +1,5 @@
 import { BRAZIL_STATES, YES_NO, opts, q } from './helpers'
+import { REVENUE_MODEL_OPTIONS } from './revenueModels'
 import type { ExperienceQuestion } from '../types'
 
 const common: ExperienceQuestion[] = [
@@ -58,14 +59,10 @@ const common: ExperienceQuestion[] = [
     {
       code: 'revenue_model',
       prompt: 'Como sua empresa gera receita?',
-      options: opts(
-        'Venda de produtos',
-        'Prestação de serviços',
-        'Receita recorrente',
-        'Contratos',
-        'Produção e comercialização',
-        'Mista'
-      ),
+      helpText:
+        'Pode marcar mais de uma. Para cada forma escolhida, criamos indicadores de receita no dashboard — por exemplo, valor médio de venda para quem vende produtos.',
+      answerType: 'multiple',
+      options: REVENUE_MODEL_OPTIONS,
       mapsTo: 'profile.revenue_model',
     },
     60

@@ -47,7 +47,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
             key={card.def.indicatorCode}
             card={card}
             months={data.months}
-            kicker={card.kind === 'custom' ? 'Personalizado' : 'Unidade de custo'}
+            kicker={card.kind === 'custom' ? 'Personalizado' : card.segmentLabel}
             saving={data.savingCode === card.def.indicatorCode}
             onSave={(quantity, monthKey) =>
               data.saveQuantity(card.def.indicatorCode, quantity, monthKey)

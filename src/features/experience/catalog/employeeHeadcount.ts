@@ -1,7 +1,8 @@
 import type { SegmentUnitCostDef } from './segmentUnits'
 import type { CustomFormula } from '../../indicators/formula'
-import { defaultCustomFormula } from '../../indicators/formula'
+import { defaultCustomFormula, revenuePerQuantityFormula } from '../../indicators/formula'
 import { COST_PER_EMPLOYEE, REVENUE_PER_EMPLOYEE } from '../employeeCount'
+import { isRevenueModelIndicator } from './revenueModels'
 
 export const EMPLOYEE_HEADCOUNT_COSTS: SegmentUnitCostDef[] = [
   {
@@ -33,12 +34,8 @@ export const EMPLOYEE_HEADCOUNT_COSTS: SegmentUnitCostDef[] = [
 ]
 
 export function formulaForUnitCost(indicatorCode: string): CustomFormula {
-  if (indicatorCode === REVENUE_PER_EMPLOYEE) {
-    return {
-      left: { metric: 'actual_revenue', scope: 'period' },
-      op: 'div',
-      right: { metric: 'quantity', scope: 'period' },
-    }
+  if (indicatorCode === REVENUE_PER_EMPLOYEE || isRevenueModelIndicator(indicatorCode)) {
+    return revenuePerQuantityFormula()
   }
   return defaultCustomFormula()
 }
