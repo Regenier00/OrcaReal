@@ -24,6 +24,27 @@ export const YES_NO: QuestionOption[] = [
   { value: 'no', label: 'Não' },
 ]
 
+const EXCLUSIVE_SINGLE_CODES = new Set(['company_size', 'state', 'operation_model'])
+
+function isYesNo(options: QuestionOption[] | undefined): boolean {
+  if (options === YES_NO) return true
+  if (!options || options.length !== 2) return false
+  const values = new Set(options.map((option) => option.value))
+  return values.has('yes') && values.has('no')
+}
+
+function defaultAnswerType(
+  partial: Pick<ExperienceQuestion, 'code' | 'options' | 'optionSource'> & {
+    answerType?: ExperienceQuestion['answerType']
+  }
+): ExperienceQuestion['answerType'] {
+  if (partial.answerType) return partial.answerType
+  const hasChoices = Boolean(partial.options?.length) || Boolean(partial.optionSource)
+  if (!hasChoices) return 'single'
+  if (isYesNo(partial.options) || EXCLUSIVE_SINGLE_CODES.has(partial.code)) return 'single'
+  return 'multiple'
+}
+
 export const BRAZIL_STATES: QuestionOption[] = [
   'AC',
   'AL',
@@ -62,11 +83,11 @@ export function q(
   sortOrder: number
 ): ExperienceQuestion {
   return {
-    answerType: 'single',
     optional: false,
     continuous: false,
     segmentCode: partial.segmentCode ?? null,
     ...partial,
+    answerType: defaultAnswerType(partial),
     sortOrder: partial.sortOrder ?? sortOrder,
   }
 }

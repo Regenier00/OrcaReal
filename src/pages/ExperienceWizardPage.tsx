@@ -270,8 +270,10 @@ export function ExperienceWizardPage() {
       <h1 className="mt-2 font-display text-3xl font-bold text-ink sm:text-4xl">
         {current.prompt}
       </h1>
-      {current.helpText ? (
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-mist">{current.helpText}</p>
+      {current.helpText || current.answerType === 'multiple' ? (
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-mist">
+          {current.helpText ?? 'Você pode marcar mais de uma opção.'}
+        </p>
       ) : null}
 
       <div className="mt-8 rounded-2xl border border-paper-muted bg-white p-5 sm:p-7">

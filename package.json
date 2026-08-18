@@ -16,6 +16,7 @@
     "test:cnpj": "node --experimental-strip-types src/features/company/cnpjLookup.test.ts",
     "test:dashboard": "node --experimental-strip-types src/features/home/dashboardModel.test.ts",
     "test:comparison": "node --experimental-strip-types src/features/comparison/model.test.ts",
+    "test:questionnaire": "node --experimental-strip-types src/features/experience/questionnaire.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
