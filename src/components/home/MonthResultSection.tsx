@@ -21,7 +21,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
       <SectionHeading
         kicker="Indicadores"
         title="Resultado operacional do mês"
-        subtitle="O consolidado e o custo por unidade do ramo, com variação frente ao mês anterior."
+        subtitle="O consolidado e os indicadores por unidade, com variação frente ao mês anterior."
       />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -46,7 +46,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
             key={card.def.indicatorCode}
             card={card}
             months={data.months}
-            kicker="Unidade de custo"
+            kicker={card.kind === 'custom' ? 'Personalizado' : 'Unidade de custo'}
             saving={data.savingCode === card.def.indicatorCode}
             onSave={(quantity, monthKey) =>
               data.saveQuantity(card.def.indicatorCode, quantity, monthKey)

@@ -10,6 +10,7 @@
     "test:statement": "node --experimental-strip-types src/features/actual/statementParse.test.ts",
     "test:suggestions": "node --experimental-strip-types src/features/actual/suggestions.test.ts",
     "test:unit-cost": "node --experimental-strip-types src/features/experience/unitCost.test.ts",
+    "test:custom-indicator": "node --experimental-strip-types src/features/indicators/formula.test.ts",
     "test:greeting": "node --experimental-strip-types src/lib/greeting.test.ts",
     "test:dashboard": "node --experimental-strip-types src/features/home/dashboardModel.test.ts",
     "test:comparison": "node --experimental-strip-types src/features/comparison/model.test.ts",

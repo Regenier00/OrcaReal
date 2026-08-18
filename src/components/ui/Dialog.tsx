@@ -34,15 +34,15 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby="dialog-title"
         className={cn(
-          'relative z-10 w-full rounded-2xl border border-paper-muted bg-white p-6 shadow-soft',
-          wide ? 'max-w-lg' : 'max-w-md'
+          'relative z-10 w-full overflow-y-auto rounded-2xl border border-paper-muted bg-white p-6 shadow-soft',
+          wide ? 'max-h-[min(90vh,48rem)] max-w-2xl' : 'max-h-[min(90vh,40rem)] max-w-md'
         )}
       >
         <h2 id="dialog-title" className="font-display text-xl font-semibold text-ink">
           {title}
         </h2>
         <div className="mt-3 text-sm text-ink-soft/80">{children}</div>
-        {footer ? <div className="mt-6 flex justify-end gap-2">{footer}</div> : null}
+        {footer ? <div className="mt-6 flex w-full justify-end gap-2">{footer}</div> : null}
       </div>
     </div>
   )
