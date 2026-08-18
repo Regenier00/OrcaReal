@@ -41,7 +41,7 @@ export function AppHomePage() {
   return (
     <div>
       {activeCompany ? (
-        <section className="rounded-2xl border border-paper-muted bg-white px-5 py-5 sm:px-6">
+        <section className="rounded-2xl border border-danger bg-white px-5 py-5 sm:px-6">
           <div className="flex items-center gap-4">
             <CompanyLogoAvatar
               name={activeCompany.trade_name || activeCompany.name}
