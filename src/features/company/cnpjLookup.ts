@@ -1,5 +1,7 @@
-import { onlyDigits } from '@/features/company/cnpj'
-import type { SegmentCode } from '@/features/company/segmentOptions'
+import { onlyDigits } from './cnpj.ts'
+import type { SegmentCode } from './segmentOptions'
+
+export const BRASIL_API_CNPJ_URL = 'https://brasilapi.com.br/api/cnpj/v1'
 
 export interface BrasilApiCnpj {
   cnpj: string
@@ -56,24 +58,7 @@ function suggestSegmentFromCnae(cnae: string): SegmentCode | null {
   return null
 }
 
-export async function lookupCnpj(
-  cnpj: string,
-  signal?: AbortSignal
-): Promise<CnpjLookupResult> {
-  const digits = onlyDigits(cnpj)
-  const response = await fetch(`https://brasilapi.com.br/cnpj/v1/${digits}`, {
-    signal,
-  })
-
-  if (response.status === 404) {
-    throw new Error('CNPJ_NOT_FOUND')
-  }
-
-  if (!response.ok) {
-    throw new Error('CNPJ_LOOKUP_FAILED')
-  }
-
-  const data = (await response.json()) as BrasilApiCnpj
+export function mapBrasilApiCnpj(data: BrasilApiCnpj): CnpjLookupResult {
   const cnae = data.cnae_fiscal_descricao?.trim() ?? ''
 
   return {
@@ -85,4 +70,30 @@ export async function lookupCnpj(
     state: data.uf?.trim() ?? '',
     city: data.municipio?.trim() ?? '',
   }
+}
+
+function isJsonResponse(response: Response): boolean {
+  return (response.headers.get('content-type') ?? '').includes('application/json')
+}
+
+export async function lookupCnpj(
+  cnpj: string,
+  signal?: AbortSignal
+): Promise<CnpjLookupResult> {
+  const digits = onlyDigits(cnpj)
+  const response = await fetch(`${BRASIL_API_CNPJ_URL}/${digits}`, {
+    signal,
+    headers: { Accept: 'application/json' },
+  })
+
+  if (response.status === 404 && isJsonResponse(response)) {
+    throw new Error('CNPJ_NOT_FOUND')
+  }
+
+  if (!response.ok || !isJsonResponse(response)) {
+    throw new Error('CNPJ_LOOKUP_FAILED')
+  }
+
+  const data = (await response.json()) as BrasilApiCnpj
+  return mapBrasilApiCnpj(data)
 }
