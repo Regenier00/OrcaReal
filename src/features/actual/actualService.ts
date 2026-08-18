@@ -470,6 +470,7 @@ export async function listClassifiedActualSlices(
           row.type as ActualTransactionType,
           Number(row.amount),
         ),
+        type: (row.type as ActualTransactionType) ?? 'unknown',
       })
     }
 

@@ -3,6 +3,7 @@ import type {
   EvaluationContext,
   ExperienceCondition,
 } from '@/features/experience/types'
+import { defaultUnitCodesForSegments } from '@/features/experience/catalog/segmentUnits'
 
 function asList(value: AnswerValue): string[] {
   if (value == null) return []
@@ -69,27 +70,31 @@ export function extraSegmentCodesFromAnswers(
   return asList(answers.extra_segments).filter(Boolean)
 }
 
-export function analysisUnitCodesFromAnswers(
-  answers: EvaluationContext['answers'],
-  fallback: string[] = []
-): string[] {
-  const selected = asList(answers.analysis_units).filter(Boolean)
-  return selected.length > 0 ? selected : fallback
-}
-
 export function buildContext(input: {
   segmentCode: string
   answers: EvaluationContext['answers']
   fallbackUnits?: string[]
 }): EvaluationContext {
   const extraSegmentCodes = extraSegmentCodesFromAnswers(input.answers)
+  const analysisUnitCodes = uniqueCodes([
+    ...defaultUnitCodesForSegments([input.segmentCode, ...extraSegmentCodes]),
+    ...(input.fallbackUnits ?? []),
+  ])
   return {
     segmentCode: input.segmentCode,
     extraSegmentCodes,
     answers: input.answers,
-    analysisUnitCodes: analysisUnitCodesFromAnswers(
-      input.answers,
-      input.fallbackUnits ?? []
-    ),
+    analysisUnitCodes,
   }
+}
+
+function uniqueCodes(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    if (!value || seen.has(value)) continue
+    seen.add(value)
+    result.push(value)
+  }
+  return result
 }

@@ -20,6 +20,8 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import type { DashboardLayout, ExperienceAnswers } from '@/features/experience/types'
 import { DASHBOARD_SECTION_TITLES } from '@/features/experience/types'
+import { UNIT_COST_INDICATOR_CODES } from '@/features/experience/catalog/segmentUnits'
+import { UnitCostSection } from '@/components/indicators/UnitCostSection'
 
 interface IndicatorView {
   rowId: string
@@ -140,7 +142,11 @@ export function PersonalizedDashboard() {
     return sections
       .map((section) => ({
         ...section,
-        items: visible.filter((item) => section.indicatorCodes.includes(item.code)),
+        items: visible.filter(
+          (item) =>
+            section.indicatorCodes.includes(item.code) &&
+            !UNIT_COST_INDICATOR_CODES.has(item.code)
+        ),
       }))
       .filter((section) => section.items.length > 0)
   }, [indicators, layout])
@@ -217,6 +223,8 @@ export function PersonalizedDashboard() {
       ) : null}
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+
+      <UnitCostSection />
 
       {grouped.map((section) => (
         <section key={section.id}>

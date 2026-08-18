@@ -210,9 +210,9 @@ export function ExperienceWizardPage() {
           Como a {activeCompany.trade_name || activeCompany.name} opera?
         </h1>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-mist sm:text-base">
-          O ramo {segmentLabel(segmentCode) || 'informado'} é só o ponto de partida.
-          Em seguida, vamos entender como vocês geram receita, quais custos
-          importam e quais unidades de análise fazem sentido para o dashboard.
+          O ramo {segmentLabel(segmentCode) || 'informado'} já define a unidade
+          de operação. Em seguida, vamos entender como vocês geram receita e
+          quais custos importam para o dashboard.
         </p>
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
         <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">

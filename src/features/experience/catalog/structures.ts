@@ -8,7 +8,7 @@ const generic: StructureTemplate = structure({
     { name: 'Serviços de terceiros', type: 'expense' },
   ],
   oxrDimensions: ['departamento', 'centro de custo'],
-  defaultUnitCodes: ['employee', 'client'],
+  defaultUnitCodes: ['operation_unit'],
 })
 
 export const STRUCTURES: Record<string, StructureTemplate> = {
@@ -22,7 +22,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Venda de produção', type: 'revenue' },
     ],
     oxrDimensions: ['cultura', 'hectare', 'saca'],
-    defaultUnitCodes: ['hectare', 'crop', 'bag'],
+    defaultUnitCodes: ['hectare'],
   }),
   livestock: structure({
     extraDepartments: ['Produção pecuária'],
@@ -35,7 +35,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Venda de animais', type: 'revenue' },
     ],
     oxrDimensions: ['animal', 'lote', 'arroba'],
-    defaultUnitCodes: ['animal', 'arroba', 'lot'],
+    defaultUnitCodes: ['head'],
   }),
   fishing: structure({
     extraCostCenters: ['Ração', 'Alevinos', 'Energia', 'Mão de obra'],
@@ -44,7 +44,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Venda de produção', type: 'revenue' },
     ],
     oxrDimensions: ['espécie', 'tonelada'],
-    defaultUnitCodes: ['ton', 'hectare'],
+    defaultUnitCodes: ['kg'],
   }),
   commerce: structure({
     extraDepartments: ['Loja'],
@@ -56,7 +56,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Vendas de mercadorias', type: 'revenue' },
     ],
     oxrDimensions: ['categoria', 'produto', 'loja'],
-    defaultUnitCodes: ['product', 'category', 'store'],
+    defaultUnitCodes: ['sold_unit'],
   }),
   industry: structure({
     extraDepartments: ['Produção'],
@@ -68,7 +68,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Venda de produtos fabricados', type: 'revenue' },
     ],
     oxrDimensions: ['produto', 'lote', 'produção'],
-    defaultUnitCodes: ['produced_unit', 'product', 'lot'],
+    defaultUnitCodes: ['produced_unit'],
   }),
   construction: structure({
     extraDepartments: ['Obras'],
@@ -80,7 +80,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de contratos', type: 'revenue' },
     ],
     oxrDimensions: ['obra', 'm²', 'etapa'],
-    defaultUnitCodes: ['work', 'sqm', 'work_stage'],
+    defaultUnitCodes: ['sqm'],
   }),
   transport_logistics: structure({
     extraDepartments: ['Frota'],
@@ -92,7 +92,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Fretes prestados', type: 'revenue' },
     ],
     oxrDimensions: ['veículo', 'viagem', 'km'],
-    defaultUnitCodes: ['km', 'trip', 'vehicle'],
+    defaultUnitCodes: ['km'],
   }),
   food: structure({
     extraDepartments: ['Cozinha'],
@@ -104,7 +104,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Vendas de alimentos', type: 'revenue' },
     ],
     oxrDimensions: ['produto', 'pedido', 'unidade'],
-    defaultUnitCodes: ['product', 'meal', 'order'],
+    defaultUnitCodes: ['meal'],
   }),
   services: structure({
     extraCostCenters: ['Projetos', 'Clientes', 'Terceirizados'],
@@ -113,7 +113,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de serviços', type: 'revenue' },
     ],
     oxrDimensions: ['cliente', 'projeto', 'contrato'],
-    defaultUnitCodes: ['client', 'project', 'worked_hour'],
+    defaultUnitCodes: ['worked_hour'],
   }),
   tech: structure({
     extraCostCenters: ['Infraestrutura', 'Pessoal técnico', 'Aquisição de clientes'],
@@ -123,7 +123,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de projetos', type: 'revenue' },
     ],
     oxrDimensions: ['cliente', 'projeto', 'produto'],
-    defaultUnitCodes: ['client', 'project', 'user'],
+    defaultUnitCodes: ['project', 'worked_hour'],
   }),
   health: structure({
     extraCostCenters: ['Materiais clínicos', 'Medicamentos', 'Profissionais'],
@@ -133,7 +133,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de procedimentos', type: 'revenue' },
     ],
     oxrDimensions: ['consulta', 'procedimento', 'profissional'],
-    defaultUnitCodes: ['appointment', 'procedure', 'patient'],
+    defaultUnitCodes: ['attendance'],
   }),
   education: structure({
     extraCostCenters: ['Professores', 'Turmas', 'Material didático'],
@@ -142,7 +142,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Mensalidades', type: 'revenue' },
     ],
     oxrDimensions: ['curso', 'turma', 'aluno'],
-    defaultUnitCodes: ['student', 'class_group', 'course'],
+    defaultUnitCodes: ['student'],
   }),
   real_estate: structure({
     extraCostCenters: ['Manutenção', 'Condomínio', 'Impostos', 'Vacância'],
@@ -152,7 +152,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de venda', type: 'revenue' },
     ],
     oxrDimensions: ['imóvel', 'contrato'],
-    defaultUnitCodes: ['property', 'contract'],
+    defaultUnitCodes: ['property'],
   }),
   automotive: structure({
     extraCostCenters: ['Peças', 'Serviços', 'Mão de obra'],
@@ -162,7 +162,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de peças', type: 'revenue' },
     ],
     oxrDimensions: ['serviço', 'produto'],
-    defaultUnitCodes: ['service', 'product', 'worked_hour'],
+    defaultUnitCodes: ['service'],
   }),
   energy: structure({
     extraCostCenters: ['Manutenção', 'Equipamentos', 'Operação'],
@@ -181,7 +181,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de minério', type: 'revenue' },
     ],
     oxrDimensions: ['tonelada', 'localidade'],
-    defaultUnitCodes: ['ton', 'extracted_unit'],
+    defaultUnitCodes: ['ton'],
   }),
   hospitality: structure({
     extraCostCenters: ['Hospedagem', 'Alimentos e bebidas', 'Comissões de plataformas'],
@@ -191,7 +191,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Diárias', type: 'revenue' },
     ],
     oxrDimensions: ['quarto', 'reserva'],
-    defaultUnitCodes: ['room', 'guest', 'reservation'],
+    defaultUnitCodes: ['night'],
   }),
   beauty: structure({
     extraCostCenters: ['Produtos', 'Comissões', 'Profissionais'],
@@ -201,7 +201,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de serviços', type: 'revenue' },
     ],
     oxrDimensions: ['serviço', 'profissional'],
-    defaultUnitCodes: ['attendance', 'service', 'professional'],
+    defaultUnitCodes: ['attendance'],
   }),
   media: structure({
     extraCostCenters: ['Projetos', 'Mídia', 'Terceirizados'],
@@ -210,7 +210,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de projetos', type: 'revenue' },
     ],
     oxrDimensions: ['cliente', 'projeto', 'campanha'],
-    defaultUnitCodes: ['client', 'project', 'campaign'],
+    defaultUnitCodes: ['campaign'],
   }),
   marketing: structure({
     extraCostCenters: ['Campanhas', 'Mídia', 'Atendimento'],
@@ -219,7 +219,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de honorários', type: 'revenue' },
     ],
     oxrDimensions: ['cliente', 'campanha'],
-    defaultUnitCodes: ['client', 'project', 'campaign'],
+    defaultUnitCodes: ['project'],
   }),
   entertainment: structure({
     extraCostCenters: ['Eventos', 'Estrutura', 'Produção'],
@@ -228,7 +228,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Bilheteria', type: 'revenue' },
     ],
     oxrDimensions: ['evento', 'cliente'],
-    defaultUnitCodes: ['event', 'client'],
+    defaultUnitCodes: ['event'],
   }),
   sports: structure({
     extraCostCenters: ['Estrutura', 'Eventos', 'Professores'],
@@ -237,7 +237,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Mensalidades e tickets', type: 'revenue' },
     ],
     oxrDimensions: ['cliente', 'evento'],
-    defaultUnitCodes: ['client', 'event'],
+    defaultUnitCodes: ['client'],
   }),
   environment: structure({
     extraCostCenters: ['Operação', 'Equipamentos', 'Destinação'],
@@ -246,19 +246,19 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receita de projetos ambientais', type: 'revenue' },
     ],
     oxrDimensions: ['projeto', 'tonelada'],
-    defaultUnitCodes: ['project', 'ton', 'client'],
+    defaultUnitCodes: ['ton'],
   }),
   financial: structure({
     extraCostCenters: ['Operação', 'Comissões'],
     extraCategories: [{ name: 'Receita de serviços financeiros', type: 'revenue' }],
     oxrDimensions: ['cliente', 'contrato'],
-    defaultUnitCodes: ['client', 'contract'],
+    defaultUnitCodes: ['operation'],
   }),
   professional: structure({
     extraCostCenters: ['Projetos', 'Horas', 'Terceirizados'],
     extraCategories: [{ name: 'Receita de honorários', type: 'revenue' }],
     oxrDimensions: ['cliente', 'projeto', 'hora'],
-    defaultUnitCodes: ['client', 'project', 'worked_hour'],
+    defaultUnitCodes: ['worked_hour'],
   }),
   public_admin: structure({
     extraCostCenters: ['Unidades', 'Pessoal', 'Custeio'],
@@ -267,7 +267,7 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
       { name: 'Receitas orçamentárias', type: 'revenue' },
     ],
     oxrDimensions: ['unidade', 'programa'],
-    defaultUnitCodes: ['employee'],
+    defaultUnitCodes: ['public_service'],
   }),
   other: generic,
 }

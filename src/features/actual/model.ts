@@ -85,6 +85,7 @@ export interface ClassifiedActualSlice {
   costCenterName: string
   monthKey: string
   amount: number
+  type: ActualTransactionType
 }
 
 export const TRANSACTION_STATUS_LABEL: Record<ActualTransactionStatus, string> = {

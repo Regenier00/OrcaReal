@@ -2,6 +2,11 @@ import { ANALYSIS_UNITS } from './units'
 import { QUESTIONS } from './questions'
 import { INDICATORS } from './indicators'
 import { STRUCTURES, structureFor } from './structures'
+import {
+  SEGMENT_UNIT_COSTS,
+  defaultUnitCodesForSegments,
+  unitCostsForSegments,
+} from './segmentUnits'
 import type { ExperienceCatalog } from '../types'
 
 export const builtinCatalog: ExperienceCatalog = {
@@ -11,4 +16,13 @@ export const builtinCatalog: ExperienceCatalog = {
   structures: STRUCTURES,
 }
 
-export { ANALYSIS_UNITS, QUESTIONS, INDICATORS, STRUCTURES, structureFor }
+export {
+  ANALYSIS_UNITS,
+  QUESTIONS,
+  INDICATORS,
+  STRUCTURES,
+  structureFor,
+  SEGMENT_UNIT_COSTS,
+  defaultUnitCodesForSegments,
+  unitCostsForSegments,
+}

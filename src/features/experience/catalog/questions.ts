@@ -102,20 +102,9 @@ const common: ExperienceQuestion[] = [
   ),
   q(
     {
-      code: 'analysis_units',
-      prompt: 'Qual unidade você utiliza para medir sua operação?',
-      helpText: 'Você pode escolher mais de uma. Elas definem custo, receita e margem por unidade de análise.',
-      answerType: 'multiple',
-      optionSource: 'analysis_units',
-      mapsTo: 'units',
-    },
-    90
-  ),
-  q(
-    {
       code: 'tracks_unit_costs',
       prompt: 'Você acompanha seus custos por unidade?',
-      helpText: 'Por exemplo: por hectare, animal, produto, km ou projeto.',
+      helpText: 'O indicador de custo por unidade do ramo aparece no dashboard. Informe a quantidade do mês ao clicar no card.',
       options: YES_NO,
       mapsTo: 'fact.tracks_unit_costs',
     },
