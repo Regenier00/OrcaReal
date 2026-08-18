@@ -145,28 +145,41 @@ export function ClassifyTransactionsPage() {
         (item.suggested_department_id ?? '') === nextDepartmentId &&
         (item.suggested_cost_center_id ?? '') === nextCostCenterId,
     )
-    if (!sameSuggestion || !nextDepartmentId) return
+    if (!sameSuggestion) {
+      setDepartmentId('')
+      setCostCenterId('')
+      return
+    }
+    if (!nextDepartmentId) return
     setDepartmentId(nextDepartmentId)
     setCostCenterId(nextCostCenterId)
   }, [items, selected])
 
   const suggestionPreview = useMemo(() => {
-    const labels = [
-      ...new Set(
-        selectedWithSuggestion
-          .map((item) => suggestionLabel(item, catalog))
-          .filter(Boolean),
-      ),
-    ]
-    if (labels.length === 0) return null
+    if (selectedWithSuggestion.length === 0) return null
+    const counts = new Map<string, number>()
+    for (const item of selectedWithSuggestion) {
+      const label = suggestionLabel(item, catalog)
+      if (!label) continue
+      counts.set(label, (counts.get(label) ?? 0) + 1)
+    }
+    const lines = [...counts.entries()].map(([label, count]) =>
+      selectedWithSuggestion.length > 1 && count > 1
+        ? `${label} · ${count} lançamentos`
+        : label,
+    )
+    if (lines.length === 0) return null
+    const skipped = selectedItems.length - selectedWithSuggestion.length
     return {
-      lines: labels,
+      lines,
       hint:
         selectedWithSuggestion.length === 1
           ? 'Clique em Aplicar sugestão para apropriar com estes valores.'
-          : `${selectedWithSuggestion.length} lançamentos selecionados. Clique em Aplicar sugestão para apropriar com o histórico.`,
+          : skipped > 0
+            ? `Cada lançamento segue a própria sugestão. ${skipped} sem sugestão ficam de fora.`
+            : 'Cada lançamento será apropriado no departamento e no centro de custo da própria sugestão.',
     }
-  }, [catalog, selectedWithSuggestion])
+  }, [catalog, selectedItems.length, selectedWithSuggestion])
 
   const allSelected = items.length > 0 && selected.length === items.length
 
@@ -276,7 +289,7 @@ export function ClassifyTransactionsPage() {
       setNotice(
         targets.length === 1 && labels[0]
           ? `Apropriado com a sugestão: ${labels[0]}`
-          : `${targets.length} lançamentos apropriados com sugestão de histórico.`,
+          : `${targets.length} lançamentos apropriados, cada um na própria sugestão.`,
       )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível aplicar as sugestões.')
@@ -474,11 +487,6 @@ export function ClassifyTransactionsPage() {
                   </td>
                   <td className="px-3 py-3">
                     <p className="font-medium text-ink">{item.description}</p>
-                    {hasSuggestion(item) && item.status === 'pending' ? (
-                      <span className="mt-1.5 inline-flex rounded-full bg-navy-soft px-2.5 py-1 text-[11px] font-medium text-navy-bright">
-                        Sugestão: {suggestionLabel(item, catalog) || 'histórico disponível'}
-                      </span>
-                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     <select

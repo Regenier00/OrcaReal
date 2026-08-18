@@ -129,17 +129,8 @@ export function importStepIndex(status: StatementImportStatus) {
   return index < 0 ? 0 : index
 }
 
-export function hasSuggestion(item: {
-  suggested_category_id: string | null
-  suggested_department_id: string | null
-  suggested_cost_center_id: string | null
-}) {
-  return Boolean(
-    item.suggested_category_id ||
-      item.suggested_department_id ||
-      item.suggested_cost_center_id,
-  )
-}
+export { hasSuggestion, groupTransactionsBySuggestion } from './suggestions'
+export type { SuggestionAssignment } from './suggestions'
 
 export interface DraftActual extends DraftBudget {
   budgetId: string
