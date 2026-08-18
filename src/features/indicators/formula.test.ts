@@ -5,6 +5,7 @@ import {
   consolidatedQuantity,
   defaultCustomFormula,
   evaluateFormula,
+  revenuePerQuantityFormula,
   formulaHint,
   formulaMoneySide,
   formulaUsesQuantity,
@@ -84,6 +85,10 @@ const revenuePerUnit = evaluateFormula(
   }
 )
 assert(revenuePerUnit === 140, `receita por unidade: ${revenuePerUnit}`)
+assert(
+  revenuePerQuantityFormula().left.metric === 'actual_revenue',
+  'indicadores de receita dividem a receita do período'
+)
 
 const consolidatedCost = evaluateFormula(
   {

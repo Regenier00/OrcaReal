@@ -65,6 +65,14 @@ export function defaultCustomFormula(): CustomFormula {
   }
 }
 
+export function revenuePerQuantityFormula(): CustomFormula {
+  return {
+    left: { metric: 'actual_revenue', scope: 'period' },
+    op: 'div',
+    right: { metric: 'quantity', scope: 'period' },
+  }
+}
+
 export function isCustomFormula(value: unknown): value is CustomFormula {
   if (!value || typeof value !== 'object') return false
   const row = value as Partial<CustomFormula>

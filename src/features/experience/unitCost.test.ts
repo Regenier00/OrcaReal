@@ -10,6 +10,12 @@ import {
   parseEmployeeCount,
   volumesFromEmployeeCount,
 } from './employeeCount.ts'
+import {
+  REVENUE_MODELS,
+  REVENUE_MODEL_INDICATORS,
+  revenueUnitCostsFor,
+  selectedRevenueModels,
+} from './catalog/revenueModels.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -120,7 +126,50 @@ function testEmployeeCount() {
   assert(unitCostForMonth(1600, volumes['2026-08']) === 200, 'custo por funcionário = 1600 / 8')
 }
 
+function testRevenueModels() {
+  for (const model of REVENUE_MODELS) {
+    assert(model.indicators.length >= 3, `${model.label} precisa de pelo menos 3 indicadores`)
+  }
+
+  const product = revenueUnitCostsFor(['venda_de_produtos'])
+  assert(product.length === 3, 'venda de produtos gera 3 indicadores')
+  assert(
+    product.some((item) => item.indicatorName === 'Valor médio de venda'),
+    'venda de produtos gera valor médio de venda'
+  )
+  assert(
+    product.every((item) => item.displayUnit.startsWith('R$/')),
+    'indicadores de receita usam R$ por unidade'
+  )
+
+  const selected = selectedRevenueModels(
+    { revenue_model: ['venda_de_produtos', 'contratos'] },
+    null
+  )
+  assert(selected.length === 2, 'aceita mais de um modelo de receita')
+  assert(revenueUnitCostsFor(selected).length === 6, 'dois modelos geram 6 indicadores')
+
+  const fromProfile = selectedRevenueModels({}, 'venda_de_produtos')
+  assert(fromProfile[0] === 'venda_de_produtos', 'lê o modelo gravado no perfil')
+
+  const fromCsv = selectedRevenueModels({}, 'venda_de_produtos, contratos')
+  assert(fromCsv.length === 2, 'lê vários modelos gravados no perfil')
+
+  const codes = REVENUE_MODEL_INDICATORS.map((item) => item.code)
+  assert(new Set(codes).size === codes.length, 'códigos de indicadores de receita não se repetem')
+  assert(
+    REVENUE_MODEL_INDICATORS.filter(
+      (item) =>
+        item.activation &&
+        'eq' in item.activation &&
+        item.activation.eq.value === 'venda_de_produtos'
+    ).length === 3,
+    'venda de produtos tem 3 indicadores ativados pela resposta'
+  )
+}
+
 testSegmentCoverage()
 testCalculation()
 testEmployeeCount()
+testRevenueModels()
 console.log('unitCost tests ok')

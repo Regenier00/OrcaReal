@@ -1,6 +1,12 @@
 import { SEGMENT_OPTIONS, segmentLabel } from '@/features/company/segmentOptions'
 import { extraSegmentCodesFromAnswers } from '@/features/experience/conditions'
 import { structureFor } from '@/features/experience/catalog'
+import {
+  parseRevenueModelValues,
+  revenueModelLabel,
+  revenueUnitCostsFor,
+  selectedRevenueModels,
+} from '@/features/experience/catalog/revenueModels'
 import { defaultUnitCodesForSegments, unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { buildDashboardLayout, selectIndicators } from '@/features/experience/indicators'
 import type {
@@ -130,6 +136,9 @@ export function applyExperience(
       (item) => item.indicatorCode
     )
   )
+  for (const item of revenueUnitCostsFor(selectedRevenueModels(ctx.answers))) {
+    unitCostCodes.add(item.indicatorCode)
+  }
   for (const indicator of catalog.indicators) {
     if (!unitCostCodes.has(indicator.code)) continue
     if (indicators.some((item) => item.code === indicator.code)) continue
@@ -186,6 +195,7 @@ export function buildProfileSummary(
       : profile.employee_count_range
         ? `Funcionários: ${labelFor(profile.employee_count_range)}`
         : null,
+    revenueSummary(profile.revenue_model),
     profile.state
       ? `Local: ${[profile.city, profile.state].filter(Boolean).join(' / ')}`
       : null,
@@ -204,6 +214,12 @@ export function buildProfileSummary(
   }
 
   return parts.join(' · ')
+}
+
+function revenueSummary(value: string | null): string | null {
+  const labels = parseRevenueModelValues(value).map(revenueModelLabel)
+  if (labels.length === 0) return null
+  return `Receita: ${labels.join(', ')}`
 }
 
 function unique(values: string[]): string[] {

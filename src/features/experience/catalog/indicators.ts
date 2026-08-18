@@ -1,4 +1,5 @@
 import { indicator } from './helpers'
+import { REVENUE_MODEL_INDICATORS } from './revenueModels'
 import type { ExperienceCondition, IndicatorDef } from '../types'
 
 const ALL = null
@@ -380,4 +381,5 @@ export const INDICATORS: IndicatorDef[] = [
   ...financialServices,
   ...publicAdmin,
   ...other,
+  ...REVENUE_MODEL_INDICATORS,
 ]

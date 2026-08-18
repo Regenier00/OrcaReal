@@ -4,6 +4,11 @@ import { isSegmentCode, segmentLabel, type SegmentCode } from '@/features/compan
 import { extraSegmentCodesFromAnswers } from '@/features/experience/conditions'
 import { unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { EMPLOYEE_HEADCOUNT_COSTS, formulaForUnitCost } from '@/features/experience/catalog/employeeHeadcount'
+import {
+  revenueIndicatorGroupLabel,
+  revenueUnitCostsFor,
+  selectedRevenueModels,
+} from '@/features/experience/catalog/revenueModels'
 import { listCompanyOperations, getCompanyExperienceAnswers } from '@/features/experience/experienceService'
 import { listUnitVolumes, saveUnitVolume } from '@/features/experience/unitVolumeService'
 import {
@@ -142,9 +147,14 @@ export function useUnitCostCards(input?: {
         }
       }
 
+      const models = selectedRevenueModels(
+        answers.ok ? answers.data : {},
+        companyProfile?.revenue_model
+      )
       const nextDefs = [
         ...unitCostsForSegments([...codes]),
         ...EMPLOYEE_HEADCOUNT_COSTS,
+        ...revenueUnitCostsFor(models),
       ]
       setDefs(nextDefs)
       if (customResult.ok) setCustomIndicators(customResult.data)
@@ -230,9 +240,11 @@ export function useUnitCostCards(input?: {
           quantityNounSingular: def.quantityNounSingular,
         },
         kind: 'catalog',
-        segmentLabel: isEmployeeHeadcountIndicator(def.indicatorCode)
-          ? 'Empresa'
-          : segmentLabel(def.segmentCode as SegmentCode),
+        segmentLabel:
+          revenueIndicatorGroupLabel(def.indicatorCode) ??
+          (isEmployeeHeadcountIndicator(def.indicatorCode)
+            ? 'Empresa'
+            : segmentLabel(def.segmentCode as SegmentCode)),
         formula: formulaForUnitCost(def.indicatorCode),
         volumes: nextVolumes,
         monthKey,
