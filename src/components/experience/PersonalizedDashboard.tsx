@@ -28,7 +28,6 @@ interface IndicatorView {
   code: string
   name: string
   description: string
-  formula: string
   unit: string
   category: string
   section: string
@@ -79,7 +78,6 @@ export function PersonalizedDashboard() {
             code,
             name: String(item?.name ?? fallback?.name ?? code),
             description: String(item?.description ?? fallback?.description ?? ''),
-            formula: String(item?.formula ?? item?.formula_hint ?? fallback?.formula ?? ''),
             unit: String(item?.unit ?? fallback?.unit ?? 'R$'),
             category: String(item?.category ?? fallback?.category ?? 'financial'),
             section: String(
@@ -206,18 +204,17 @@ export function PersonalizedDashboard() {
   return (
     <div className="mt-8 space-y-8">
       {prompts[0] ? (
-        <section className="rounded-2xl border border-paper-muted bg-white p-5">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-mist">
-            Continuar personalização
-          </p>
-          <h2 className="mt-2 font-display text-xl font-semibold text-navy">
-            {prompts[0].prompt}
-          </h2>
-          <p className="mt-1 text-sm text-mist">
-            Se fizer sentido para o negócio, o indicador entra no dashboard.
-          </p>
-          <Link to="/app/conhecer-empresa" className="mt-4 inline-flex">
-            <Button variant="secondary">Responder agora</Button>
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-paper-muted bg-white px-5 py-4">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-mist">
+              Personalizar
+            </p>
+            <h2 className="mt-1 font-display text-base font-semibold text-navy">
+              {prompts[0].prompt}
+            </h2>
+          </div>
+          <Link to="/app/conhecer-empresa" className="inline-flex">
+            <Button variant="secondary">Responder</Button>
           </Link>
         </section>
       ) : null}
@@ -228,49 +225,43 @@ export function PersonalizedDashboard() {
 
       {grouped.map((section) => (
         <section key={section.id}>
-          <h2 className="font-display text-xl font-semibold text-navy">{section.title}</h2>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <h2 className="font-display text-lg font-semibold text-navy">{section.title}</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {section.items.map((item) => {
               const value = metricFor(item.code, metrics, profit, margin)
               return (
                 <article
                   key={item.rowId}
                   className={cn(
-                    'rounded-2xl border border-paper-muted bg-white p-4',
-                    item.favorite && 'ring-1 ring-navy/20'
+                    'rounded-2xl border border-paper-muted bg-white px-5 py-4',
+                    item.favorite && 'border-navy/20'
                   )}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-mist">
-                        {item.category}
-                      </p>
-                      <h3 className="mt-1 font-display text-lg font-semibold text-ink">
-                        {item.name}
-                      </h3>
-                    </div>
-                    <div className="flex gap-1">
+                    <h3 className="font-display text-sm font-semibold text-mist">
+                      {item.name}
+                    </h3>
+                    <div className="flex shrink-0 gap-1">
                       <button
                         type="button"
-                        className="rounded-lg px-2 py-1 text-xs text-mist hover:bg-paper hover:text-navy"
+                        className="rounded-md px-1.5 py-0.5 text-[11px] text-mist hover:bg-paper hover:text-navy"
                         onClick={() => void handleFavorite(item)}
                       >
-                        {item.favorite ? 'Favorito' : 'Favoritar'}
+                        {item.favorite ? '★' : '☆'}
                       </button>
                       <button
                         type="button"
-                        className="rounded-lg px-2 py-1 text-xs text-mist hover:bg-paper hover:text-navy"
+                        className="rounded-md px-1.5 py-0.5 text-[11px] text-mist hover:bg-paper hover:text-navy"
                         onClick={() => void handleHide(item)}
                       >
                         Ocultar
                       </button>
                     </div>
                   </div>
-                  <p className="mt-3 font-display text-2xl font-semibold text-ink">
-                    {value ?? 'Aguardando dados'}
+                  <p className="mt-3 font-numeric text-2xl font-semibold text-ink">
+                    {value ?? '—'}
                   </p>
-                  <p className="mt-2 text-sm text-mist">{item.description}</p>
-                  <p className="mt-3 font-mono text-[11px] text-mist">{item.formula}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-mist">{item.description}</p>
                 </article>
               )
             })}

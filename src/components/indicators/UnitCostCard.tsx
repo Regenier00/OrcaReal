@@ -34,7 +34,7 @@ export function UnitCostCard({
       >
         <p className="text-[11px] uppercase tracking-wide text-mist">{card.segmentLabel}</p>
         <h3 className="mt-1 font-display text-lg font-semibold text-ink">{card.def.indicatorName}</h3>
-        <p className="mt-3 font-display text-2xl font-semibold text-ink">
+        <p className="mt-3 font-numeric text-2xl font-semibold text-ink">
           {card.unitCost == null ? 'Informar quantidade' : formatMoney(card.unitCost)}
         </p>
         <p className="mt-1 text-sm text-mist">{card.def.displayUnit}</p>
@@ -138,7 +138,7 @@ function UnitCostDialog({
           <p className="text-[11px] uppercase tracking-wide text-mist">
             Custo total realizado
           </p>
-          <p className="mt-1 font-display text-lg font-semibold text-ink">
+          <p className="mt-1 font-numeric text-lg font-semibold text-ink">
             {formatMoney(totalCost)}
           </p>
           <p className="mt-1 text-xs text-mist">
@@ -160,7 +160,7 @@ function UnitCostDialog({
         {preview != null && quantity != null ? (
           <div className="rounded-xl border border-paper-muted px-4 py-3">
             <p className="text-[11px] uppercase tracking-wide text-mist">Resultado</p>
-            <p className="mt-1 font-display text-xl font-semibold text-ink">
+            <p className="mt-1 font-numeric text-xl font-semibold text-ink">
               {formatMoney(preview)}
             </p>
             <p className="mt-1 text-sm text-mist">{card.def.displayUnit}</p>

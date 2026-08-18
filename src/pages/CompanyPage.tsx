@@ -11,6 +11,7 @@ import {
   listCostCenters,
   listDepartments,
   updateCompanyData,
+  updateCompanyLogo,
   updateCompanySegment,
   updateCompanySettings,
 } from '@/features/company/companyService'
@@ -26,6 +27,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
+import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { cn } from '@/lib/utils'
 import type {
   CompanyMember,
@@ -100,6 +102,7 @@ export function CompanyPage() {
             tradeName={activeCompany.trade_name ?? ''}
             document={activeCompany.document ?? ''}
             description={activeCompany.description ?? ''}
+            logoUrl={activeCompany.logo_url}
             segmentId={companyProfile?.segment_id ?? ''}
             customSegment={companyProfile?.custom_segment ?? ''}
             segments={segments}
@@ -155,6 +158,7 @@ function CompanyDataTab({
   tradeName,
   document,
   description,
+  logoUrl,
   segmentId,
   customSegment,
   segments,
@@ -166,6 +170,7 @@ function CompanyDataTab({
   tradeName: string
   document: string
   description: string
+  logoUrl: string | null
   segmentId: string
   customSegment: string
   segments: Array<{ id: string; code: string; name: string }>
@@ -245,6 +250,29 @@ function CompanyDataTab({
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} className="flex max-w-xl flex-col gap-4">
+      <div>
+        <p className="mb-2 text-sm font-medium text-ink">Logo da empresa</p>
+        <CompanyLogoAvatar
+          name={formTradeName || formName}
+          logoUrl={logoUrl}
+          editable={canEdit}
+          showRemove={canEdit}
+          onChange={
+            canEdit
+              ? async (nextLogo) => {
+                  const result = await updateCompanyLogo({
+                    companyId,
+                    logoUrl: nextLogo,
+                  })
+                  if (!result.ok) {
+                    throw new Error(result.message)
+                  }
+                  onSaved()
+                }
+              : undefined
+          }
+        />
+      </div>
       <Input
         label="Nome da empresa"
         value={formName}

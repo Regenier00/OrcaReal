@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import { CompanySwitcher } from '@/components/company/CompanySwitcher'
+import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 
@@ -30,9 +31,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <span className="text-sky">Real</span>
             </Link>
             {activeCompany ? (
-              <p className="mt-1 truncate text-xs text-white/55">
-                Empresa: {activeCompany.trade_name || activeCompany.name}
-              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <CompanyLogoAvatar
+                  name={activeCompany.trade_name || activeCompany.name}
+                  logoUrl={activeCompany.logo_url}
+                  size="sm"
+                />
+                <p className="truncate text-xs text-white/55">
+                  {activeCompany.trade_name || activeCompany.name}
+                </p>
+              </div>
             ) : null}
           </div>
 

@@ -10,8 +10,10 @@ import { useAuth } from '@/features/auth/useAuth'
 import { CompanyContext } from '@/features/company/company-context'
 import {
   getCompanyProfile,
+  getCompanySettings,
   listSegments,
   listUserMemberships,
+  logoUrlFromSettings,
 } from '@/features/company/companyService'
 import type {
   Company,
@@ -43,6 +45,7 @@ async function fetchCompanySnapshot(): Promise<{
   segments: Segment[]
   nextId: string | null
   profile: CompanyProfile | null
+  logoUrl: string | null
   error: string | null
 }> {
   const [membershipResult, segmentResult] = await Promise.all([
@@ -56,6 +59,7 @@ async function fetchCompanySnapshot(): Promise<{
       segments: segmentResult.ok ? segmentResult.data : [],
       nextId: null,
       profile: null,
+      logoUrl: null,
       error: membershipResult.message,
     }
   }
@@ -67,13 +71,22 @@ async function fetchCompanySnapshot(): Promise<{
     membershipResult.data[0]?.company_id ??
     null
 
-  const profileResult = nextId ? await getCompanyProfile(nextId) : null
+  const [profileResult, settingsResult] = nextId
+    ? await Promise.all([getCompanyProfile(nextId), getCompanySettings(nextId)])
+    : [null, null]
+
+  const companyLogo =
+    membershipResult.data.find((item) => item.company_id === nextId)?.company
+      .logo_url ?? null
 
   return {
     memberships: membershipResult.data,
     segments: segmentResult.ok ? segmentResult.data : [],
     nextId,
     profile: profileResult?.ok ? profileResult.data : null,
+    logoUrl:
+      companyLogo ||
+      (settingsResult?.ok ? logoUrlFromSettings(settingsResult.data?.settings) : null),
     error: null,
   }
 }
@@ -87,6 +100,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(
     null
   )
+  const [fallbackLogoUrl, setFallbackLogoUrl] = useState<string | null>(null)
   const [segments, setSegments] = useState<Segment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -98,6 +112,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       setActiveCompanyIdState(snapshot.nextId)
       if (snapshot.nextId) storeCompanyId(snapshot.nextId)
       setCompanyProfile(snapshot.profile)
+      setFallbackLogoUrl(snapshot.logoUrl)
       setError(snapshot.error)
       setLoading(false)
     },
@@ -108,6 +123,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
     if (!user) {
       setMemberships([])
       setCompanyProfile(null)
+      setFallbackLogoUrl(null)
       setLoading(false)
       return
     }
@@ -136,8 +152,20 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       if (!exists) return
       storeCompanyId(companyId)
       setActiveCompanyIdState(companyId)
-      void getCompanyProfile(companyId).then((result) => {
-        setCompanyProfile(result.ok ? result.data : null)
+      void Promise.all([
+        getCompanyProfile(companyId),
+        getCompanySettings(companyId),
+      ]).then(([profileResult, settingsResult]) => {
+        setCompanyProfile(profileResult.ok ? profileResult.data : null)
+        const companyLogo =
+          memberships.find((item) => item.company_id === companyId)?.company
+            .logo_url ?? null
+        setFallbackLogoUrl(
+          companyLogo ||
+            (settingsResult.ok
+              ? logoUrlFromSettings(settingsResult.data?.settings)
+              : null)
+        )
       })
     },
     [memberships]
@@ -154,7 +182,16 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
     [memberships, activeCompanyId]
   )
 
-  const activeCompany: Company | null = activeMembership?.company ?? null
+  const activeCompany: Company | null = useMemo(
+    () =>
+      activeMembership
+        ? {
+            ...activeMembership.company,
+            logo_url: activeMembership.company.logo_url || fallbackLogoUrl,
+          }
+        : null,
+    [activeMembership, fallbackLogoUrl]
+  )
   const isAdmin =
     activeMembership?.role === 'owner' || activeMembership?.role === 'admin'
 
