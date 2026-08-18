@@ -1,6 +1,6 @@
 export type StatementFormat = 'ofx' | 'csv' | 'xlsx' | 'pdf' | 'unknown'
 
-export type MovementType = 'income' | 'expense' | 'transfer' | 'unknown'
+export type MovementType = 'income' | 'expense' | 'unknown'
 
 export interface RawMovement {
   postedAt: string

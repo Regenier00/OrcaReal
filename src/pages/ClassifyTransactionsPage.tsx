@@ -42,8 +42,6 @@ export function ClassifyTransactionsPage() {
   const [items, setItems] = useState<ActualTransaction[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [status, setStatus] = useState<ActualTransactionStatus | ''>('pending')
-  const [type, setType] = useState<ActualTransactionType | ''>('')
-  const [departmentFilter, setDepartmentFilter] = useState('')
   const [search, setSearch] = useState('')
   const [departmentId, setDepartmentId] = useState('')
   const [costCenterId, setCostCenterId] = useState('')
@@ -53,7 +51,7 @@ export function ClassifyTransactionsPage() {
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
 
   const loadKey = company
-    ? `${company.id}:${importId}:${status}:${type}:${departmentFilter}:${search}`
+    ? `${company.id}:${importId}:${status}:${search}`
     : null
 
   useEffect(() => {
@@ -80,8 +78,6 @@ export function ClassifyTransactionsPage() {
     void listActualTransactions(companyId, {
       importId: importId || undefined,
       status,
-      type,
-      departmentId: departmentFilter || undefined,
       search,
     })
       .then((nextItems) => {
@@ -99,7 +95,7 @@ export function ClassifyTransactionsPage() {
     return () => {
       mounted = false
     }
-  }, [company, loadKey, importId, status, type, departmentFilter, search])
+  }, [company, loadKey, importId, status, search])
 
   const loading = Boolean(loadKey) && fetchedFor !== loadKey
   const selectedItems = items.filter((item) => selected.includes(item.id))
@@ -122,8 +118,6 @@ export function ClassifyTransactionsPage() {
     const nextItems = await listActualTransactions(company.id, {
       importId: importId || undefined,
       status,
-      type,
-      departmentId: departmentFilter || undefined,
       search,
     })
     setItems(nextItems)
@@ -235,7 +229,7 @@ export function ClassifyTransactionsPage() {
         </div>
       }
     >
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Select
           label="Status"
           value={status}
@@ -246,37 +240,12 @@ export function ClassifyTransactionsPage() {
           <option value="classified">Apropriados</option>
           <option value="ignored">Ignorados</option>
         </Select>
-        <Select
-          label="Tipo"
-          value={type}
-          onChange={(event) => setType(event.target.value as ActualTransactionType | '')}
-        >
-          <option value="">Todos</option>
-          <option value="expense">Saídas</option>
-          <option value="income">Entradas</option>
-          <option value="transfer">Transferências</option>
-          <option value="unknown">Não identificado</option>
-        </Select>
-        <Select
-          label="Departamento"
-          value={departmentFilter}
-          onChange={(event) => setDepartmentFilter(event.target.value)}
-        >
-          <option value="">Todos</option>
-          {(catalog?.departments ?? []).map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </Select>
-        <div className="lg:col-span-2">
-          <Input
-            label="Busca"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Descrição do lançamento"
-          />
-        </div>
+        <Input
+          label="Busca"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Descrição do lançamento"
+        />
       </div>
 
       <section className="mt-6 rounded-2xl border border-paper-muted bg-white p-5">
@@ -326,7 +295,6 @@ export function ClassifyTransactionsPage() {
             <option value="">Manter o tipo de cada lançamento</option>
             <option value="expense">Saída</option>
             <option value="income">Entrada</option>
-            <option value="transfer">Transferência</option>
           </Select>
           <div className="flex flex-wrap items-end gap-2">
             <Button

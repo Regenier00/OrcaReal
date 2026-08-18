@@ -47,7 +47,7 @@ DATA:OFXSGML
   assert(result.movements.length === 2, `lançamentos ${result.movements.length}`)
   assert(result.movements[0]?.type === 'expense', 'primeiro deve ser saída')
   assert(result.movements[0]?.amount === 150.9, `valor ${result.movements[0]?.amount}`)
-  assert(result.movements[1]?.type === 'transfer', 'TED deve ser transferência')
+  assert(result.movements[1]?.type === 'income', 'TED recebida deve ser entrada')
   assert(result.movements[1]?.amount === 2000, `crédito ${result.movements[1]?.amount}`)
 }
 
@@ -393,7 +393,7 @@ function testDatetimeSerialsAndFilledDownDates() {
   assert(byDescription(result, 'PIX RECEBIDO')?.postedAt === '2026-08-10', 'serial com hora')
   assert(byDescription(result, 'TARIFA')?.postedAt === '2026-08-10', 'data repetida da célula mesclada/vazia')
   assert(byDescription(result, 'TED ENVIADA')?.postedAt === '2026-08-11', 'data com mês por extenso')
-  assert(byDescription(result, 'TED ENVIADA')?.type === 'transfer', 'ted')
+  assert(byDescription(result, 'TED ENVIADA')?.type === 'expense', 'ted enviada deve ser saída')
 }
 
 function testTwoRowDebitCreditHeader() {

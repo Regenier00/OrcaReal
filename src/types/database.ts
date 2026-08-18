@@ -233,7 +233,7 @@ export type StatementImportStatus =
   | 'completed'
   | 'failed'
   | 'ocr_required'
-export type ActualTransactionType = 'income' | 'expense' | 'transfer' | 'unknown'
+export type ActualTransactionType = 'income' | 'expense' | 'unknown'
 export type ActualTransactionStatus = 'pending' | 'classified' | 'ignored'
 
 export interface BankAccount {

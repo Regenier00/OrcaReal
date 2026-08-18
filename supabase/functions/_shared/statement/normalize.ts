@@ -1,9 +1,6 @@
 import { MAX_DESCRIPTION_CHARS, MAX_TRANSACTIONS, MAX_WARNINGS } from './limits.ts'
 import type { MovementType, ParseResult, ParseWarning, RawMovement } from './types.ts'
 
-const TRANSFER_PATTERN =
-  /\b(ted|doc|tef|transf(?:erencia)?|resgate|aplicacao|aplicação|entre contas)\b/i
-
 export function roundMoney(value: number) {
   return Math.round(value * 100) / 100
 }
@@ -181,29 +178,19 @@ export function parseAmount(value: unknown): number | null {
   return roundMoney(negative ? -Math.abs(amount) : amount)
 }
 
-export function typeFromSignedAmount(
-  amount: number,
-  description = '',
-): MovementType {
-  if (TRANSFER_PATTERN.test(description)) return 'transfer'
+export function typeFromSignedAmount(amount: number): MovementType {
   if (amount > 0) return 'income'
   if (amount < 0) return 'expense'
   return 'unknown'
 }
 
-export function typeFromLabel(
-  value: unknown,
-  description = '',
-): MovementType | null {
+export function typeFromLabel(value: unknown): MovementType | null {
   const key = String(value ?? '')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '')
   if (!key) return null
-  if (TRANSFER_PATTERN.test(description) || TRANSFER_PATTERN.test(value)) {
-    return 'transfer'
-  }
   if (
     /^(credito|credit|c|cr|entrada|receita|recebido|deposito)$/.test(key) ||
     key.includes('credito') ||
@@ -225,20 +212,19 @@ export function typeFromLabel(
 export function typeFromCreditDebit(
   credit: number | null,
   debit: number | null,
-  description = '',
 ): { amount: number; type: MovementType } | null {
   const hasCredit = credit != null && credit !== 0
   const hasDebit = debit != null && debit !== 0
   if (hasCredit && !hasDebit) {
     return {
       amount: Math.abs(credit),
-      type: TRANSFER_PATTERN.test(description) ? 'transfer' : 'income',
+      type: 'income',
     }
   }
   if (hasDebit && !hasCredit) {
     return {
       amount: Math.abs(debit),
-      type: TRANSFER_PATTERN.test(description) ? 'transfer' : 'expense',
+      type: 'expense',
     }
   }
   return null

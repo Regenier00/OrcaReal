@@ -58,14 +58,12 @@ export const IMPORT_STATUS_LABEL: Record<StatementImportStatus, string> = {
 export const TRANSACTION_TYPE_LABEL: Record<ActualTransactionType, string> = {
   income: 'Entrada',
   expense: 'Saída',
-  transfer: 'Transferência',
   unknown: 'Não identificado',
 }
 
 export const EDITABLE_TRANSACTION_TYPES: ActualTransactionType[] = [
   'expense',
   'income',
-  'transfer',
   'unknown',
 ]
 

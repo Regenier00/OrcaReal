@@ -145,7 +145,7 @@ export const pdfParser: StatementParser = {
         postedAt: posted,
         description,
         amount: Math.abs(signed),
-        type: typeFromSignedAmount(signed, description),
+        type: typeFromSignedAmount(signed),
         balance: null,
         externalId: null,
         documentNumber: null,
