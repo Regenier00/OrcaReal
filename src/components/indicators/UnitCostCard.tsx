@@ -7,6 +7,8 @@ import { formatMoney } from '@/features/budget/money'
 import { unitCostForMonth, volumeNoun } from '@/features/experience/unitCost'
 import type { UnitCostCardModel } from '@/features/experience/useUnitCostCards'
 import type { BudgetMonth } from '@/features/budget/period'
+import { ChangeBadge } from '@/components/home/ChangeBadge'
+import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 
 export function UnitCostCard({
@@ -30,21 +32,33 @@ export function UnitCostCard({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'w-full cursor-pointer rounded-2xl border border-paper-muted bg-white px-4 py-4 text-left transition',
-          'hover:border-ink/20 hover:shadow-soft'
+          'flex h-full w-full cursor-pointer flex-col rounded-2xl border border-paper-muted bg-white p-5 text-left shadow-card transition',
+          'hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft'
         )}
       >
-        <p className="text-[11px] uppercase tracking-wide text-mist">
+        <div className="flex items-start justify-between gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-soft text-navy">
+            <CalculatorIcon />
+          </span>
+          <ChangeBadge value={card.unitCostChange} invert />
+        </div>
+        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist">
           {kicker ?? card.segmentLabel}
         </p>
-        <h3 className="mt-1 font-display text-lg font-semibold text-ink">{card.def.indicatorName}</h3>
-        <p className="mt-3 font-numeric text-2xl font-semibold text-ink">
+        <h3 className="mt-1 font-display text-sm font-medium text-navy/80">
+          {card.def.indicatorName}
+        </h3>
+        <p className="mt-3 font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
           {card.unitCost == null ? 'Informar quantidade' : formatMoney(card.unitCost)}
         </p>
-        <p className="mt-1 text-sm text-mist">{card.def.displayUnit}</p>
-        <p className="mt-3 text-xs text-mist">Mês: {card.monthLabel || 'selecione no card'}</p>
-        <p className="mt-2 font-mono text-[11px] text-mist">
-          custo realizado / {card.def.quantityNoun}
+        <p className="mt-2 text-sm leading-relaxed text-mist">
+          {card.quantity != null
+            ? `${formatQuantity(card.quantity)} ${volumeNoun(
+                card.quantity,
+                card.def.quantityNounSingular,
+                card.def.quantityNoun
+              )} em ${card.monthLabel || 'mês atual'}`
+            : `${card.def.displayUnit} · clique para informar a quantidade`}
         </p>
       </button>
 

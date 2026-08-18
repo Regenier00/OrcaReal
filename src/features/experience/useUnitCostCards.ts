@@ -13,9 +13,16 @@ import {
 } from '@/features/experience/unitCost'
 import { listCompanyComparisonOptions, loadComparisonPair } from '@/features/comparison/comparisonService'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
+import type { LoadedBudget } from '@/features/budget/model'
 import type { BudgetMonth } from '@/features/budget/period'
 import { calendarYearBounds, currentFiscalYear, monthsBetween } from '@/features/budget/period'
 import { listClassifiedActualSlices } from '@/features/actual/actualService'
+import {
+  buildFinancialInsights,
+  buildFinancialSeries,
+  changeRatio,
+  previousMonth,
+} from '@/features/home/dashboardModel'
 
 export interface UnitCostCardModel {
   def: SegmentUnitCostDef
@@ -26,6 +33,8 @@ export interface UnitCostCardModel {
   totalCost: number
   quantity: number | null
   unitCost: number | null
+  previousUnitCost: number | null
+  unitCostChange: number | null
   costByMonth: Record<string, number>
 }
 
@@ -40,6 +49,7 @@ export function useUnitCostCards(input?: {
   const [volumes, setVolumes] = useState<Record<string, MonthlyVolumes>>({})
   const [fetchedMonths, setFetchedMonths] = useState<BudgetMonth[]>([])
   const [fetchedActual, setFetchedActual] = useState<LoadedActual | null>(null)
+  const [fetchedBudget, setFetchedBudget] = useState<LoadedBudget | null>(null)
   const [fetchedClassified, setFetchedClassified] = useState<ClassifiedActualSlice[]>(
     []
   )
@@ -103,6 +113,7 @@ export function useUnitCostCards(input?: {
           if (!mounted) return
           const pairMonths = monthsBetween(activeBudget.startDate, activeBudget.endDate)
           setFetchedMonths(pairMonths)
+          setFetchedBudget(pair?.budget ?? null)
           setFetchedActual(pair?.actual ?? null)
           setFetchedClassified(pair?.classifiedActuals ?? [])
         } else {
@@ -116,6 +127,7 @@ export function useUnitCostCards(input?: {
           ).catch(() => [])
           if (!mounted) return
           setFetchedMonths(yearMonths)
+          setFetchedBudget(null)
           setFetchedActual(null)
           setFetchedClassified(slices)
         }
@@ -143,12 +155,20 @@ export function useUnitCostCards(input?: {
     return map
   }, [months, actual, classified])
 
+  const previous = useMemo(() => previousMonth(months, monthKey), [months, monthKey])
+
   const cards = useMemo<UnitCostCardModel[]>(() => {
     const month = months.find((item) => item.key === monthKey)
     const totalCost = monthKey ? (costByMonth[monthKey] ?? 0) : 0
+    const previousCost = previous ? (costByMonth[previous.key] ?? 0) : 0
 
     return defs.map((def) => {
       const qty = volumes[def.indicatorCode]?.[monthKey] ?? null
+      const previousQty = previous
+        ? (volumes[def.indicatorCode]?.[previous.key] ?? null)
+        : null
+      const unitCost = unitCostForMonth(totalCost, qty)
+      const previousUnitCost = unitCostForMonth(previousCost, previousQty)
       return {
         def,
         segmentLabel: segmentLabel(def.segmentCode as SegmentCode),
@@ -157,11 +177,13 @@ export function useUnitCostCards(input?: {
         monthLabel: month?.fullLabel ?? monthKey,
         totalCost,
         quantity: qty,
-        unitCost: unitCostForMonth(totalCost, qty),
+        unitCost,
+        previousUnitCost,
+        unitCostChange: changeRatio(unitCost ?? Number.NaN, previousUnitCost),
         costByMonth,
       }
     })
-  }, [defs, volumes, months, monthKey, costByMonth])
+  }, [defs, volumes, months, monthKey, costByMonth, previous])
 
   const saveQuantity = async (indicatorCode: string, quantity: number, month: string) => {
     if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
@@ -185,16 +207,76 @@ export function useUnitCostCards(input?: {
 
   const monthLabel =
     months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey
+  const totalCost = monthKey ? (costByMonth[monthKey] ?? 0) : 0
+  const previousTotalCost = previous ? (costByMonth[previous.key] ?? 0) : null
+
+  const series = useMemo(
+    () =>
+      buildFinancialSeries(
+        months,
+        actual,
+        classified,
+        fetchedBudget,
+        monthKey
+      ),
+    [months, actual, classified, fetchedBudget, monthKey]
+  )
+
+  const currentFinancials = useMemo(
+    () => series.find((item) => item.key === monthKey) ?? series[series.length - 1] ?? null,
+    [series, monthKey]
+  )
+  const previousFinancials = useMemo(
+    () => (previous ? series.find((item) => item.key === previous.key) ?? null : null),
+    [series, previous]
+  )
+
+  const hasRealized = useMemo(
+    () => series.some((item) => item.realized !== 0 || item.revenue !== 0),
+    [series]
+  )
+
+  const insights = useMemo(
+    () => {
+      if (loading) return []
+      return buildFinancialInsights({
+        current: currentFinancials,
+        previous: previousFinancials,
+        hasBudget: Boolean(fetchedBudget),
+        hasRealized,
+        unitCostMissing: cards.some((card) => card.quantity == null),
+      })
+    },
+    [
+      loading,
+      currentFinancials,
+      previousFinancials,
+      fetchedBudget,
+      hasRealized,
+      cards,
+    ]
+  )
 
   return {
     cards,
     months,
     monthKey,
     monthLabel,
-    totalCost: monthKey ? (costByMonth[monthKey] ?? 0) : 0,
-    loading,
+    previousMonthLabel: previous?.fullLabel ?? '',
+    totalCost,
+    previousTotalCost,
+    costChange: changeRatio(totalCost, previousTotalCost),
+    series,
+    currentFinancials,
+    previousFinancials,
+    insights,
+    hasBudget: Boolean(fetchedBudget),
+    hasRealized,
+    loading: Boolean(activeCompany) && loading,
     error,
     savingCode,
     saveQuantity,
   }
 }
+
+export type HomeDashboardData = ReturnType<typeof useUnitCostCards>

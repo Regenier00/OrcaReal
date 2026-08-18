@@ -1,45 +1,45 @@
-import { Link } from 'react-router-dom'
 import { UnitCostCard } from '@/components/indicators/UnitCostCard'
-import { useUnitCostCards } from '@/features/experience/useUnitCostCards'
 import { formatMoney } from '@/features/budget/money'
-import { cn } from '@/lib/utils'
+import { KpiCard } from '@/components/home/KpiCard'
+import { SectionHeading } from '@/components/home/FinancialSummary'
+import { WalletIcon } from '@/components/home/DashboardIcons'
+import type { HomeDashboardData } from '@/features/experience/useUnitCostCards'
 
-export function MonthResultSection() {
-  const data = useUnitCostCards()
-
-  if (data.loading && data.cards.length === 0) {
+export function MonthResultSection({ data }: { data: HomeDashboardData }) {
+  if (data.loading && data.cards.length === 0 && !data.currentFinancials) {
     return <p className="text-sm text-mist">Carregando o resultado do mês...</p>
   }
 
   return (
     <section>
       {data.error ? (
-        <p className="mb-3 rounded-xl border border-danger/20 bg-white px-4 py-3 text-sm text-danger">
+        <p className="mb-3 rounded-xl border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
           {data.error}
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Link
+
+      <SectionHeading
+        kicker="Indicadores"
+        title="Resultado operacional do mês"
+        subtitle="O consolidado e o custo por unidade do ramo, com variação frente ao mês anterior."
+      />
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard
           to="/app/orcado-realizado"
-          className={cn(
-            'flex w-full cursor-pointer flex-col rounded-2xl border border-paper-muted bg-white px-4 py-4 text-left transition',
-            'hover:border-ink/20 hover:shadow-soft'
-          )}
-        >
-          <p className="text-[11px] uppercase tracking-wide text-mist">
-            Consolidado
-          </p>
-          <h3 className="mt-1 font-display text-lg font-semibold text-ink">
-            Total realizado consolidado
-          </h3>
-          <p className="mt-3 font-numeric text-2xl font-semibold text-ink">
-            {formatMoney(data.totalCost)}
-          </p>
-          <p className="mt-1 text-sm text-mist">Custos e despesas do mês</p>
-          <p className="mt-3 text-xs text-mist">
-            Mês: {data.monthLabel || 'selecione no realizado'}
-          </p>
-        </Link>
+          kicker="Consolidado"
+          title="Total realizado"
+          value={formatMoney(data.totalCost)}
+          hint={
+            data.previousMonthLabel
+              ? `Custos e despesas de ${data.monthLabel || 'mês atual'}`
+              : 'Custos e despesas do mês'
+          }
+          change={data.costChange}
+          invertChange
+          icon={<WalletIcon />}
+          tone="navy"
+        />
 
         {data.cards.map((card) => (
           <UnitCostCard
@@ -54,6 +54,13 @@ export function MonthResultSection() {
           />
         ))}
       </div>
+
+      {data.cards.length === 0 && !data.loading ? (
+        <p className="mt-3 text-sm text-mist">
+          Sem unidade de custo para o ramo. Você ainda pode acompanhar o consolidado em
+          Orçado × Realizado.
+        </p>
+      ) : null}
     </section>
   )
 }
