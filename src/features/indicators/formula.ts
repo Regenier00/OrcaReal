@@ -89,8 +89,26 @@ function isOp(value: unknown): value is FormulaOp {
   return value === 'div' || value === 'mul' || value === 'add' || value === 'sub'
 }
 
+export const CONSOLIDATED_VOLUME_KEY = 'all'
+
 export function formulaUsesQuantity(formula: CustomFormula) {
   return formula.left.metric === 'quantity' || formula.right.metric === 'quantity'
+}
+
+export function quantityOperand(formula: CustomFormula): FormulaOperand | null {
+  if (formula.right.metric === 'quantity') return formula.right
+  if (formula.left.metric === 'quantity') return formula.left
+  return null
+}
+
+export function secondOperandIsPeriod(formula: CustomFormula) {
+  return formula.right.scope === 'period'
+}
+
+export function quantityVolumeKey(formula: CustomFormula, monthKey: string) {
+  return quantityOperand(formula)?.scope === 'consolidated'
+    ? CONSOLIDATED_VOLUME_KEY
+    : monthKey
 }
 
 export function operandLabel(operand: FormulaOperand) {
@@ -193,6 +211,12 @@ export function buildActualTotals(
 }
 
 export function consolidatedQuantity(volumes: Record<string, number>) {
-  const total = sum(Object.values(volumes).filter((value) => Number.isFinite(value) && value > 0))
+  const fixed = volumes[CONSOLIDATED_VOLUME_KEY]
+  if (Number.isFinite(fixed) && fixed > 0) return fixed
+  const total = sum(
+    Object.entries(volumes)
+      .filter(([key, value]) => key !== CONSOLIDATED_VOLUME_KEY && Number.isFinite(value) && value > 0)
+      .map(([, value]) => value)
+  )
   return total > 0 ? total : null
 }
