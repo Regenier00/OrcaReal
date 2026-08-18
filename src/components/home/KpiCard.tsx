@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { ChangeBadge } from '@/components/home/ChangeBadge'
-import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
+import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
 
 export function KpiCard({
   kicker,
@@ -38,10 +38,14 @@ export function KpiCard({
         <span
           className={cn(
             'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-            tone === 'ok' && 'bg-ok-soft text-ok',
-            tone === 'danger' && 'bg-danger-soft text-danger',
-            tone === 'warn' && 'bg-warn-soft text-warn',
-            tone === 'navy' && 'bg-navy-soft text-navy'
+            surface !== 'default'
+              ? moneySideIconClass(surface)
+              : cn(
+                  tone === 'ok' && 'bg-ok-soft text-ok',
+                  tone === 'danger' && 'bg-danger-soft text-danger',
+                  tone === 'warn' && 'bg-warn-soft text-warn',
+                  tone === 'navy' && 'bg-navy-soft text-navy'
+                )
           )}
         >
           {icon}
