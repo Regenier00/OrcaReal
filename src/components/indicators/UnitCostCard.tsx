@@ -11,11 +11,13 @@ import { ChangeBadge } from '@/components/home/ChangeBadge'
 import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 import {
+  CONSOLIDATED_VOLUME_KEY,
   consolidatedQuantity,
   evaluateFormula,
   FORMULA_METRICS,
   formulaHint,
   operandLabel,
+  quantityVolumeKey,
   readOperandValue,
   type CustomFormula,
   type FormulaContext,
@@ -73,7 +75,11 @@ export function UnitCostCard({
                 card.quantity,
                 card.def.quantityNounSingular,
                 card.def.quantityNoun
-              )} em ${card.monthLabel || 'mês atual'}`
+              )} ${
+                card.quantityIsConsolidated
+                  ? 'no consolidado'
+                  : `em ${card.monthLabel || 'mês atual'}`
+              }`
             : `${card.def.displayUnit} · ${card.formulaHint}`}
         </p>
       </button>
@@ -107,23 +113,32 @@ function IndicatorDialog({
   onSave: (quantity: number, monthKey: string) => Promise<unknown>
   onDelete?: () => Promise<unknown>
 }) {
+  const canChangePeriod = card.canChangePeriod
+  const quantityIsConsolidated = card.quantityIsConsolidated
   const [monthKey, setMonthKey] = useState(card.monthKey)
   const [quantityText, setQuantityText] = useState(
-    formatInput(card.volumes[card.monthKey] ?? card.quantity)
+    formatInput(
+      quantityIsConsolidated
+        ? (card.volumes[CONSOLIDATED_VOLUME_KEY] ?? card.quantity)
+        : (card.volumes[card.monthKey] ?? card.quantity)
+    )
   )
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(false)
 
   const selectedMonth = months.find((item) => item.key === monthKey)
   const quantity = parseQuantity(quantityText)
+  const volumeKey = quantityVolumeKey(card.formula, monthKey)
   const volumes = {
     ...card.volumes,
-    ...(quantity != null ? { [monthKey]: quantity } : {}),
+    ...(quantity != null ? { [volumeKey]: quantity } : {}),
   }
   const context: FormulaContext = {
     period: card.totalsByMonth[monthKey] ?? { revenue: 0, cost: 0 },
     consolidated: card.consolidated,
-    periodQuantity: quantity ?? card.volumes[monthKey] ?? null,
+    periodQuantity: quantityIsConsolidated
+      ? null
+      : (quantity ?? card.volumes[monthKey] ?? null),
     consolidatedQuantity: consolidatedQuantity(volumes),
   }
   const preview = evaluateFormula(card.formula, context)
@@ -131,8 +146,11 @@ function IndicatorDialog({
   const rightValue = readOperandValue(card.formula.right, context)
 
   const handleMonthChange = (nextMonth: string) => {
+    if (!canChangePeriod) return
     setMonthKey(nextMonth)
-    setQuantityText(formatInput(card.volumes[nextMonth] ?? null))
+    if (!quantityIsConsolidated) {
+      setQuantityText(formatInput(card.volumes[nextMonth] ?? null))
+    }
     setError('')
   }
 
@@ -142,12 +160,12 @@ function IndicatorDialog({
         setError('Informe uma quantidade maior que zero.')
         return
       }
-      if (!monthKey) {
+      if (canChangePeriod && !monthKey) {
         setError('Selecione o mês.')
         return
       }
       setError('')
-      await onSave(quantity, monthKey)
+      await onSave(quantity, volumeKey)
     }
     onClose()
   }
@@ -190,34 +208,51 @@ function IndicatorDialog({
       <div className="space-y-4">
         <p>{card.def.quantityHelp}</p>
         <p className="font-mono text-[11px] text-mist">{formulaHint(card.formula)}</p>
-        <Select
-          label="Mês"
-          value={monthKey}
-          onChange={(event) => handleMonthChange(event.target.value)}
-        >
-          {months.length === 0 ? (
-            <option value="">Sem meses disponíveis</option>
-          ) : (
-            months.map((month) => (
-              <option key={month.key} value={month.key}>
-                {month.fullLabel}
-              </option>
-            ))
-          )}
-        </Select>
+        {canChangePeriod ? (
+          <Select
+            label="Mês"
+            value={monthKey}
+            onChange={(event) => handleMonthChange(event.target.value)}
+            hint="O segundo operador usa a quantidade do mês selecionado."
+          >
+            {months.length === 0 ? (
+              <option value="">Sem meses disponíveis</option>
+            ) : (
+              months.map((month) => (
+                <option key={month.key} value={month.key}>
+                  {month.fullLabel}
+                </option>
+              ))
+            )}
+          </Select>
+        ) : (
+          <Select
+            label="Período"
+            value={CONSOLIDATED_VOLUME_KEY}
+            disabled
+            hint="O segundo operador ficou consolidado: a quantidade não muda por mês."
+          >
+            <option value={CONSOLIDATED_VOLUME_KEY}>Período consolidado</option>
+          </Select>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <OperandBox operand={card.formula.left} value={leftValue} />
           <OperandBox operand={card.formula.right} value={rightValue} />
         </div>
         <p className="text-xs text-mist">
-          {selectedMonth?.fullLabel ?? 'Mês selecionado'} · receitas e custos do realizado,
-          sem misturar os dois totais.
+          {canChangePeriod
+            ? `${selectedMonth?.fullLabel ?? 'Mês selecionado'} · receitas e custos do realizado, sem misturar os dois totais.`
+            : 'Receitas e custos consolidados do realizado, sem misturar os dois totais.'}
         </p>
 
         {card.usesQuantity ? (
           <Input
-            label={card.def.quantityPrompt}
+            label={
+              quantityIsConsolidated
+                ? `Qual a quantidade consolidada de ${card.def.quantityNoun}?`
+                : card.def.quantityPrompt
+            }
             type="text"
             inputMode="decimal"
             value={quantityText}
@@ -225,7 +260,11 @@ function IndicatorDialog({
               setQuantityText(event.target.value)
               setError('')
             }}
-            hint={`Unidade: ${card.def.quantityNoun}`}
+            hint={
+              quantityIsConsolidated
+                ? `Unidade: ${card.def.quantityNoun} · valor único do consolidado`
+                : `Unidade: ${card.def.quantityNoun}`
+            }
             error={error}
           />
         ) : null}

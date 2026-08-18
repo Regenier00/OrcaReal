@@ -7,6 +7,8 @@ import {
   evaluateFormula,
   formulaHint,
   formulaUsesQuantity,
+  quantityVolumeKey,
+  secondOperandIsPeriod,
   suggestedDisplayUnit,
 } from './formula.ts'
 import type { BudgetMonth } from '../budget/period.ts'
@@ -118,5 +120,30 @@ assert(
 
 assert(consolidatedQuantity({ '2026-07': 10, '2026-08': 15 }) === 25, 'quantidade consolidada')
 assert(consolidatedQuantity({}) == null, 'sem quantidade consolidada')
+assert(
+  consolidatedQuantity({ all: 40, '2026-07': 10, '2026-08': 15 }) === 40,
+  'quantidade consolidada fixa prevalece sobre a soma mensal'
+)
+assert(secondOperandIsPeriod(formula), 'fórmula padrão permite trocar o período')
+assert(
+  !secondOperandIsPeriod({
+    left: { metric: 'actual_cost', scope: 'consolidated' },
+    op: 'div',
+    right: { metric: 'quantity', scope: 'consolidated' },
+  }),
+  'segundo operador consolidado trava o período'
+)
+assert(quantityVolumeKey(formula, '2026-08') === '2026-08', 'quantidade por mês')
+assert(
+  quantityVolumeKey(
+    {
+      left: { metric: 'actual_cost', scope: 'consolidated' },
+      op: 'div',
+      right: { metric: 'quantity', scope: 'consolidated' },
+    },
+    '2026-08'
+  ) === 'all',
+  'quantidade consolidada usa chave única'
+)
 
 console.log('custom indicator formula tests ok')

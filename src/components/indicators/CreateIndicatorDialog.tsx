@@ -292,6 +292,17 @@ export function CreateIndicatorDialog({
             onMetric={(metric) => setOperand('right', { metric })}
             onScope={(scope) => setOperand('right', { scope })}
           />
+          {formula.right.scope === 'consolidated' ? (
+            <p className="text-xs text-mist">
+              Com o segundo valor consolidado, a quantidade fica fixa no total do
+              período e não pode ser informada mês a mês.
+            </p>
+          ) : (
+            <p className="text-xs text-mist">
+              Com o segundo valor por período, você escolhe o mês e informa a
+              quantidade daquele mês.
+            </p>
+          )}
 
           <p className="font-mono text-[11px] text-mist">{formulaHint(formula)}</p>
         </div>

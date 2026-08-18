@@ -27,6 +27,8 @@ import {
   evaluateFormula,
   formulaHint,
   formulaUsesQuantity,
+  quantityOperand,
+  secondOperandIsPeriod,
   type ActualSideTotals,
   type CustomFormula,
 } from '@/features/indicators/formula'
@@ -65,6 +67,8 @@ export interface UnitCostCardModel {
   formula: CustomFormula
   formulaHint: string
   usesQuantity: boolean
+  canChangePeriod: boolean
+  quantityIsConsolidated: boolean
   totalsByMonth: Record<string, ActualSideTotals>
   consolidated: ActualSideTotals
 }
@@ -341,20 +345,23 @@ function buildCard(input: {
   const periodQty = input.volumes[input.monthKey] ?? null
   const previousQty = input.previousKey ? (input.volumes[input.previousKey] ?? null) : null
   const qtyAll = consolidatedQuantity(input.volumes)
+  const quantityIsConsolidated = quantityOperand(input.formula)?.scope === 'consolidated'
+  const canChangePeriod = secondOperandIsPeriod(input.formula)
   const unitCost = evaluateFormula(input.formula, {
     period: input.totals.byMonth[input.monthKey] ?? { revenue: 0, cost: 0 },
     consolidated: input.totals.consolidated,
     periodQuantity: periodQty,
     consolidatedQuantity: qtyAll,
   })
-  const previousUnitCost = input.previousKey
-    ? evaluateFormula(input.formula, {
-        period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0 },
-        consolidated: input.totals.consolidated,
-        periodQuantity: previousQty,
-        consolidatedQuantity: qtyAll,
-      })
-    : null
+  const previousUnitCost =
+    canChangePeriod && input.previousKey
+      ? evaluateFormula(input.formula, {
+          period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0 },
+          consolidated: input.totals.consolidated,
+          periodQuantity: previousQty,
+          consolidatedQuantity: qtyAll,
+        })
+      : null
 
   return {
     def: input.def,
@@ -364,13 +371,15 @@ function buildCard(input: {
     volumes: input.volumes,
     monthKey: input.monthKey,
     monthLabel: input.monthLabel,
-    quantity: periodQty,
+    quantity: quantityIsConsolidated ? qtyAll : periodQty,
     unitCost,
     previousUnitCost,
     unitCostChange: changeRatio(unitCost ?? Number.NaN, previousUnitCost),
     formula: input.formula,
     formulaHint: formulaHint(input.formula),
     usesQuantity: formulaUsesQuantity(input.formula),
+    canChangePeriod,
+    quantityIsConsolidated,
     totalsByMonth: input.totals.byMonth,
     consolidated: input.totals.consolidated,
   }
