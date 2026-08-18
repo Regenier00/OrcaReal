@@ -8,6 +8,27 @@ import type {
 } from '@/features/experience/types'
 import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
 
+const RETIRED_QUESTION_CODES = new Set([
+  'analysis_units',
+  'maturity',
+  'tech_costs',
+  'hlt_costs',
+  'min_costs',
+  'media_costs',
+])
+
+const RETIRED_QUESTION_PROMPTS = new Set([
+  'Como você avalia a maturidade do controle financeiro?',
+  'Quais custos são mais relevantes?',
+])
+
+function isRetiredQuestion(question: ExperienceQuestion): boolean {
+  return (
+    RETIRED_QUESTION_CODES.has(question.code) ||
+    RETIRED_QUESTION_PROMPTS.has(question.prompt)
+  )
+}
+
 export function applicableQuestions(
   catalog: ExperienceCatalog,
   ctx: EvaluationContext,
@@ -18,7 +39,7 @@ export function applicableQuestions(
   return catalog.questions
     .filter((question) => {
       if (!options?.includeContinuous && question.continuous) return false
-      if (question.code === 'analysis_units') return false
+      if (isRetiredQuestion(question)) return false
       if (question.segmentCode && !segments.has(question.segmentCode)) return false
       return evaluateCondition(question.showWhen, ctx)
     })
@@ -93,6 +114,7 @@ export function continuousQuestions(
   return catalog.questions
     .filter((question) => {
       if (!question.continuous) return false
+      if (isRetiredQuestion(question)) return false
       const segments = new Set([
         ctx.segmentCode,
         ...extraSegmentCodesFromAnswers(ctx.answers),
