@@ -23,9 +23,8 @@ export function AppHomePage() {
     setActiveCompanyId,
     refresh,
   } = useCompany()
-  const [profileName, setProfileName] = useState(
-    String(user?.user_metadata?.name ?? '')
-  )
+  const metadataName = String(user?.user_metadata?.name ?? '')
+  const [profileName, setProfileName] = useState('')
 
   const segment = segments.find((item) => item.id === companyProfile?.segment_id)
   const segmentName =
@@ -36,11 +35,14 @@ export function AppHomePage() {
 
   useEffect(() => {
     if (!user) return
-    const fallback = String(user.user_metadata?.name ?? '')
-    setProfileName(fallback)
+    let mounted = true
     void getUserProfile(user.id).then((profile) => {
-      setProfileName(profile?.name || fallback)
+      if (!mounted) return
+      setProfileName(profile?.name || '')
     })
+    return () => {
+      mounted = false
+    }
   }, [user])
 
   const handleLogoChange = async (logoUrl: string | null) => {
@@ -89,7 +91,7 @@ export function AppHomePage() {
 
       {activeCompany ? (
         <h2 className="mt-6 font-display text-xl font-semibold text-navy sm:text-2xl">
-          {monthResultGreeting(profileName, user?.email)}
+          {monthResultGreeting(profileName || metadataName, user?.email)}
         </h2>
       ) : null}
 
