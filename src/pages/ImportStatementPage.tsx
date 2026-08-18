@@ -5,7 +5,6 @@ import { useCompany } from '@/features/company/useCompany'
 import {
   deleteStatementImport,
   listBankAccounts,
-  listStatementImports,
   pollStatementImport,
   uploadAndProcessStatement,
 } from '@/features/actual/actualService'
@@ -22,7 +21,6 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
-import { ImportedStatementsList } from '@/components/actual/ImportedStatementsList'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
 
@@ -33,7 +31,6 @@ export function ImportStatementPage() {
   const [accountId, setAccountId] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [current, setCurrent] = useState<StatementImport | null>(null)
-  const [imports, setImports] = useState<StatementImport[]>([])
   const [busy, setBusy] = useState(false)
   const [loadedAccountsFor, setLoadedAccountsFor] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<StatementImport | null>(null)
@@ -45,11 +42,8 @@ export function ImportStatementPage() {
     if (!company) return
     const companyId = company.id
     let mounted = true
-    void Promise.all([
-      listBankAccounts(companyId),
-      listStatementImports(companyId),
-    ])
-      .then(([nextAccounts, nextImports]) => {
+    void listBankAccounts(companyId)
+      .then((nextAccounts) => {
         if (!mounted) return
         setAccounts(nextAccounts)
         setAccountId((currentId) =>
@@ -57,14 +51,12 @@ export function ImportStatementPage() {
             ? currentId
             : nextAccounts[0]?.id || '',
         )
-        setImports(nextImports)
         setError('')
         setLoadedAccountsFor(companyId)
       })
       .catch((err: unknown) => {
         if (!mounted) return
         setAccounts([])
-        setImports([])
         setLoadedAccountsFor(companyId)
         setError(err instanceof Error ? err.message : 'Erro ao carregar contas.')
       })
@@ -119,8 +111,6 @@ export function ImportStatementPage() {
         setCurrent,
       )
       setCurrent(finished)
-      const nextImports = await listStatementImports(company.id)
-      setImports(nextImports)
       if (finished.status === 'failed') {
         setError(finished.error_message || 'Falha ao processar o extrato.')
       }
@@ -136,9 +126,6 @@ export function ImportStatementPage() {
     setDeleting(true)
     try {
       await deleteStatementImport(company.id, pendingDelete.id)
-      setImports((currentImports) =>
-        currentImports.filter((item) => item.id !== pendingDelete.id),
-      )
       setCurrent((currentImport) =>
         currentImport?.id === pendingDelete.id ? null : currentImport,
       )
@@ -287,21 +274,6 @@ export function ImportStatementPage() {
               ))}
             </ul>
           ) : null}
-        </section>
-      ) : null}
-
-      {imports.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="font-display text-lg font-semibold text-navy">
-            Extratos importados
-          </h2>
-          <p className="mt-1 text-sm text-mist">
-            Excluir um extrato remove os lançamentos importados com ele.
-          </p>
-          <ImportedStatementsList
-            imports={imports}
-            onDelete={setPendingDelete}
-          />
         </section>
       ) : null}
 
