@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/Button'
 import { MonthResultSection } from '@/components/home/MonthResultSection'
 import { FinancialSummary } from '@/components/home/FinancialSummary'
 import { EvolutionChart } from '@/components/home/EvolutionChart'
-import { FinancialInsights } from '@/components/home/FinancialInsights'
 import type { HomeDashboardData } from '@/features/experience/useUnitCostCards'
 import type { ExperienceAnswers } from '@/features/experience/types'
 
@@ -65,16 +64,7 @@ export function PersonalizedDashboard({
         loading={dashboard.loading}
       />
 
-      <div
-        className={
-          dashboard.insights.length > 0
-            ? 'grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,1fr)]'
-            : undefined
-        }
-      >
-        <EvolutionChart series={dashboard.series} loading={dashboard.loading} />
-        <FinancialInsights insights={dashboard.insights} />
-      </div>
+      <EvolutionChart series={dashboard.series} loading={dashboard.loading} />
 
       <MonthResultSection data={dashboard} />
 

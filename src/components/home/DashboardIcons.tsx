@@ -114,50 +114,6 @@ export function IndicatorsIcon(props: IconProps) {
   )
 }
 
-export function SparkIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M12 3.5 9.8 9H4.5L8.8 13l-1.6 6.5L12 16.2l4.8 3.3L15.2 13l4.3-4H14.2Z" />
-    </Svg>
-  )
-}
-
-export function AlertIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="m12 4 8.5 15h-17Z" />
-      <path d="M12 10v4M12 16.5h.01" />
-    </Svg>
-  )
-}
-
-export function CheckIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8" />
-      <path d="m8.8 12.2 2.2 2.2 4.2-4.4" />
-    </Svg>
-  )
-}
-
-export function InfoIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 11v5M12 8h.01" />
-    </Svg>
-  )
-}
-
-export function BuildingIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M4 20h16M6 20V6.5A1.5 1.5 0 0 1 7.5 5h9A1.5 1.5 0 0 1 18 6.5V20" />
-      <path d="M9 9h.01M12 9h.01M15 9h.01M9 13h.01M12 13h.01M15 13h.01" />
-    </Svg>
-  )
-}
-
 export function CalendarIcon(props: IconProps) {
   return (
     <Svg {...props}>

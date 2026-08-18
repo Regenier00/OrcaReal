@@ -18,7 +18,6 @@ import type { BudgetMonth } from '@/features/budget/period'
 import { calendarYearBounds, currentFiscalYear, monthsBetween } from '@/features/budget/period'
 import { listClassifiedActualSlices } from '@/features/actual/actualService'
 import {
-  buildFinancialInsights,
   buildFinancialSeries,
   changeRatio,
   previousMonth,
@@ -231,32 +230,6 @@ export function useUnitCostCards(input?: {
     [series, previous]
   )
 
-  const hasRealized = useMemo(
-    () => series.some((item) => item.realized !== 0 || item.revenue !== 0),
-    [series]
-  )
-
-  const insights = useMemo(
-    () => {
-      if (loading) return []
-      return buildFinancialInsights({
-        current: currentFinancials,
-        previous: previousFinancials,
-        hasBudget: Boolean(fetchedBudget),
-        hasRealized,
-        unitCostMissing: cards.some((card) => card.quantity == null),
-      })
-    },
-    [
-      loading,
-      currentFinancials,
-      previousFinancials,
-      fetchedBudget,
-      hasRealized,
-      cards,
-    ]
-  )
-
   return {
     cards,
     months,
@@ -269,9 +242,6 @@ export function useUnitCostCards(input?: {
     series,
     currentFinancials,
     previousFinancials,
-    insights,
-    hasBudget: Boolean(fetchedBudget),
-    hasRealized,
     loading: Boolean(activeCompany) && loading,
     error,
     savingCode,
