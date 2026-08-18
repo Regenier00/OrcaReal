@@ -16,12 +16,15 @@ import {
   evaluateFormula,
   FORMULA_METRICS,
   formulaHint,
+  formulaMoneySide,
+  metricMoneySide,
   operandLabel,
   quantityVolumeKey,
   readOperandValue,
   type CustomFormula,
   type FormulaContext,
 } from '@/features/indicators/formula'
+import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
 
 export function UnitCostCard({
   card,
@@ -39,6 +42,7 @@ export function UnitCostCard({
   kicker?: string
 }) {
   const [open, setOpen] = useState(false)
+  const side = formulaMoneySide(card.formula)
 
   return (
     <>
@@ -46,12 +50,17 @@ export function UnitCostCard({
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'flex h-full w-full cursor-pointer flex-col rounded-2xl border border-paper-muted bg-white p-5 text-left shadow-card transition',
-          'hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft'
+          'flex h-full w-full cursor-pointer flex-col rounded-2xl border p-5 text-left shadow-card transition',
+          moneySideCardClass(side, true)
         )}
       >
         <div className="flex items-start justify-between gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-navy-soft text-navy">
+          <span
+            className={cn(
+              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+              moneySideIconClass(side)
+            )}
+          >
             <CalculatorIcon />
           </span>
           <ChangeBadge value={card.unitCostChange} invert={card.formula.left.metric === 'actual_cost'} />
@@ -292,7 +301,12 @@ function OperandBox({
 }) {
   const metric = FORMULA_METRICS.find((item) => item.id === operand.metric)
   return (
-    <div className="rounded-xl bg-paper px-4 py-3">
+    <div
+      className={cn(
+        'rounded-xl border px-4 py-3',
+        moneySideCardClass(metricMoneySide(operand.metric))
+      )}
+    >
       <p className="text-[11px] uppercase tracking-wide text-mist">{operandLabel(operand)}</p>
       <p className="mt-1 font-numeric text-lg font-semibold text-ink">
         {value == null

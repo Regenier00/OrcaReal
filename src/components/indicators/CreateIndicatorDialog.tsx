@@ -16,6 +16,7 @@ import {
   evaluateFormula,
   formulaHint,
   formulaUsesQuantity,
+  metricMoneySide,
   suggestedDisplayUnit,
   type CustomFormula,
   type FormulaContext,
@@ -23,7 +24,9 @@ import {
   type FormulaOp,
   type FormulaScope,
 } from '@/features/indicators/formula'
+import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
 import { catalogPickerUnits } from '@/features/indicators/units'
+import { cn } from '@/lib/utils'
 import type { CompanyCustomUnit } from '@/types/database'
 
 export function CreateIndicatorDialog({
@@ -346,7 +349,12 @@ function FormulaOperandFields({
   onScope: (value: FormulaScope) => void
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div
+      className={cn(
+        'grid gap-3 rounded-xl border p-3 sm:grid-cols-2',
+        moneySideCardClass(metricMoneySide(metric))
+      )}
+    >
       <Select
         label={label}
         value={metric}
