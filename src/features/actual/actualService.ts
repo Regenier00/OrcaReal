@@ -108,8 +108,6 @@ export interface ActualSummary {
 export interface TransactionFilters {
   importId?: string
   status?: ActualTransactionStatus | ''
-  type?: ActualTransactionType | ''
-  departmentId?: string
   search?: string
   dateFrom?: string
   dateTo?: string
@@ -402,8 +400,6 @@ export async function listActualTransactions(
 
   if (filters.importId) query = query.eq('import_id', filters.importId)
   if (filters.status) query = query.eq('status', filters.status)
-  if (filters.type) query = query.eq('type', filters.type)
-  if (filters.departmentId) query = query.eq('department_id', filters.departmentId)
   if (filters.dateFrom) query = query.gte('posted_at', filters.dateFrom)
   if (filters.dateTo) query = query.lte('posted_at', filters.dateTo)
   if (filters.search?.trim()) {

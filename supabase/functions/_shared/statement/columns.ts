@@ -594,17 +594,13 @@ function isSkippableRow(description: string, typeLabel: string, amount: number |
 
 function resolveType(
   signed: number,
-  description: string,
   typeLabel: string,
 ): MovementType {
-  const fromLabel = typeFromLabel(typeLabel, description)
-  if (fromLabel === 'transfer' || typeFromSignedAmount(signed, description) === 'transfer') {
-    return 'transfer'
-  }
+  const fromLabel = typeFromLabel(typeLabel)
   let amount = signed
   if (fromLabel === 'expense' && amount > 0) amount = -amount
   if (fromLabel === 'income' && amount < 0) amount = Math.abs(amount)
-  const fromAmount = typeFromSignedAmount(amount, description)
+  const fromAmount = typeFromSignedAmount(amount)
   if (fromAmount !== 'unknown') return fromAmount
   return fromLabel ?? 'unknown'
 }
@@ -645,27 +641,27 @@ export function movementsFromMappedRows(
       if (signed == null && map.debit >= 0 && map.credit >= 0) {
         const credit = parseAmount(row[map.credit] ?? '')
         const debit = parseAmount(row[map.debit] ?? '')
-        const mapped = typeFromCreditDebit(credit, debit, description)
+        const mapped = typeFromCreditDebit(credit, debit)
         if (mapped) {
           signed = mapped.type === 'expense' ? -mapped.amount : mapped.amount
-          type = resolveType(signed, description, typeLabel)
+          type = resolveType(signed, typeLabel)
         }
       }
       if (signed == null) {
         onWarning('Valor inválido', i + 1)
         continue
       }
-      if (type === 'unknown') type = resolveType(signed, description, typeLabel)
+      if (type === 'unknown') type = resolveType(signed, typeLabel)
     } else {
       const credit = parseAmount(row[map.credit] ?? '')
       const debit = parseAmount(row[map.debit] ?? '')
-      const mapped = typeFromCreditDebit(credit, debit, description)
+      const mapped = typeFromCreditDebit(credit, debit)
       if (!mapped) {
         onWarning('Não foi possível ler crédito/débito', i + 1)
         continue
       }
       signed = mapped.type === 'expense' ? -mapped.amount : mapped.amount
-      type = resolveType(signed, description, typeLabel)
+      type = resolveType(signed, typeLabel)
     }
 
     if (isSkippableRow(description, typeLabel, signed)) continue

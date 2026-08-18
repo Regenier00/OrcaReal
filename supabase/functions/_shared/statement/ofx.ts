@@ -57,8 +57,7 @@ export const ofxParser: StatementParser = {
         continue
       }
 
-      let type = typeFromSignedAmount(signed, memo)
-      if (trnType === 'XFER' || trnType === 'TRANSFER') type = 'transfer'
+      let type = typeFromSignedAmount(signed)
       if (trnType === 'CREDIT' && type === 'unknown') type = 'income'
       if (trnType === 'DEBIT' && type === 'unknown') type = 'expense'
 
