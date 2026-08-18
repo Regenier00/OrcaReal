@@ -6,7 +6,9 @@ import {
   defaultCustomFormula,
   evaluateFormula,
   formulaHint,
+  formulaMoneySide,
   formulaUsesQuantity,
+  metricMoneySide,
   quantityVolumeKey,
   secondOperandIsPeriod,
   suggestedDisplayUnit,
@@ -133,6 +135,27 @@ assert(
   }),
   'segundo operador consolidado trava o período'
 )
+assert(metricMoneySide('actual_revenue') === 'revenue', 'métrica de receita')
+assert(metricMoneySide('actual_cost') === 'cost', 'métrica de custo')
+assert(metricMoneySide('quantity') == null, 'quantidade não tem lado financeiro')
+assert(formulaMoneySide(formula) === 'cost', 'indicador padrão é de custo')
+assert(
+  formulaMoneySide({
+    left: { metric: 'actual_revenue', scope: 'period' },
+    op: 'div',
+    right: { metric: 'quantity', scope: 'period' },
+  }) === 'revenue',
+  'receita por unidade é de receita'
+)
+assert(
+  formulaMoneySide({
+    left: { metric: 'quantity', scope: 'period' },
+    op: 'mul',
+    right: { metric: 'actual_revenue', scope: 'period' },
+  }) === 'revenue',
+  'quantidade × receita ainda é de receita'
+)
+
 assert(quantityVolumeKey(formula, '2026-08') === '2026-08', 'quantidade por mês')
 assert(
   quantityVolumeKey(

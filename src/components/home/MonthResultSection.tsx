@@ -38,7 +38,8 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
           change={data.costChange}
           invertChange
           icon={<WalletIcon />}
-          tone="navy"
+          tone="warn"
+          surface="cost"
         />
 
         {data.cards.map((card) => (

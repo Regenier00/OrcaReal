@@ -69,6 +69,8 @@ export function FinancialSummary({
           }
           change={changeRatio(current?.revenue ?? Number.NaN, previous?.revenue)}
           icon={<WalletIcon />}
+          tone="ok"
+          surface="revenue"
         />
         <KpiCard
           to="/app/orcado-realizado"
@@ -84,6 +86,7 @@ export function FinancialSummary({
           invertChange
           icon={<ReceiptIcon />}
           tone="warn"
+          surface="cost"
         />
         <KpiCard
           to="/app/indicadores"

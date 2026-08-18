@@ -9,7 +9,10 @@ import {
 import { formatBRL, formatPct, formatSignedPct } from '@/lib/money'
 import { MonthFilter } from '@/components/demo/MonthFilter'
 import { Button } from '@/components/ui/Button'
+import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
+import { cn } from '@/lib/utils'
 import type { DemoGate } from '@/content/demoCompany'
+import type { MoneySide } from '@/features/indicators/formula'
 
 interface IndicatorsPanelProps {
   month: MonthKey
@@ -65,16 +68,19 @@ export function IndicatorsPanel({
           label="Desvio orçamentário"
           hint="realizado − orçado"
           value={formatBRL(summary.variance)}
+          surface="cost"
         />
         <Indicator
           label="Desvio orçamentário %"
           hint="(realizado − orçado) / orçado"
           value={formatSignedPct(summary.variancePct)}
+          surface="cost"
         />
         <Indicator
           label="Concentração de custos"
           hint="dois maiores / custo total"
           value={formatPct(concentration)}
+          surface="cost"
         />
       </dl>
 
@@ -121,13 +127,15 @@ function Indicator({
   label,
   hint,
   value,
+  surface = null,
 }: {
   label: string
   hint: string
   value: string
+  surface?: MoneySide | null
 }) {
   return (
-    <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
+    <div className={cn('rounded-2xl border px-4 py-4', moneySideCardClass(surface))}>
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
       <dd className="mt-1 font-numeric text-xl font-semibold text-ink">{value}</dd>
       <p className="mt-2 font-mono text-[11px] text-mist">{hint}</p>

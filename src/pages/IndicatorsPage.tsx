@@ -9,8 +9,11 @@ import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { PeriodFilter } from '@/components/comparison/PeriodFilter'
 import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudgetSelect'
 import { UnitCostSection } from '@/components/indicators/UnitCostSection'
+import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
 import { useCompany } from '@/features/company/useCompany'
+import { cn } from '@/lib/utils'
 import type { SystemIndicator } from '@/types/database'
+import type { MoneySide } from '@/features/indicators/formula'
 
 export function IndicatorsPage() {
   const data = useComparisonData()
@@ -148,16 +151,19 @@ export function IndicatorsPage() {
           label={variance?.name ?? 'Desvio orçamentário'}
           hint={variance?.formula_hint ?? 'realizado − orçado'}
           value={formatMoney(data.summary.variance)}
+          surface="cost"
         />
         <IndicatorCard
           label={variancePct?.name ?? 'Desvio orçamentário %'}
           hint={variancePct?.formula_hint ?? '(realizado − orçado) / orçado'}
           value={formatSignedPct(data.summary.variancePct)}
+          surface="cost"
         />
         <IndicatorCard
           label={concentration?.name ?? 'Concentração de custos'}
           hint={concentration?.formula_hint ?? 'dois maiores / custo total'}
           value={formatPct(data.concentration)}
+          surface="cost"
         />
       </dl>
 
@@ -206,13 +212,15 @@ function IndicatorCard({
   label,
   hint,
   value,
+  surface = null,
 }: {
   label: string
   hint: string
   value: string
+  surface?: MoneySide | null
 }) {
   return (
-    <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
+    <div className={cn('rounded-2xl border px-4 py-4', moneySideCardClass(surface))}>
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
       <dd className="mt-1 font-numeric text-xl font-semibold text-ink">{value}</dd>
       <p className="mt-2 font-mono text-[11px] text-mist">{hint}</p>

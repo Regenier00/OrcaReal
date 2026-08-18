@@ -111,6 +111,18 @@ export function quantityVolumeKey(formula: CustomFormula, monthKey: string) {
     : monthKey
 }
 
+export type MoneySide = 'revenue' | 'cost'
+
+export function metricMoneySide(metric: FormulaMetric): MoneySide | null {
+  if (metric === 'actual_revenue') return 'revenue'
+  if (metric === 'actual_cost') return 'cost'
+  return null
+}
+
+export function formulaMoneySide(formula: CustomFormula): MoneySide | null {
+  return metricMoneySide(formula.left.metric) ?? metricMoneySide(formula.right.metric)
+}
+
 export function operandLabel(operand: FormulaOperand) {
   const metric = FORMULA_METRICS.find((item) => item.id === operand.metric)?.label ?? operand.metric
   const scope = FORMULA_SCOPES.find((item) => item.id === operand.scope)?.label ?? operand.scope

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { ChangeBadge } from '@/components/home/ChangeBadge'
+import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
 
 export function KpiCard({
   kicker,
@@ -12,6 +13,7 @@ export function KpiCard({
   invertChange,
   icon,
   tone = 'navy',
+  surface = 'default',
   to,
 }: {
   kicker: string
@@ -22,11 +24,12 @@ export function KpiCard({
   invertChange?: boolean
   icon: ReactNode
   tone?: 'navy' | 'ok' | 'danger' | 'warn'
+  surface?: 'default' | 'revenue' | 'cost'
   to?: string
 }) {
   const className = cn(
-    'flex h-full flex-col rounded-2xl border border-paper-muted bg-white p-5 shadow-card transition',
-    to && 'hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft'
+    'flex h-full flex-col rounded-2xl border p-5 shadow-card transition',
+    moneySideCardClass(surface === 'default' ? null : surface, Boolean(to))
   )
 
   const body = (

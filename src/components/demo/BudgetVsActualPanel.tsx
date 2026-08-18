@@ -9,7 +9,10 @@ import { formatBRL, formatSignedPct } from '@/lib/money'
 import { MonthFilter } from '@/components/demo/MonthFilter'
 import { VarianceTable } from '@/components/demo/VarianceTable'
 import { Button } from '@/components/ui/Button'
+import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
+import { cn } from '@/lib/utils'
 import type { DemoGate } from '@/content/demoCompany'
+import type { MoneySide } from '@/features/indicators/formula'
 
 interface BudgetVsActualPanelProps {
   month: MonthKey
@@ -48,12 +51,13 @@ export function BudgetVsActualPanel({
       </div>
 
       <dl className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Stat label="Orçado" value={formatBRL(summary.budget)} />
-        <Stat label="Realizado" value={formatBRL(summary.actual)} />
+        <Stat label="Orçado" value={formatBRL(summary.budget)} surface="cost" />
+        <Stat label="Realizado" value={formatBRL(summary.actual)} surface="cost" />
         <Stat
           label="Desvio"
           value={`${formatBRL(summary.variance)} (${formatSignedPct(summary.variancePct)})`}
           tone={summary.variance > 0 ? 'danger' : 'ok'}
+          surface="cost"
         />
       </dl>
 
@@ -75,13 +79,15 @@ function Stat({
   label,
   value,
   tone = 'default',
+  surface = null,
 }: {
   label: string
   value: string
   tone?: 'default' | 'ok' | 'danger'
+  surface?: MoneySide | null
 }) {
   return (
-    <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
+    <div className={cn('rounded-2xl border px-4 py-4', moneySideCardClass(surface))}>
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
       <dd
         className={
