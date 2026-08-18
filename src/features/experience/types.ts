@@ -107,6 +107,7 @@ export interface AppliedExperience {
   answers: ExperienceAnswers
   profile: {
     company_size: string | null
+    employee_count: number | null
     employee_count_range: string | null
     state: string | null
     city: string | null

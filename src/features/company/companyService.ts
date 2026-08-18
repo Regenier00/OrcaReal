@@ -6,6 +6,7 @@ import {
   sortDepartmentsByDefault,
 } from '@/features/company/defaultDepartments'
 import type { SegmentCode } from '@/features/company/segmentOptions'
+import { parseEmployeeCount } from '@/features/experience/employeeCount'
 import type {
   Company,
   CompanyMember,
@@ -157,6 +158,7 @@ export async function getCompanyProfile(
     ok: true,
     data: {
       ...row,
+      employee_count: parseEmployeeCount(row.employee_count),
       employee_count_range: row.employee_count_range ?? null,
       state: row.state ?? null,
       city: row.city ?? null,
@@ -226,6 +228,42 @@ export async function updateCompanySegment(input: {
     .single()
 
   if (error) return fail(error)
+  return { ok: true, data: data as CompanyProfile }
+}
+
+export async function updateCompanyEmployeeCount(input: {
+  companyId: string
+  employeeCount: number
+}): Promise<ServiceResult<CompanyProfile>> {
+  const count = Math.round(input.employeeCount)
+  if (!Number.isFinite(count) || count <= 0) {
+    return { ok: false, message: 'Informe uma quantidade de funcionários maior que zero.' }
+  }
+
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .update({
+      employee_count: count,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('company_id', input.companyId)
+    .select()
+    .single()
+
+  if (error) return fail(error)
+
+  const { error: answerError } = await supabase.from('company_profile_answers').upsert(
+    {
+      company_id: input.companyId,
+      question_code: 'employee_count',
+      answer: { value: count },
+      operation_id: null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'company_id,question_code' }
+  )
+
+  if (answerError) return fail(answerError)
   return { ok: true, data: data as CompanyProfile }
 }
 

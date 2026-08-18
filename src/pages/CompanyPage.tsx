@@ -11,6 +11,7 @@ import {
   listCostCenters,
   listDepartments,
   updateCompanyData,
+  updateCompanyEmployeeCount,
   updateCompanyLogo,
   updateCompanySegment,
   updateCompanySettings,
@@ -118,7 +119,13 @@ export function CompanyPage() {
             profileSummary={companyProfile?.profile_summary ?? ''}
             primaryActivity={companyProfile?.primary_activity ?? ''}
             companySize={companyProfile?.company_size ?? ''}
-            employees={companyProfile?.employee_count_range ?? ''}
+            employees={
+              companyProfile?.employee_count != null
+                ? String(companyProfile.employee_count)
+                : (companyProfile?.employee_count_range ?? '')
+            }
+            employeeCount={companyProfile?.employee_count ?? null}
+            onEmployeeCountSaved={() => void refresh()}
             revenueModel={companyProfile?.revenue_model ?? ''}
             operationModel={companyProfile?.operation_model ?? ''}
           />
@@ -726,6 +733,8 @@ function CompanyExperienceTab({
   primaryActivity,
   companySize,
   employees,
+  employeeCount,
+  onEmployeeCountSaved,
   revenueModel,
   operationModel,
 }: {
@@ -735,6 +744,8 @@ function CompanyExperienceTab({
   primaryActivity: string
   companySize: string
   employees: string
+  employeeCount: number | null
+  onEmployeeCountSaved: () => void
   revenueModel: string
   operationModel: string
 }) {
@@ -745,6 +756,16 @@ function CompanyExperienceTab({
   const [operationName, setOperationName] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [employeeText, setEmployeeText] = useState(
+    employeeCount != null ? String(employeeCount) : ''
+  )
+  const [employeeSaving, setEmployeeSaving] = useState(false)
+  const [employeeError, setEmployeeError] = useState('')
+  const [employeeMessage, setEmployeeMessage] = useState('')
+
+  useEffect(() => {
+    setEmployeeText(employeeCount != null ? String(employeeCount) : '')
+  }, [employeeCount])
 
   useEffect(() => {
     let mounted = true
@@ -799,6 +820,32 @@ function CompanyExperienceTab({
     }
   }
 
+  const handleSaveEmployeeCount = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!canEdit || employeeSaving) return
+    const parsed = Number(employeeText.replace(',', '.').trim())
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setEmployeeError('Informe uma quantidade de funcionários maior que zero.')
+      setEmployeeMessage('')
+      return
+    }
+    setEmployeeSaving(true)
+    setEmployeeError('')
+    setEmployeeMessage('')
+    const result = await updateCompanyEmployeeCount({
+      companyId,
+      employeeCount: parsed,
+    })
+    setEmployeeSaving(false)
+    if (!result.ok) {
+      setEmployeeError(result.message)
+      return
+    }
+    setEmployeeText(String(Math.round(parsed)))
+    setEmployeeMessage('Quantidade de funcionários atualizada.')
+    onEmployeeCountSaved()
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -814,11 +861,55 @@ function CompanyExperienceTab({
       <dl className="grid gap-3 sm:grid-cols-2">
         <ProfileFact label="Atividade principal" value={primaryActivity} />
         <ProfileFact label="Porte" value={companySize} />
-        <ProfileFact label="Funcionários" value={employees} />
         <ProfileFact label="Geração de receita" value={revenueModel} />
         <ProfileFact label="Modelo de operação" value={operationModel} />
         <ProfileFact label="Indicadores ativos" value={String(indicators)} />
       </dl>
+
+      <form
+        onSubmit={(event) => void handleSaveEmployeeCount(event)}
+        className="max-w-xl space-y-3 rounded-2xl border border-paper-muted bg-paper px-4 py-4"
+      >
+        <div>
+          <h3 className="font-display text-lg font-semibold text-navy">
+            Quantidade de funcionários
+          </h3>
+          <p className="mt-1 text-sm text-mist">
+            Esse número preenche os indicadores de receita e custo por
+            funcionário no dashboard.
+          </p>
+        </div>
+        <Input
+          label="Funcionários"
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          value={employeeText}
+          onChange={(event) => {
+            setEmployeeText(event.target.value)
+            setEmployeeError('')
+            setEmployeeMessage('')
+          }}
+          disabled={!canEdit}
+          hint={
+            employeeCount == null && employees
+              ? `Faixa informada anteriormente: ${employees.replace(/_/g, ' a ')}`
+              : 'Altere quando o quadro de pessoas mudar.'
+          }
+          error={employeeError}
+        />
+        {employeeMessage ? <p className="text-sm text-ok">{employeeMessage}</p> : null}
+        {canEdit ? (
+          <Button type="submit" disabled={employeeSaving}>
+            {employeeSaving ? 'Salvando...' : 'Salvar quantidade'}
+          </Button>
+        ) : (
+          <p className="text-sm text-mist">
+            Somente administradores podem alterar a quantidade de funcionários.
+          </p>
+        )}
+      </form>
 
       <div>
         <h3 className="font-display text-lg font-semibold text-navy">Operações</h3>

@@ -7,6 +7,7 @@ import type {
   QuestionOption,
 } from '@/features/experience/types'
 import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
+import { EMPLOYEE_COUNT_QUESTION, parseEmployeeCount } from '@/features/experience/employeeCount'
 
 const RETIRED_QUESTION_CODES = new Set([
   'analysis_units',
@@ -48,19 +49,25 @@ export function applicableQuestions(
     .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
 }
 
+function hasQuestionAnswer(question: ExperienceQuestion, value: EvaluationContext['answers'][string]) {
+  if (question.code === EMPLOYEE_COUNT_QUESTION) {
+    return parseEmployeeCount(value) != null
+  }
+  if (value == null) return false
+  if (Array.isArray(value)) return value.length > 0
+  if (typeof value === 'string') return value.trim() !== ''
+  return true
+}
+
 export function nextQuestion(
   catalog: ExperienceCatalog,
   ctx: EvaluationContext,
   options?: { includeContinuous?: boolean }
 ): ExperienceQuestion | null {
   return (
-    applicableQuestions(catalog, ctx, options).find((question) => {
-      const value = ctx.answers[question.code]
-      if (value == null) return true
-      if (Array.isArray(value)) return value.length === 0
-      if (typeof value === 'string') return value.trim() === ''
-      return false
-    }) ?? null
+    applicableQuestions(catalog, ctx, options).find(
+      (question) => !hasQuestionAnswer(question, ctx.answers[question.code])
+    ) ?? null
   )
 }
 
@@ -69,13 +76,9 @@ export function questionProgress(
   ctx: EvaluationContext
 ): { current: number; total: number } {
   const questions = applicableQuestions(catalog, ctx)
-  const answered = questions.filter((question) => {
-    const value = ctx.answers[question.code]
-    if (value == null) return false
-    if (Array.isArray(value)) return value.length > 0
-    if (typeof value === 'string') return value.trim() !== ''
-    return true
-  }).length
+  const answered = questions.filter((question) =>
+    hasQuestionAnswer(question, ctx.answers[question.code])
+  ).length
 
   return { current: answered, total: questions.length }
 }

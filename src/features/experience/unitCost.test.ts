@@ -3,6 +3,13 @@ import {
   defaultUnitCodesForSegments,
   unitCostsForSegments,
 } from './catalog/segmentUnits.ts'
+import {
+  COST_PER_EMPLOYEE,
+  REVENUE_PER_EMPLOYEE,
+  isEmployeeHeadcountIndicator,
+  parseEmployeeCount,
+  volumesFromEmployeeCount,
+} from './employeeCount.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -99,6 +106,21 @@ function testCalculation() {
   assert(total === 150, `custo realizado ignora receita e soma custos: ${total}`)
 }
 
+function testEmployeeCount() {
+  assert(parseEmployeeCount(12) === 12, 'número inteiro de funcionários')
+  assert(parseEmployeeCount('25') === 25, 'número em texto')
+  assert(parseEmployeeCount('11_50') == null, 'faixa antiga não vira quantidade')
+  assert(parseEmployeeCount(0) == null, 'zero não conta')
+  assert(isEmployeeHeadcountIndicator(COST_PER_EMPLOYEE), 'custo por funcionário')
+  assert(isEmployeeHeadcountIndicator(REVENUE_PER_EMPLOYEE), 'receita por funcionário')
+
+  const volumes = volumesFromEmployeeCount(8, ['2026-07', '2026-08'])
+  assert(volumes['2026-07'] === 8, 'preenche julho com o quadro da empresa')
+  assert(volumes['2026-08'] === 8, 'preenche agosto com o quadro da empresa')
+  assert(unitCostForMonth(1600, volumes['2026-08']) === 200, 'custo por funcionário = 1600 / 8')
+}
+
 testSegmentCoverage()
 testCalculation()
+testEmployeeCount()
 console.log('unitCost tests ok')

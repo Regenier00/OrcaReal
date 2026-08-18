@@ -7,6 +7,7 @@ import {
   defaultUnitCodesForSegments,
   unitCostsForSegments,
 } from './segmentUnits'
+import { EMPLOYEE_HEADCOUNT_COSTS } from './employeeHeadcount'
 import type { ExperienceCatalog } from '../types'
 
 export const builtinCatalog: ExperienceCatalog = {
@@ -23,6 +24,7 @@ export {
   STRUCTURES,
   structureFor,
   SEGMENT_UNIT_COSTS,
+  EMPLOYEE_HEADCOUNT_COSTS,
   defaultUnitCodesForSegments,
   unitCostsForSegments,
 }
