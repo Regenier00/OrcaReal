@@ -23,7 +23,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className="min-h-svh bg-paper">
-      <header className="border-b border-paper-muted bg-ink text-paper">
+      <header className="border-b border-navy-mid bg-navy text-paper">
         <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-5 py-4">
           <div className="min-w-0">
             <Link to="/app" className="font-display text-xl font-bold tracking-tight">

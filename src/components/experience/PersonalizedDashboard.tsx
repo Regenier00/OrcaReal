@@ -8,10 +8,15 @@ import { buildContext } from '@/features/experience/conditions'
 import { isSegmentCode } from '@/features/company/segmentOptions'
 import { Button } from '@/components/ui/Button'
 import { MonthResultSection } from '@/components/home/MonthResultSection'
+import { FinancialSummary } from '@/components/home/FinancialSummary'
+import { EvolutionChart } from '@/components/home/EvolutionChart'
+import { FinancialInsights } from '@/components/home/FinancialInsights'
+import type { HomeDashboardData } from '@/features/experience/useUnitCostCards'
 import type { ExperienceAnswers } from '@/features/experience/types'
 
-export function PersonalizedDashboard() {
+export function PersonalizedDashboard({ data }: { data: HomeDashboardData }) {
   const { activeCompany, companyProfile, segments } = useCompany()
+  const dashboard = data
   const [answers, setAnswers] = useState<ExperienceAnswers>({})
   const [error, setError] = useState('')
 
@@ -43,15 +48,33 @@ export function PersonalizedDashboard() {
   }, [segmentCode, answers])
 
   return (
-    <div className="mt-5 space-y-8">
+    <div className="space-y-8">
       {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <MonthResultSection />
+      <FinancialSummary
+        current={dashboard.currentFinancials}
+        previous={dashboard.previousFinancials}
+        monthLabel={dashboard.monthLabel}
+        loading={dashboard.loading}
+      />
+
+      <div
+        className={
+          dashboard.insights.length > 0
+            ? 'grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,1fr)]'
+            : undefined
+        }
+      >
+        <EvolutionChart series={dashboard.series} loading={dashboard.loading} />
+        <FinancialInsights insights={dashboard.insights} />
+      </div>
+
+      <MonthResultSection data={dashboard} />
 
       {prompts[0] ? (
-        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-paper-muted bg-white px-5 py-4">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-paper-muted bg-white px-5 py-4 shadow-card">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-mist">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-navy-bright">
               Personalizar
             </p>
             <h2 className="mt-1 font-display text-base font-semibold text-navy">

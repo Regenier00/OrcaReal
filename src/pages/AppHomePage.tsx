@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { getUserProfile } from '@/features/auth/profileService'
 import { useCompany } from '@/features/company/useCompany'
 import { updateCompanyLogo } from '@/features/company/companyService'
 import { segmentLabel } from '@/features/company/segmentOptions'
-import { appModules } from '@/content/appModules'
 import { monthResultGreeting } from '@/lib/greeting'
 import { Button } from '@/components/ui/Button'
-import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
+import { CompanyHero } from '@/components/home/CompanyHero'
+import { QuickAccess } from '@/components/home/QuickAccess'
 import { PersonalizedDashboard } from '@/components/experience/PersonalizedDashboard'
+import { CompanyRequired } from '@/components/company/CompanyRequired'
+import { useUnitCostCards } from '@/features/experience/useUnitCostCards'
 
 export function AppHomePage() {
   const { user } = useAuth()
@@ -25,6 +26,7 @@ export function AppHomePage() {
   } = useCompany()
   const metadataName = String(user?.user_metadata?.name ?? '')
   const [profileName, setProfileName] = useState('')
+  const dashboard = useUnitCostCards()
 
   const segment = segments.find((item) => item.id === companyProfile?.segment_id)
   const segmentName =
@@ -57,73 +59,42 @@ export function AppHomePage() {
     await refresh()
   }
 
+  if (!activeCompany) {
+    return (
+      <div>
+        <h1 className="font-display text-3xl font-bold text-navy">Dashboard</h1>
+        <div className="mt-6">
+          <CompanyRequired message="Selecione ou crie uma empresa para ver o painel financeiro." />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div>
-      {activeCompany ? (
-        <section className="rounded-2xl border border-danger bg-white px-5 py-5 sm:px-6">
-          <div className="flex items-center gap-4">
-            <CompanyLogoAvatar
-              name={activeCompany.trade_name || activeCompany.name}
-              logoUrl={activeCompany.logo_url}
-              editable={isAdmin}
-              onChange={isAdmin ? handleLogoChange : undefined}
-            />
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-mist">
-                Empresa ativa
-              </p>
-              <h1 className="mt-1 truncate font-display text-2xl font-semibold text-navy sm:text-3xl">
-                {activeCompany.trade_name || activeCompany.name}
-              </h1>
-              {segmentName || activity ? (
-                <p className="mt-1 truncate text-sm text-mist">
-                  {segmentName ? `Ramo: ${segmentName}` : null}
-                  {segmentName && activity ? ' · ' : null}
-                  {activity ? `Atividade: ${activity}` : null}
-                </p>
-              ) : null}
-            </div>
-          </div>
-        </section>
-      ) : (
-        <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
-      )}
+    <div className="space-y-8">
+      <CompanyHero
+        name={activeCompany.trade_name || activeCompany.name}
+        segmentName={segmentName}
+        activity={activity}
+        periodLabel={dashboard.monthLabel || currentPeriodLabel()}
+        greeting={monthResultGreeting(profileName || metadataName, user?.email)}
+        logoUrl={activeCompany.logo_url}
+        editable={isAdmin}
+        onLogoChange={isAdmin ? handleLogoChange : undefined}
+      />
 
-      {activeCompany ? (
-        <h2 className="mt-6 font-display text-xl font-semibold text-navy sm:text-2xl">
-          {monthResultGreeting(profileName || metadataName, user?.email)}
-        </h2>
-      ) : null}
+      <PersonalizedDashboard data={dashboard} />
 
-      {activeCompany ? <PersonalizedDashboard /> : null}
-
-      {activeCompany ? (
-        <section className="mt-8">
-          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-mist">
-            Atalhos
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {appModules.map((module) => (
-              <Link
-                key={module.id}
-                to={module.to}
-                className="cursor-pointer rounded-full border border-paper-muted bg-white px-4 py-2 text-sm font-medium text-ink transition hover:border-ink/20 hover:bg-paper"
-              >
-                {module.title}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <QuickAccess />
 
       {companies.length > 1 ? (
-        <section className="mt-8 rounded-2xl border border-paper-muted bg-white p-6">
+        <section className="rounded-2xl border border-paper-muted bg-white p-6 shadow-card">
           <h2 className="font-display text-xl font-semibold text-navy">
             Suas empresas
           </h2>
           <ul className="mt-4 divide-y divide-paper-muted">
             {memberships.map((membership) => {
-              const active = membership.company_id === activeCompany?.id
+              const active = membership.company_id === activeCompany.id
               return (
                 <li
                   key={membership.id}
@@ -140,7 +111,7 @@ export function AppHomePage() {
                     </p>
                   </div>
                   {active ? (
-                    <span className="text-xs font-medium uppercase tracking-wide text-navy-bright">
+                    <span className="rounded-full bg-navy-soft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-navy">
                       Ativa
                     </span>
                   ) : (
@@ -159,4 +130,13 @@ export function AppHomePage() {
       ) : null}
     </div>
   )
+}
+
+function currentPeriodLabel(now = new Date()) {
+  const raw = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'America/Sao_Paulo',
+  }).format(now)
+  return raw.charAt(0).toUpperCase() + raw.slice(1)
 }
