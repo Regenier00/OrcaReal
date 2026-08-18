@@ -1,6 +1,7 @@
 import { SEGMENT_OPTIONS, segmentLabel } from '@/features/company/segmentOptions'
 import { extraSegmentCodesFromAnswers } from '@/features/experience/conditions'
 import { structureFor } from '@/features/experience/catalog'
+import { defaultUnitCodesForSegments, unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { buildDashboardLayout, selectIndicators } from '@/features/experience/indicators'
 import type {
   AnswerValue,
@@ -99,10 +100,10 @@ export function applyExperience(
 ): AppliedExperience {
   const extraSegmentCodes = extraSegmentCodesFromAnswers(ctx.answers)
   const structure = mergeStructures(ctx.segmentCode, extraSegmentCodes, catalog)
-  const analysisUnitCodes =
-    ctx.analysisUnitCodes.length > 0
-      ? ctx.analysisUnitCodes
-      : structure.defaultUnitCodes
+  const analysisUnitCodes = unique([
+    ...defaultUnitCodesForSegments([ctx.segmentCode, ...extraSegmentCodes]),
+    ...structure.defaultUnitCodes,
+  ])
 
   const nextCtx: EvaluationContext = {
     ...ctx,
@@ -111,6 +112,16 @@ export function applyExperience(
   }
 
   const indicators = selectIndicators(catalog, nextCtx)
+  const unitCostCodes = new Set(
+    unitCostsForSegments([ctx.segmentCode, ...extraSegmentCodes]).map(
+      (item) => item.indicatorCode
+    )
+  )
+  for (const indicator of catalog.indicators) {
+    if (!unitCostCodes.has(indicator.code)) continue
+    if (indicators.some((item) => item.code === indicator.code)) continue
+    indicators.push(indicator)
+  }
   const profile = deriveProfile(catalog.questions, ctx.answers)
   profile.profile_summary = buildProfileSummary(
     ctx.segmentCode,

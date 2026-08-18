@@ -18,6 +18,7 @@ export function applicableQuestions(
   return catalog.questions
     .filter((question) => {
       if (!options?.includeContinuous && question.continuous) return false
+      if (question.code === 'analysis_units') return false
       if (question.segmentCode && !segments.has(question.segmentCode)) return false
       return evaluateCondition(question.showWhen, ctx)
     })

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { PeriodFilter } from '@/components/comparison/PeriodFilter'
 import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudgetSelect'
+import { UnitCostSection } from '@/components/indicators/UnitCostSection'
 import type { SystemIndicator } from '@/types/database'
 
 export function IndicatorsPage() {
@@ -43,11 +44,18 @@ export function IndicatorsPage() {
 
   if (data.budgets.length === 0) {
     return (
-      <div>
-        <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
-        <div className="mt-8 rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
+      <div className="flex flex-col gap-6">
+        <div>
+          <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
+          <p className="mt-2 max-w-2xl text-sm text-mist">
+            O custo por unidade vem do ramo da empresa. Clique no card para
+            informar a quantidade do mês e calcular com o realizado.
+          </p>
+        </div>
+        <UnitCostSection />
+        <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
           <p className="font-display text-xl font-semibold text-ink">
-            Sem dados para calcular
+            Sem orçamento para os demais indicadores
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
             Crie um orçamento e aproprie os lançamentos do extrato para ver
@@ -71,8 +79,8 @@ export function IndicatorsPage() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Indicadores</h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            A conta fica visível. O recorte segue o orçamento vinculado e o
-            realizado da empresa ativa.
+            A unidade de operação vem do ramo. Clique no card para informar a
+            quantidade do mês; a conta usa o custo total realizado daquele mês.
           </p>
         </div>
         <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
@@ -99,6 +107,13 @@ export function IndicatorsPage() {
           os valores para ver os indicadores completos.
         </p>
       ) : null}
+
+      <UnitCostSection
+        months={data.months}
+        preferredMonth={data.month}
+        actual={data.pair?.actual ?? null}
+        classified={data.pair?.classifiedActuals ?? []}
+      />
 
       <dl className="grid gap-3 sm:grid-cols-3">
         <IndicatorCard
