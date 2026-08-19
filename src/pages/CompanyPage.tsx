@@ -23,6 +23,7 @@ import {
   revenueModelLabel,
 } from '@/features/experience/catalog/revenueModels'
 import { operationModelLabel } from '@/features/experience/catalog/operationModels'
+import { formatSalesChannels } from '@/features/experience/catalog/salesChannels'
 import {
   addCompanyOperation,
   listCompanyAnalysisUnits,
@@ -134,6 +135,7 @@ export function CompanyPage() {
             onEmployeeCountSaved={() => void refresh()}
             revenueModel={companyProfile?.revenue_model ?? ''}
             operationModel={companyProfile?.operation_model ?? ''}
+            salesChannel={companyProfile?.profile_facts?.sales_channel}
           />
         ) : null}
         {tab === 'usuarios' ? (
@@ -743,6 +745,7 @@ function CompanyExperienceTab({
   onEmployeeCountSaved,
   revenueModel,
   operationModel,
+  salesChannel,
 }: {
   companyId: string
   canEdit: boolean
@@ -754,6 +757,7 @@ function CompanyExperienceTab({
   onEmployeeCountSaved: () => void
   revenueModel: string
   operationModel: string
+  salesChannel: unknown
 }) {
   const [operations, setOperations] = useState<Array<{ id: string; name: string }>>([])
   const [units, setUnits] = useState<string[]>([])
@@ -872,6 +876,7 @@ function CompanyExperienceTab({
           value={formatRevenueModels(revenueModel)}
         />
         <ProfileFact label="Modelo de operação" value={operationModelLabel(operationModel) || operationModel} />
+        <ProfileFact label="Como vende" value={formatSalesChannels(salesChannel)} />
         <ProfileFact label="Indicadores ativos" value={String(indicators)} />
       </dl>
 

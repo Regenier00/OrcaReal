@@ -10,6 +10,7 @@ import {
 import { EMPLOYEE_HEADCOUNT_COSTS } from './employeeHeadcount'
 import { REVENUE_MODEL_OPTIONS } from './revenueModels'
 import { OPERATION_MODEL_OPTIONS } from './operationModels'
+import { SALES_CHANNEL_OPTIONS } from './salesChannels'
 import type { ExperienceCatalog } from '../types'
 
 export const builtinCatalog: ExperienceCatalog = {
@@ -29,6 +30,7 @@ export {
   EMPLOYEE_HEADCOUNT_COSTS,
   REVENUE_MODEL_OPTIONS,
   OPERATION_MODEL_OPTIONS,
+  SALES_CHANNEL_OPTIONS,
   defaultUnitCodesForSegments,
   unitCostsForSegments,
 }
