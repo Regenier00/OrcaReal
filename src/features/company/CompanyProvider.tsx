@@ -15,6 +15,7 @@ import {
   listUserMemberships,
   logoUrlFromSettings,
 } from '@/features/company/companyService'
+import { applyCompanyBrand, brandColorFromSettings, clearCompanyBrand } from '@/lib/brandColor'
 import type {
   Company,
   CompanyMembership,
@@ -46,6 +47,7 @@ async function fetchCompanySnapshot(): Promise<{
   nextId: string | null
   profile: CompanyProfile | null
   logoUrl: string | null
+  brandColor: string | null
   error: string | null
 }> {
   const [membershipResult, segmentResult] = await Promise.all([
@@ -60,6 +62,7 @@ async function fetchCompanySnapshot(): Promise<{
       nextId: null,
       profile: null,
       logoUrl: null,
+      brandColor: null,
       error: membershipResult.message,
     }
   }
@@ -87,6 +90,12 @@ async function fetchCompanySnapshot(): Promise<{
     logoUrl:
       companyLogo ||
       (settingsResult?.ok ? logoUrlFromSettings(settingsResult.data?.settings) : null),
+    brandColor:
+      membershipResult.data.find((item) => item.company_id === nextId)?.company
+        .brand_color ||
+      (settingsResult?.ok
+        ? brandColorFromSettings(settingsResult.data?.settings)
+        : null),
     error: null,
   }
 }
@@ -101,6 +110,9 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
     null
   )
   const [fallbackLogoUrl, setFallbackLogoUrl] = useState<string | null>(null)
+  const [fallbackBrandColor, setFallbackBrandColor] = useState<string | null>(
+    null
+  )
   const [segments, setSegments] = useState<Segment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +125,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       if (snapshot.nextId) storeCompanyId(snapshot.nextId)
       setCompanyProfile(snapshot.profile)
       setFallbackLogoUrl(snapshot.logoUrl)
+      setFallbackBrandColor(snapshot.brandColor)
       setError(snapshot.error)
       setLoading(false)
     },
@@ -124,6 +137,7 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
       setMemberships([])
       setCompanyProfile(null)
       setFallbackLogoUrl(null)
+      setFallbackBrandColor(null)
       setLoading(false)
       return
     }
@@ -160,10 +174,19 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
         const companyLogo =
           memberships.find((item) => item.company_id === companyId)?.company
             .logo_url ?? null
+        const companyBrand =
+          memberships.find((item) => item.company_id === companyId)?.company
+            .brand_color ?? null
         setFallbackLogoUrl(
           companyLogo ||
             (settingsResult.ok
               ? logoUrlFromSettings(settingsResult.data?.settings)
+              : null)
+        )
+        setFallbackBrandColor(
+          companyBrand ||
+            (settingsResult.ok
+              ? brandColorFromSettings(settingsResult.data?.settings)
               : null)
         )
       })
@@ -188,12 +211,24 @@ export function CompanyProvider({ children }: { children?: ReactNode }) {
         ? {
             ...activeMembership.company,
             logo_url: activeMembership.company.logo_url || fallbackLogoUrl,
+            brand_color:
+              activeMembership.company.brand_color || fallbackBrandColor,
           }
         : null,
-    [activeMembership, fallbackLogoUrl]
+    [activeMembership, fallbackLogoUrl, fallbackBrandColor]
   )
   const isAdmin =
     activeMembership?.role === 'owner' || activeMembership?.role === 'admin'
+
+  useEffect(() => {
+    applyCompanyBrand(activeCompany?.brand_color ?? null)
+  }, [activeCompany?.brand_color])
+
+  useEffect(() => {
+    return () => {
+      clearCompanyBrand()
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
