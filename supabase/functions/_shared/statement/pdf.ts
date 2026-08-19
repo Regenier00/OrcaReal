@@ -1,4 +1,5 @@
 import { parseTabularRows } from './csv.ts'
+import { scoreTabularMovements } from './columns.ts'
 import { detectBank } from './banks.ts'
 import { statementLog, statementWarn } from './log.ts'
 import {
@@ -8,6 +9,7 @@ import {
   inferStatementYear,
   parseAmount,
   parseBrazilianDate,
+  scoreParsedMovements,
   typeFromLabel,
   typeFromSignedAmount,
 } from './normalize.ts'
@@ -21,7 +23,7 @@ import type {
 } from './types.ts'
 
 const DATE_PATTERN =
-  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}(?:\\s*[-–—]\\s*\\d{1,2}:\\d{2}(?::\\d{2})?)?|\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}|\\d{1,2}[/\\-]\\d{1,2}(?![\\d./-])'
+  '(?<![\\d./-])\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}(?:\\s*[-–—]\\s*\\d{1,2}:\\d{2}(?::\\d{2})?)?|(?<![\\d./-])\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|(?<![\\d./-])\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}|(?<![\\d./-])\\d{1,2}[/\\-]\\d{1,2}(?![\\d./-])'
 const DATE_RE = new RegExp(`(${DATE_PATTERN})`)
 const DATE_SPLIT_RE = new RegExp(`(?=${DATE_PATTERN})`)
 const AMOUNT_PATTERN =
@@ -32,6 +34,45 @@ function amountRegex() {
 }
 const SKIP_LINE =
   /saldo\s*(anterior|inicial|final|atual|dia)|^saldo$|opening balance|closing balance|^totais?$|^subtotal$|^per[ií]odo\b|^p[aá]gina\b|^agencia\b|^ag[eê]ncia\b/i
+const STOP_SECTION =
+  /(?:^|\s)(?:totais?|total\s+geral|resumo\s+do\s+per[ií]odo|total\s+de\s+(?:cr[eé]ditos|d[eé]bitos|lan[cç]amentos))(?:\s|$)/i
+
+function amountHasDebitCreditLabel(raw: string) {
+  return /\d,\d{2}\s*[DdCc]\b/.test(raw) || /\b[DdCc]\s*$/.test(raw.trim())
+}
+
+function pickAmount(line: string) {
+  const matches = [...line.matchAll(amountRegex())]
+  if (matches.length === 0) return null
+
+  let chosen = matches[matches.length - 1]
+  if (matches.length >= 2) {
+    const labeled = matches.filter((match) => amountHasDebitCreditLabel(match[0]))
+    if (labeled.length === 1) {
+      chosen = labeled[0]
+    } else {
+      chosen = matches[matches.length - 2]
+      const lastVal = Math.abs(parseAmount(matches[matches.length - 1][0]) ?? 0)
+      const secondVal = Math.abs(parseAmount(chosen[0]) ?? 0)
+      if (
+        lastVal > 0 &&
+        secondVal > 0 &&
+        lastVal > secondVal * 4 &&
+        !amountHasDebitCreditLabel(chosen[0]) &&
+        !amountHasDebitCreditLabel(matches[matches.length - 1][0])
+      ) {
+        chosen = matches[matches.length - 2]
+      }
+    }
+  }
+
+  const signed = parseAmount(chosen[0])
+  if (signed == null || signed === 0) return null
+  const after = line.slice(chosen.index ?? 0)
+  const suffix = after.match(/^\s*(?:R\$\s*)?[^\s]*\s*([DdCc])\b/)
+  const labeled = suffix ? typeFromLabel(suffix[1]) : typeFromLabel(chosen[0])
+  return { raw: chosen[0], signed, labeled }
+}
 
 function looksExtractable(text: string) {
   const compact = text.replace(/\s+/g, '')
@@ -119,17 +160,14 @@ function mergeStatementLines(lines: string[]) {
   return merged
 }
 
-function pickAmount(line: string) {
-  const matches = [...line.matchAll(amountRegex())]
-  if (matches.length === 0) return null
-  const chosen =
-    matches.length >= 2 ? matches[matches.length - 2][0] : matches[matches.length - 1][0]
-  const signed = parseAmount(chosen)
-  if (signed == null || signed === 0) return null
-  const after = line.slice((matches.length >= 2 ? matches[matches.length - 2] : matches[0]).index ?? 0)
-  const suffix = after.match(/^\s*(?:R\$\s*)?[^\s]*\s*([DdCc])\b/)
-  const labeled = suffix ? typeFromLabel(suffix[1]) : typeFromLabel(chosen)
-  return { raw: chosen, signed, labeled }
+function movementsFromLines(text: string, defaultYear: number): RawMovement[] {
+  const movements: RawMovement[] = []
+  for (const line of mergeStatementLines(linesFromText(text))) {
+    if (STOP_SECTION.test(line.toLowerCase())) break
+    const movement = movementFromLine(line, defaultYear)
+    if (movement) movements.push(movement)
+  }
+  return finalizeMovements(movements)
 }
 
 function movementFromLine(
@@ -175,15 +213,6 @@ function movementFromLine(
   }
 }
 
-function movementsFromLines(text: string, defaultYear: number): RawMovement[] {
-  const movements: RawMovement[] = []
-  for (const line of mergeStatementLines(linesFromText(text))) {
-    const movement = movementFromLine(line, defaultYear)
-    if (movement) movements.push(movement)
-  }
-  return finalizeMovements(movements)
-}
-
 function rowsFromLines(text: string) {
   return linesFromText(text).map((line) =>
     line.split(/\s{2,}|\t/).filter(Boolean),
@@ -220,7 +249,8 @@ function parsePdfLayout(
   extracted: Pick<PdfExtraction, 'text' | 'rows' | 'alignedRows'>,
   collapsed: string,
 ) {
-  const defaultYear = inferStatementYear(`${extracted.text}\n${collapsed}`)
+  const sampleText = `${extracted.text}\n${collapsed}`
+  const defaultYear = inferStatementYear(sampleText)
   const tableCandidates = [
     extracted.rows,
     extracted.alignedRows,
@@ -232,21 +262,22 @@ function parsePdfLayout(
 
   let bestMovements: RawMovement[] = []
   let bestWarnings: ParseResult['warnings'] = []
+  let bestScore = -1
 
   for (const rows of tableCandidates) {
     const tabular = parseTabularRows(rows)
-    if (tabular.movements.length > bestMovements.length) {
+    const score = scoreTabularMovements(tabular.movements, sampleText)
+    if (score > bestScore) {
+      bestScore = score
       bestMovements = tabular.movements
       bestWarnings = tabular.warnings
     }
   }
 
-  const lineSource =
-    bestMovements.length === 0
-      ? uniquePdfTexts([extracted.text, collapsed]).join('\n')
-      : extracted.text
+  const lineSource = uniquePdfTexts([extracted.text, collapsed]).join('\n')
   const lineMovements = movementsFromLines(lineSource, defaultYear)
-  if (lineMovements.length > bestMovements.length) {
+  const lineScore = scoreParsedMovements(lineMovements, sampleText)
+  if (lineScore > bestScore) {
     bestMovements = lineMovements
     bestWarnings = []
   }

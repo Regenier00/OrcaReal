@@ -6,7 +6,7 @@ import { parseStatement } from '../../../supabase/functions/_shared/statement/pa
 import { parseTabularRows } from '../../../supabase/functions/_shared/statement/csv.ts'
 import { detectTabularLayout } from '../../../supabase/functions/_shared/statement/columns.ts'
 import { assertSafeStatementFile } from '../../../supabase/functions/_shared/statement/inspect.ts'
-import { excelSerialToIso } from '../../../supabase/functions/_shared/statement/normalize.ts'
+import { excelSerialToIso, scoreParsedMovements } from '../../../supabase/functions/_shared/statement/normalize.ts'
 import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
 import { resolveCreateWorker } from './tesseractWorker.ts'
 
@@ -1057,6 +1057,89 @@ async function testTesseractPackageExportsCreateWorker() {
   assert(typeof createWorker === 'function', 'pacote tesseract.js')
 }
 
+function testPdfPrefersTabularOverNoisyLineParser() {
+  const rows = [
+    ['Data', 'Histórico', 'Valor', 'Saldo'],
+    ['01/08/2026', 'PIX RECEBIDO CLIENTE', '350,00', '1.600,00'],
+    ['02/08/2026', 'TARIFA MANUTENCAO', '-12,90', '1.587,10'],
+    ['01/08/2026', '350,00', '1.600,00', 'Crédito'],
+    ['02/08/2026', '-12,90', '1.587,10', 'Débito'],
+    ['03/08/2026', '500,00', '2.087,10', 'Crédito'],
+  ]
+  const tabular = parseTabularRows(rows.slice(0, 3))
+  const noisy = parseTabularRows(rows.slice(3))
+  assert(tabular.movements.length === 2, `tabular limpo: ${tabular.movements.length}`)
+  assert(
+    scoreParsedMovements(tabular.movements, rows.flat().join(' ')) >
+      scoreParsedMovements(noisy.movements, rows.flat().join(' ')),
+    'parse tabular coerente deve pontuar acima de colunas trocadas',
+  )
+  assert(byDescription(tabular, 'PIX RECEBIDO')?.amount === 350, 'valor tabular')
+  assert(byDescription(tabular, 'PIX RECEBIDO')?.type === 'income', 'tipo tabular')
+}
+
+function testPdfLineParserKeepsFullDayInDate() {
+  const result = parseTabularRows([
+    ['29/06/2026 - 12:08:46', '445566', 'PIX ENVIADO', '150,00 D', '8.220,37 C'],
+  ])
+  assert(result.movements[0]?.postedAt === '2026-06-29', result.movements[0]?.postedAt ?? '')
+}
+
+function testPdfStopsAtTotalsSection() {
+  const result = parseTabularRows([
+    ['Data', 'Histórico', 'Valor', 'Saldo'],
+    ['01/08/2026', 'PIX RECEBIDO CLIENTE', '350,00', '1.600,00'],
+    ['Totais', 'Resumo do período', '337,10', '1.587,10'],
+    ['02/08/2026', 'TARIFA MANUTENCAO', '-12,90', '1.587,10'],
+  ])
+  assert(result.movements.length === 1, `deve parar nos totais: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix antes dos totais')
+}
+
+async function testPdfBalanceChecksumPrefersCorrectAmountColumn() {
+  const content = pdfTable([
+    {
+      y: 720,
+      cells: [{ x: 50, text: 'Saldo anterior: 1.250,00 Saldo final: 1.402,10' }],
+    },
+    {
+      y: 700,
+      cells: [
+        { x: 50, text: 'Data' },
+        { x: 130, text: 'Histórico' },
+        { x: 360, text: 'Valor' },
+        { x: 450, text: 'Saldo' },
+      ],
+    },
+    {
+      y: 682,
+      cells: [
+        { x: 50, text: '01/08/2026' },
+        { x: 130, text: 'PIX RECEBIDO CLIENTE' },
+        { x: 360, text: '350,00' },
+        { x: 450, text: '1.600,00' },
+      ],
+    },
+    {
+      y: 664,
+      cells: [
+        { x: 50, text: '02/08/2026' },
+        { x: 130, text: 'TARIFA MANUTENCAO' },
+        { x: 360, text: '-12,90' },
+        { x: 450, text: '1.587,10' },
+      ],
+    },
+  ])
+  const result = await parseStatement(
+    'extrato-saldos.pdf',
+    await makeStatementPdf(content),
+  )
+  assert(result.movements.length === 2, `checksum pdf: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'valor e não saldo')
+  assert(byDescription(result, 'TARIFA')?.amount === 12.9, 'tarifa correta')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa saída')
+}
+
 function testCompletedStatementMessage() {
   assert(
     completedStatementMessage({ transaction_count: 12, duplicate_count: 0 }) ===
@@ -1112,6 +1195,10 @@ testYearlessDatesUseStatementYear()
 await testPdfYearlessAndWrappedLines()
 await testPdfCooperativeDatetimeDebitCredit()
 await testPdfFormXObject()
+testPdfPrefersTabularOverNoisyLineParser()
+testPdfLineParserKeepsFullDayInDate()
+testPdfStopsAtTotalsSection()
+await testPdfBalanceChecksumPrefersCorrectAmountColumn()
 await testPdfOcrRunsWhenHeaderLooksLikeStatement()
 await testPdfOcrReadsMovements()
 testResolveCreateWorker()

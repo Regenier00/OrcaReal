@@ -95,6 +95,7 @@ export function parseTabularRows(
     return result
   }
 
+  const sampleText = rows.flat().join(' ')
   const layouts = detectTabularLayouts(rows, options)
   if (layouts.length === 0) {
     result.warnings.push({
@@ -114,7 +115,7 @@ export function parseTabularRows(
       if (warnings.length > MAX_WARNINGS * 4) return
       warnings.push({ message, row })
     })
-    const score = scoreTabularMovements(movements)
+    const score = scoreTabularMovements(movements, sampleText)
     const preferred =
       options?.preferredHeaderIndex != null &&
       layout.headerIndex === options.preferredHeaderIndex
