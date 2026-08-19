@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 import { resolveSupabaseCredentials } from './src/lib/supabaseEnv.ts'
+import { ocrAssetsPlugin } from './vite.ocrAssets.ts'
 
 export default defineConfig(({ mode }) => {
   const fileEnv = loadEnv(mode, process.cwd(), '')
@@ -29,12 +30,15 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), ocrAssetsPlugin(path.resolve(import.meta.dirname))],
     define,
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
       },
+    },
+    optimizeDeps: {
+      exclude: ['pdfjs-dist', 'tesseract.js', 'tesseract.js-core'],
     },
     worker: {
       format: 'es',

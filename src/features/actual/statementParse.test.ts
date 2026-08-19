@@ -7,6 +7,7 @@ import { parseTabularRows } from '../../../supabase/functions/_shared/statement/
 import { detectTabularLayout } from '../../../supabase/functions/_shared/statement/columns.ts'
 import { assertSafeStatementFile } from '../../../supabase/functions/_shared/statement/inspect.ts'
 import { excelSerialToIso } from '../../../supabase/functions/_shared/statement/normalize.ts'
+import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -777,6 +778,31 @@ ET`
   assert(result.movements.length === 0, 'scan sem lançamentos')
 }
 
+async function testPdfJpegImageExtraction() {
+  const jpeg = new Uint8Array(240)
+  jpeg[0] = 0xff
+  jpeg[1] = 0xd8
+  jpeg[2] = 0xff
+  jpeg[jpeg.length - 2] = 0xff
+  jpeg[jpeg.length - 1] = 0xd9
+  const image = concatBytes([
+    latinBytes(
+      `<< /Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.byteLength} >>\nstream\n`,
+    ),
+    jpeg,
+    latinBytes('endstream'),
+  ])
+  const pdf = assemblePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im1 4 0 R >> >> >>',
+    image,
+  ])
+  const images = await extractPdfJpegImages(pdf)
+  assert(images.length === 1, `jpeg extraído: ${images.length}`)
+  assert(images[0]?.[0] === 0xff && images[0]?.[1] === 0xd8, 'SOI jpeg')
+}
+
 async function testPdfOcrReadsMovements() {
   const content = `BT
 /F1 12 Tf
@@ -852,6 +878,7 @@ await testPdfColumnMajorDrawing()
 await testPdfFlateAndTjArray()
 await testPdfToUnicode()
 await testPdfNeedsOcr()
+await testPdfJpegImageExtraction()
 await testPdfOcrReadsMovements()
 testCompletedStatementMessage()
 console.log('statement parse tests ok')

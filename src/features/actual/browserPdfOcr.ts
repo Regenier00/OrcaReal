@@ -1,6 +1,6 @@
 import { getDocument, GlobalWorkerOptions, type PDFPageProxy } from 'pdfjs-dist'
-import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import { createWorker } from 'tesseract.js'
+import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
 import type { PdfOcrInput, PdfOcrResult } from '../../../supabase/functions/_shared/statement/ocr.ts'
 
 const MAX_TEXT_PAGES = 40
@@ -10,9 +10,17 @@ const AMOUNT_RE = /\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2}/
 
 let workerConfigured = false
 
+function ocrAsset(name: string) {
+  return new URL(`/ocr/${name}`, window.location.origin).href
+}
+
+function ocrLangPath() {
+  return new URL('/ocr', window.location.origin).href
+}
+
 function ensurePdfWorker() {
   if (workerConfigured) return
-  GlobalWorkerOptions.workerSrc = pdfWorker
+  GlobalWorkerOptions.workerSrc = ocrAsset('pdf.worker.min.mjs')
   workerConfigured = true
 }
 
@@ -123,22 +131,34 @@ async function renderPage(page: PDFPageProxy) {
   return canvas
 }
 
-async function ocrPages(
-  pages: PDFPageProxy[],
-  pageCount: number,
-): Promise<string> {
-  const worker = await createWorker('por', 1, { logger: () => undefined })
+function jpegBlob(bytes: Uint8Array) {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return new Blob([copy], { type: 'image/jpeg' })
+}
+
+async function ocrImages(images: Array<HTMLCanvasElement | Blob>): Promise<string> {
+  if (images.length === 0) return ''
+  const worker = await createWorker('por', 1, {
+    logger: () => undefined,
+    workerPath: ocrAsset('worker.min.js'),
+    corePath: ocrAsset('tesseract-core-lstm.wasm.js'),
+    langPath: ocrLangPath(),
+    gzip: true,
+  })
   const parts: string[] = []
   try {
     await worker.setParameters({ preserve_interword_spaces: '1' })
-    const limit = Math.min(pageCount, MAX_OCR_PAGES, pages.length)
+    const limit = Math.min(images.length, MAX_OCR_PAGES)
     for (let i = 0; i < limit; i += 1) {
-      const canvas = await renderPage(pages[i])
-      const recognized = await worker.recognize(canvas)
+      const recognized = await worker.recognize(images[i])
       const text = recognized.data.text?.trim()
       if (text) parts.push(text)
-      canvas.width = 0
-      canvas.height = 0
+      const image = images[i]
+      if (image instanceof HTMLCanvasElement) {
+        image.width = 0
+        image.height = 0
+      }
     }
   } finally {
     await worker.terminate()
@@ -146,14 +166,14 @@ async function ocrPages(
   return parts.join('\n')
 }
 
-export async function recoverPdfText({ bytes }: PdfOcrInput): Promise<PdfOcrResult | null> {
-  if (typeof document === 'undefined') return null
+async function extractWithPdfJs(bytes: Uint8Array) {
   ensurePdfWorker()
-
   const loadingTask = getDocument({
     data: bytes.slice(),
     disableFontFace: true,
     useSystemFonts: true,
+    useWasm: false,
+    useWorkerFetch: false,
     verbosity: 0,
   })
   const pdf = await loadingTask.promise
@@ -166,19 +186,66 @@ export async function recoverPdfText({ bytes }: PdfOcrInput): Promise<PdfOcrResu
       pages.push(page)
       nativeParts.push(await textFromPage(page))
     }
-    const nativeText = nativeParts.filter(Boolean).join('\n').trim()
-    if (looksLikeStatement(nativeText)) {
-      return { text: nativeText, usedOcr: false }
+    return {
+      text: nativeParts.filter(Boolean).join('\n').trim(),
+      pages,
+      cleanup: async () => {
+        await pdf.cleanup()
+        await loadingTask.destroy()
+      },
     }
+  } catch (error) {
+    await pdf.cleanup().catch(() => undefined)
+    await loadingTask.destroy().catch(() => undefined)
+    throw error
+  }
+}
 
-    const ocrText = await ocrPages(pages, pageCount)
+export async function recoverPdfText({ bytes }: PdfOcrInput): Promise<PdfOcrResult | null> {
+  if (typeof document === 'undefined') return null
+
+  let opened: Awaited<ReturnType<typeof extractWithPdfJs>> | null = null
+  try {
+    opened = await extractWithPdfJs(bytes)
+  } catch {
+    /* worker do pdf.js falhou; o OCR usa JPEG embutido */
+  }
+
+  const nativeText = opened?.text ?? ''
+  const pages = opened?.pages ?? []
+  if (looksLikeStatement(nativeText)) {
+    await opened?.cleanup().catch(() => undefined)
+    return { text: nativeText, usedOcr: false }
+  }
+
+  try {
+    const images: Array<HTMLCanvasElement | Blob> = []
+    if (pages.length > 0) {
+      try {
+        const limit = Math.min(pages.length, MAX_OCR_PAGES)
+        for (let i = 0; i < limit; i += 1) {
+          images.push(await renderPage(pages[i]))
+        }
+      } catch {
+        images.length = 0
+      }
+    }
+    if (images.length === 0) {
+      const jpegs = await extractPdfJpegImages(bytes)
+      for (const jpeg of jpegs.slice(0, MAX_OCR_PAGES)) {
+        images.push(jpegBlob(jpeg))
+      }
+    }
+    const ocrText = await ocrImages(images)
     if (compactLength(ocrText) >= 24) {
       return { text: ocrText, usedOcr: true }
     }
     if (nativeText) return { text: nativeText, usedOcr: false }
     return null
+  } catch {
+    if (nativeText) return { text: nativeText, usedOcr: false }
+    return null
   } finally {
-    await pdf.cleanup()
-    await loadingTask.destroy()
+    await opened?.cleanup().catch(() => undefined)
   }
 }

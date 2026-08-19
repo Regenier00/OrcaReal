@@ -570,7 +570,16 @@ async function parsePdfFile(bytes: Uint8Array): Promise<ParsedPdf> {
       streams += 1
       const raw = consumeStream(reader, dict)
       if (isImageDict(dict)) {
-        objects.set(keyOf(num, gen), { t: 'stream', dict, bytes: new Uint8Array() })
+        const filters = filterNames(dict)
+        const jpeg = filters.includes('DCTDecode') || filters.includes('DCT')
+        const keep =
+          jpeg &&
+          raw.byteLength > 200 &&
+          uncompressed + raw.byteLength <= MAX_UNCOMPRESSED_TOTAL
+            ? raw
+            : new Uint8Array()
+        if (keep.byteLength) uncompressed += keep.byteLength
+        objects.set(keyOf(num, gen), { t: 'stream', dict, bytes: keep })
         objRe.lastIndex = reader.pos
         continue
       }
@@ -1029,4 +1038,17 @@ export async function extractPdfLayout(bytes: Uint8Array): Promise<PdfExtraction
     .trim()
 
   return { text, rows: looseRows, alignedRows, encrypted: parsed.encrypted }
+}
+
+export async function extractPdfJpegImages(bytes: Uint8Array): Promise<Uint8Array[]> {
+  const parsed = await parsePdfFile(bytes)
+  const images: Uint8Array[] = []
+  for (const value of parsed.objects.values()) {
+    const data = streamBytes(value)
+    if (data.byteLength < 200) continue
+    if (data[0] !== 0xff || data[1] !== 0xd8) continue
+    images.push(data)
+    if (images.length >= 40) break
+  }
+  return images
 }
