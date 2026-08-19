@@ -691,6 +691,14 @@ function fontMap(parsed: ParsedPdf, resources: PdfDict | null) {
   return map
 }
 
+function xObjectMap(parsed: ParsedPdf, resources: PdfDict | null) {
+  const dict = resolveDict(parsed, dictGet(resources, 'XObject'))
+  const map = new Map<string, PdfVal>()
+  if (!dict) return map
+  for (const [name, value] of dict) map.set(name, value)
+  return map
+}
+
 function decodeString(value: PdfStr, cmap: CMap | null) {
   return cmap ? cmap.decode(value.b) : decodePdfBytes(value.b)
 }
@@ -720,11 +728,14 @@ function extractRunsFromContent(
   fonts: Map<string, PdfVal>,
   parsed: ParsedPdf,
   cmapCache: Map<PdfVal, CMap | null>,
+  resources: PdfDict | null = null,
+  depth = 0,
+  initialCtm: Matrix = IDENTITY,
 ): TextRun[] {
   const reader = new PdfReader(content)
   const runs: TextRun[] = []
   const stack: Matrix[] = []
-  let ctm: Matrix = IDENTITY
+  let ctm: Matrix = initialCtm
   let textMatrix: Matrix = IDENTITY
   let lineMatrix: Matrix = IDENTITY
   let fontSize = 12
@@ -732,6 +743,7 @@ function extractRunsFromContent(
   let leading = 0
   let cmap: CMap | null = null
   const args: PdfVal[] = []
+  const xobjects = xObjectMap(parsed, resources)
 
   const emit = (str: PdfStr) => {
     if (runs.length >= MAX_PDF_TEXT_RUNS) return
@@ -807,6 +819,34 @@ function extractRunsFromContent(
                 0,
               ])
             }
+          }
+        }
+      } else if (op === 'Do' && n >= 1 && depth < 4) {
+        const name = asName(args[n - 1])
+        const form = name ? resolve(parsed, xobjects.get(name)) : undefined
+        const dict = asDict(form)
+        if (dict && asName(dictGet(dict, 'Subtype')) === 'Form') {
+          const formBytes = streamBytes(form)
+          if (formBytes.byteLength) {
+            const formResources =
+              resolveDict(parsed, dictGet(dict, 'Resources')) ?? resources
+            const formFonts = fontMap(parsed, formResources)
+            const matrixVal = asArray(dictGet(dict, 'Matrix')).map(
+              (item) => asNum(item) ?? 0,
+            )
+            const formMatrix: Matrix =
+              matrixVal.length >= 6 ? (matrixVal.slice(0, 6) as Matrix) : IDENTITY
+            runs.push(
+              ...extractRunsFromContent(
+                formBytes,
+                formFonts,
+                parsed,
+                cmapCache,
+                formResources,
+                depth + 1,
+                multiply(ctm, formMatrix),
+              ),
+            )
           }
         }
       }
@@ -995,7 +1035,7 @@ export async function extractPdfLayout(bytes: Uint8Array): Promise<PdfExtraction
   if (pages.length === 0) {
     for (const value of parsed.objects.values()) {
       const dict = asDict(value)
-      if (asName(dictGet(dict, 'Type')) === 'Page') pages.push(dict)
+      if (dict && asName(dictGet(dict, 'Type')) === 'Page') pages.push(dict)
     }
   }
 
@@ -1009,7 +1049,9 @@ export async function extractPdfLayout(bytes: Uint8Array): Promise<PdfExtraction
       const fonts = fontMap(parsed, resources)
       const content = contentBytes(parsed, page)
       if (!content.byteLength) continue
-      runs.push(...extractRunsFromContent(content, fonts, parsed, cmapCache))
+      runs.push(
+        ...extractRunsFromContent(content, fonts, parsed, cmapCache, resources),
+      )
     }
   }
 

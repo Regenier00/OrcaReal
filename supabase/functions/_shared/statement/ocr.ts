@@ -1,3 +1,5 @@
+import { statementError, statementLog } from './log.ts'
+
 export interface PdfOcrResult {
   text: string
   usedOcr: boolean
@@ -6,6 +8,7 @@ export interface PdfOcrResult {
 export interface PdfOcrInput {
   bytes: Uint8Array
   extractedText: string
+  forceOcr?: boolean
 }
 
 export type PdfOcrProvider = (input: PdfOcrInput) => Promise<PdfOcrResult | null>
@@ -21,10 +24,15 @@ export function hasPdfOcrProvider() {
 }
 
 export async function runPdfOcr(input: PdfOcrInput): Promise<PdfOcrResult | null> {
-  if (!provider) return null
+  if (!provider) {
+    statementLog('OCR indisponível neste ambiente')
+    return null
+  }
   try {
+    statementLog(input.forceOcr ? 'Iniciando OCR forçado' : 'Recuperando texto do PDF no navegador')
     return await provider(input)
-  } catch {
+  } catch (error) {
+    statementError('OCR falhou', error)
     return null
   }
 }
