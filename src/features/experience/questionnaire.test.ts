@@ -81,6 +81,25 @@ assert(
   }),
   'wizard deve ignorar main_objective mesmo se vier do banco'
 )
+assert(
+  RETIRED_QUESTION_CODES.has('primary_activity'),
+  'primary_activity deve estar aposentada: indicadores já vêm do ramo'
+)
+assert(
+  !mixedCodes.has('primary_activity'),
+  'cadastro não deve pedir a atividade principal em texto livre'
+)
+assert(
+  isRetiredQuestion({
+    code: 'primary_activity',
+    prompt: 'Qual é a atividade principal da empresa?',
+    answerType: 'text',
+    options: [],
+    sortOrder: 50,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar primary_activity mesmo se vier do banco'
+)
 
 for (const code of [
   'com_type',
