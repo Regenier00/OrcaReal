@@ -6,7 +6,7 @@ import { formatMoney } from '@/features/budget/money'
 import { formatPct, formatSignedPct } from '@/lib/money'
 import { Button } from '@/components/ui/Button'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
-import { PeriodFilter } from '@/components/comparison/PeriodFilter'
+import { IndicatorPeriodFilter } from '@/components/indicators/IndicatorPeriodFilter'
 import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudgetSelect'
 import { UnitCostSection } from '@/components/indicators/UnitCostSection'
 import { IndicatorsSubnav } from '@/components/indicators/IndicatorsSubnav'
@@ -120,11 +120,18 @@ export function CustomIndicatorsPage() {
               Criar indicador
             </Button>
           ) : null}
-          <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
         </div>
       </div>
 
       <IndicatorsSubnav />
+
+      {data.months.length > 0 ? (
+        <IndicatorPeriodFilter
+          months={data.months}
+          value={data.month}
+          onChange={data.setMonth}
+        />
+      ) : null}
 
       {data.error ? (
         <p className="rounded-xl border border-danger/20 bg-white px-4 py-3 text-sm text-danger">

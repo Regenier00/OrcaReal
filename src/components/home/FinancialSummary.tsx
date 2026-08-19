@@ -62,7 +62,11 @@ export function FinancialSummary({
 
   return (
     <section data-tour="financial-summary">
-      <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
+      <SummaryIntro
+        greeting={greeting}
+        monthLabel={monthLabel}
+        isConsolidated={isConsolidated}
+      />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           to="/app/orcado-realizado"
@@ -173,7 +177,7 @@ function SummaryIntro({
         <p className="mt-1 text-sm text-mist">
           {isConsolidated
             ? `Leitura consolidada de ${monthLabel}.`
-            : `Leitura consolidada de ${monthLabel}.`}
+            : `Leitura de ${monthLabel}.`}
         </p>
       ) : (
         <p className="mt-1 text-sm text-mist">Leitura consolidada do período ativo.</p>

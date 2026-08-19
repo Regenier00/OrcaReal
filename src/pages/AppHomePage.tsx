@@ -11,7 +11,7 @@ import { CompanyHero } from '@/components/home/CompanyHero'
 import { QuickAccess } from '@/components/home/QuickAccess'
 import { PersonalizedDashboard } from '@/components/experience/PersonalizedDashboard'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
-import { PeriodFilter } from '@/components/comparison/PeriodFilter'
+import { IndicatorPeriodFilter } from '@/components/indicators/IndicatorPeriodFilter'
 import { useUnitCostCards } from '@/features/experience/useUnitCostCards'
 
 export function AppHomePage() {
@@ -90,7 +90,7 @@ export function AppHomePage() {
       />
 
       {dashboard.months.length > 0 ? (
-        <PeriodFilter
+        <IndicatorPeriodFilter
           months={dashboard.months}
           value={period}
           onChange={setPeriod}

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useComparisonData } from '@/features/comparison/useComparison'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
-import { PeriodFilter } from '@/components/comparison/PeriodFilter'
+import { IndicatorPeriodFilter } from '@/components/indicators/IndicatorPeriodFilter'
 import { IndicatorsSubnav } from '@/components/indicators/IndicatorsSubnav'
 import { OperationalIndicatorCard } from '@/components/indicators/OperationalIndicatorCard'
 import { useOperationalIndicators } from '@/features/experience/useOperationalIndicators'
@@ -49,12 +49,17 @@ export function IndicatorsPage() {
               : 'Depois de informar o modelo de operação, escolha os indicadores que a empresa quer acompanhar.'}
           </p>
         </div>
-        {data.months.length > 0 ? (
-          <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
-        ) : null}
       </div>
 
       <IndicatorsSubnav />
+
+      {data.months.length > 0 ? (
+        <IndicatorPeriodFilter
+          months={data.months}
+          value={data.month}
+          onChange={data.setMonth}
+        />
+      ) : null}
 
       {operational.error || data.error ? (
         <p className="rounded-xl border border-danger/20 bg-white px-4 py-3 text-sm text-danger">
