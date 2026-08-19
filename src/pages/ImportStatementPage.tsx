@@ -195,12 +195,6 @@ export function ImportStatementPage() {
             <p className="mt-1 text-sm text-mist">
               Formatos: OFX, CSV, XLSX e PDF. PDFs digitalizados são lidos por OCR neste navegador.
             </p>
-            {busy && file?.name.toLowerCase().endsWith('.pdf') ? (
-              <p className="mt-3 rounded-xl border border-navy-bright/20 bg-white px-4 py-3 text-sm text-navy">
-                Lendo o PDF neste navegador. Se for digitalizado, o OCR pode levar alguns segundos
-                — o progresso aparece no console (F12).
-              </p>
-            ) : null}
             <label
               onDragOver={(event) => {
                 event.preventDefault()

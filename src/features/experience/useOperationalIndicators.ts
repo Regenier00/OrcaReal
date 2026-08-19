@@ -176,7 +176,7 @@ export function useOperationalIndicators(input?: {
       !isConsolidated && previous
         ? (totals.byMonth[previous.key] ?? { revenue: 0, cost: 0 })
         : null
-    const monthInputs = isConsolidated ? {} : (namedInputs[monthKey] ?? {})
+    const monthInputs = namedInputs[monthKey] ?? {}
 
     return defs.map((def) => {
       const context: OperationalFormulaContext = {
