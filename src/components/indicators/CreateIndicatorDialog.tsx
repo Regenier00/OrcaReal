@@ -12,7 +12,6 @@ import {
 import {
   FORMULA_METRICS,
   FORMULA_OPS,
-  FORMULA_SCOPES,
   defaultCustomFormula,
   evaluateFormula,
   formulaHint,
@@ -23,7 +22,6 @@ import {
   type FormulaContext,
   type FormulaMetric,
   type FormulaOp,
-  type FormulaScope,
 } from '@/features/indicators/formula'
 import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
 import { catalogPickerUnits } from '@/features/indicators/units'
@@ -160,13 +158,10 @@ export function CreateIndicatorDialog({
     onClose()
   }
 
-  const setOperand = (
-    side: 'left' | 'right',
-    patch: Partial<{ metric: FormulaMetric; scope: FormulaScope }>
-  ) => {
+  const setOperand = (side: 'left' | 'right', patch: Partial<{ metric: FormulaMetric }>) => {
     setFormula((current) => ({
       ...current,
-      [side]: { ...current[side], ...patch },
+      [side]: { ...current[side], ...patch, scope: 'period' as const },
     }))
   }
 
@@ -189,9 +184,8 @@ export function CreateIndicatorDialog({
     >
       <div className="space-y-4">
         <p>
-          Monte o cálculo com receitas e custos realizados, separados, no mês ou no
-          consolidado. A quantidade da unidade entra quando você quiser um valor por
-          unidade.
+          Monte o cálculo com receitas e custos realizados, separados, mês a mês. A
+          quantidade da unidade entra quando você quiser um valor por unidade.
         </p>
 
         <Input
@@ -262,17 +256,15 @@ export function CreateIndicatorDialog({
           <div>
             <p className="text-sm font-medium text-ink-soft/90">Formato do cálculo</p>
             <p className="mt-1 text-xs text-mist">
-              Receitas e custos ficam separados. Escolha o mês atual ou o consolidado
-              do período.
+              Receitas e custos ficam separados. O cálculo usa sempre o mês selecionado
+              no card.
             </p>
           </div>
 
           <FormulaOperandFields
             label="Primeiro valor"
             metric={formula.left.metric}
-            scope={formula.left.scope}
             onMetric={(metric) => setOperand('left', { metric })}
-            onScope={(scope) => setOperand('left', { scope })}
           />
 
           <Select
@@ -292,21 +284,12 @@ export function CreateIndicatorDialog({
           <FormulaOperandFields
             label="Segundo valor"
             metric={formula.right.metric}
-            scope={formula.right.scope}
             onMetric={(metric) => setOperand('right', { metric })}
-            onScope={(scope) => setOperand('right', { scope })}
           />
-          {formula.right.scope === 'consolidated' ? (
-            <p className="text-xs text-mist">
-              Com o segundo valor consolidado, a quantidade fica fixa no total do
-              período e não pode ser informada mês a mês.
-            </p>
-          ) : (
-            <p className="text-xs text-mist">
-              Com o segundo valor por período, você escolhe o mês e informa a
-              quantidade daquele mês.
-            </p>
-          )}
+          <p className="text-xs text-mist">
+            Com quantidade no cálculo, você escolhe o mês e informa a quantidade
+            daquele mês.
+          </p>
 
           <FormulaChip name="Prévia" formula={formulaHint(formula)} className="mt-1" />
         </div>
@@ -339,20 +322,16 @@ export function CreateIndicatorDialog({
 function FormulaOperandFields({
   label,
   metric,
-  scope,
   onMetric,
-  onScope,
 }: {
   label: string
   metric: FormulaMetric
-  scope: FormulaScope
   onMetric: (value: FormulaMetric) => void
-  onScope: (value: FormulaScope) => void
 }) {
   return (
     <div
       className={cn(
-        'grid gap-3 rounded-xl border p-3 sm:grid-cols-2',
+        'rounded-xl border p-3',
         moneySideCardClass(metricMoneySide(metric))
       )}
     >
@@ -362,17 +341,6 @@ function FormulaOperandFields({
         onChange={(event) => onMetric(event.target.value as FormulaMetric)}
       >
         {FORMULA_METRICS.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.label}
-          </option>
-        ))}
-      </Select>
-      <Select
-        label="Abrangência"
-        value={scope}
-        onChange={(event) => onScope(event.target.value as FormulaScope)}
-      >
-        {FORMULA_SCOPES.map((item) => (
           <option key={item.id} value={item.id}>
             {item.label}
           </option>

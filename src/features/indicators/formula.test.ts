@@ -10,6 +10,7 @@ import {
   formulaMoneySide,
   formulaUsesQuantity,
   metricMoneySide,
+  normalizeCustomIndicatorFormula,
   quantityVolumeKey,
   secondOperandIsPeriod,
   suggestedDisplayUnit,
@@ -172,6 +173,18 @@ assert(
     '2026-08'
   ) === 'all',
   'quantidade consolidada usa chave única'
+)
+
+const normalized = normalizeCustomIndicatorFormula({
+  left: { metric: 'actual_cost', scope: 'consolidated' },
+  op: 'div',
+  right: { metric: 'quantity', scope: 'consolidated' },
+})
+assert(normalized.left.scope === 'period', 'indicador personalizado normaliza receitas/custos para período')
+assert(normalized.right.scope === 'period', 'indicador personalizado normaliza quantidade para período')
+assert(
+  quantityVolumeKey(normalized, '2026-08') === '2026-08',
+  'fórmula normalizada usa quantidade por mês'
 )
 
 console.log('custom indicator formula tests ok')

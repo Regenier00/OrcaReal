@@ -22,9 +22,20 @@ export function volumesFromEmployeeCount(
   count: number | null | undefined,
   monthKeys: string[]
 ): Record<string, number> {
-  const qty = parseEmployeeCount(count)
-  if (qty == null) return {}
-  const result: Record<string, number> = {}
-  for (const key of monthKeys) result[key] = qty
+  return mergeEmployeeVolumes({}, count, monthKeys)
+}
+
+/** Usa o quadro do cadastro só como valor inicial para meses ainda sem quantidade informada. */
+export function mergeEmployeeVolumes(
+  stored: Record<string, number>,
+  defaultCount: number | null | undefined,
+  monthKeys: string[]
+): Record<string, number> {
+  const result = { ...stored }
+  const qty = parseEmployeeCount(defaultCount)
+  if (qty == null) return result
+  for (const key of monthKeys) {
+    if (result[key] == null) result[key] = qty
+  }
   return result
 }

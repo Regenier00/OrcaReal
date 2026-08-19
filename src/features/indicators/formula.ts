@@ -65,6 +65,15 @@ export function defaultCustomFormula(): CustomFormula {
   }
 }
 
+/** Indicadores personalizados sempre usam o mês selecionado, nunca consolidado. */
+export function normalizeCustomIndicatorFormula(formula: CustomFormula): CustomFormula {
+  return {
+    ...formula,
+    left: { ...formula.left, scope: 'period' },
+    right: { ...formula.right, scope: 'period' },
+  }
+}
+
 export function revenuePerQuantityFormula(): CustomFormula {
   return {
     left: { metric: 'actual_revenue', scope: 'period' },

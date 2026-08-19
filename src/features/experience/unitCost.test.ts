@@ -7,6 +7,7 @@ import {
   COST_PER_EMPLOYEE,
   REVENUE_PER_EMPLOYEE,
   isEmployeeHeadcountIndicator,
+  mergeEmployeeVolumes,
   parseEmployeeCount,
   volumesFromEmployeeCount,
 } from './employeeCount.ts'
@@ -123,7 +124,11 @@ function testEmployeeCount() {
   const volumes = volumesFromEmployeeCount(8, ['2026-07', '2026-08'])
   assert(volumes['2026-07'] === 8, 'preenche julho com o quadro da empresa')
   assert(volumes['2026-08'] === 8, 'preenche agosto com o quadro da empresa')
-  assert(unitCostForMonth(1600, volumes['2026-08']) === 200, 'custo por funcionário = 1600 / 8')
+
+  const merged = mergeEmployeeVolumes({ '2026-07': 10 }, 8, ['2026-07', '2026-08'])
+  assert(merged['2026-07'] === 10, 'mês informado não é sobrescrito pelo cadastro')
+  assert(merged['2026-08'] === 8, 'mês sem dado usa o cadastro como valor inicial')
+  assert(unitCostForMonth(1600, merged['2026-08']) === 200, 'custo por funcionário = 1600 / 8')
 }
 
 function testRevenueModels() {
