@@ -2,6 +2,7 @@ import { detectBank } from './banks.ts'
 import {
   detectTabularLayouts,
   movementsFromMappedRows,
+  scoreTabularMovements,
   type TabularLayoutOptions,
 } from './columns.ts'
 import { MAX_CSV_LINE_CHARS, MAX_CSV_ROWS, MAX_WARNINGS } from './limits.ts'
@@ -104,7 +105,7 @@ export function parseTabularRows(
   }
 
   let bestMovements: ReturnType<typeof movementsFromMappedRows> = []
-  let bestCount = -1
+  let bestScore = -1
   const collected: ParseResult['warnings'] = []
 
   for (const layout of layouts) {
@@ -113,14 +114,12 @@ export function parseTabularRows(
       if (warnings.length > MAX_WARNINGS * 4) return
       warnings.push({ message, row })
     })
+    const score = scoreTabularMovements(movements)
     const preferred =
       options?.preferredHeaderIndex != null &&
       layout.headerIndex === options.preferredHeaderIndex
-    if (
-      movements.length > bestCount ||
-      (movements.length === bestCount && preferred)
-    ) {
-      bestCount = movements.length
+    if (score > bestScore || (score === bestScore && preferred)) {
+      bestScore = score
       bestMovements = movements
       collected.length = 0
       collected.push(...warnings)

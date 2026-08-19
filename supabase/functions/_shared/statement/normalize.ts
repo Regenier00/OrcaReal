@@ -137,8 +137,14 @@ export function parseBrazilianDate(
   value: unknown,
   options?: DateParseOptions,
 ): string | null {
-  const raw = String(value ?? '').trim()
+  let raw = String(value ?? '').trim()
   if (!raw) return null
+  raw = raw
+    .replace(/(\d{2}:\d{2}(?::\d{2})?)(\d)/g, '$1 $2')
+    .replace(/\s*[-–—]\s*\d{1,2}:\d{2}(?::\d{2})?\s*/g, ' ')
+    .trim()
+  const leadingDate = raw.match(/^(\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}[/-]\d{1,2})/)
+  if (leadingDate) raw = leadingDate[1]
 
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/)
   if (iso) return isoDate(Number(iso[1]), Number(iso[2]), Number(iso[3]))
@@ -149,7 +155,7 @@ export function parseBrazilianDate(
   }
 
   const parts = raw.match(
-    /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)?$/,
+    /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/,
   )
   if (parts) {
     const { day, month } = resolveDayMonth(Number(parts[1]), Number(parts[2]))
@@ -164,7 +170,7 @@ export function parseBrazilianDate(
   }
 
   const named = raw.match(
-    /^(\d{1,2})[./\-\s]+([A-Za-zÀ-ÿ]{3,9})\.?[./\-\s]+(\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/,
+    /^(\d{1,2})[./\-\s]+([A-Za-zÀ-ÿ]{3,9})\.?[./\-\s]+(\d{2,4})$/,
   )
   if (named) {
     const monthKey = named[2]

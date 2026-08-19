@@ -21,7 +21,7 @@ import type {
 } from './types.ts'
 
 const DATE_PATTERN =
-  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}|\\d{1,2}[/\\-]\\d{1,2}(?![\\d./-])'
+  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}(?:\\s*[-–—]\\s*\\d{1,2}:\\d{2}(?::\\d{2})?)?|\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}|\\d{1,2}[/\\-]\\d{1,2}(?![\\d./-])'
 const DATE_RE = new RegExp(`(${DATE_PATTERN})`)
 const DATE_SPLIT_RE = new RegExp(`(?=${DATE_PATTERN})`)
 const AMOUNT_PATTERN =
@@ -31,7 +31,7 @@ function amountRegex() {
   return new RegExp(AMOUNT_PATTERN, 'g')
 }
 const SKIP_LINE =
-  /saldo\s*(anterior|inicial|final|atual)|^saldo$|opening balance|closing balance|^totais?$|^subtotal$|^per[ií]odo\b|^p[aá]gina\b|^agencia\b|^ag[eê]ncia\b/i
+  /saldo\s*(anterior|inicial|final|atual|dia)|^saldo$|opening balance|closing balance|^totais?$|^subtotal$|^per[ií]odo\b|^p[aá]gina\b|^agencia\b|^ag[eê]ncia\b/i
 
 function looksExtractable(text: string) {
   const compact = text.replace(/\s+/g, '')
@@ -53,6 +53,7 @@ function cleanExtractedStatementText(text: string) {
     .replace(/\u00a0/g, ' ')
     .replace(/\b[Oo](?=\d[./-])/g, '0')
     .replace(/(\d[./-])[Oo](?=[./\d-])/g, '$10')
+    .replace(/(\d{2}:\d{2}(?::\d{2})?)(\d)/g, '$1 $2')
     .replace(/(\d{1,3})\s+(\d{3},\d{2})\b/g, '$1.$2')
     .replace(/(\d),\s+(\d{2})\b/g, '$1,$2')
 }
@@ -74,6 +75,14 @@ function lineHasAmount(line: string) {
   return amountRegex().test(line)
 }
 
+function lineHasDescription(line: string) {
+  const stripped = line
+    .replace(DATE_RE, ' ')
+    .replace(amountRegex(), ' ')
+    .replace(/\b[DdCc]\b/g, ' ')
+  return /[a-zA-ZÀ-ÿ]/.test(stripped)
+}
+
 function mergeStatementLines(lines: string[]) {
   const merged: string[] = []
   let pending = ''
@@ -84,8 +93,12 @@ function mergeStatementLines(lines: string[]) {
     if (hasDate) lastDate = line.match(DATE_RE)?.[1] ?? lastDate
     if (hasDate && hasAmount) {
       if (pending) merged.push(pending)
-      merged.push(line)
-      pending = ''
+      if (lineHasDescription(line)) {
+        merged.push(line)
+        pending = ''
+      } else {
+        pending = line
+      }
       continue
     }
     if (hasDate && !hasAmount) {
