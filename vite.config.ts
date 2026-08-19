@@ -38,7 +38,11 @@ export default defineConfig(({ mode }) => {
       },
     },
     optimizeDeps: {
-      exclude: ['pdfjs-dist', 'tesseract.js', 'tesseract.js-core'],
+      // tesseract.js é CJS (src/index.js usa module.exports). Se ficar em
+      // exclude, o Vite serve esse arquivo como ESM e createWorker some.
+      include: ['tesseract.js'],
+      needsInterop: ['tesseract.js'],
+      exclude: ['pdfjs-dist', 'tesseract.js-core'],
     },
     worker: {
       format: 'es',
