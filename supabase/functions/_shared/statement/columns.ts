@@ -1,8 +1,10 @@
 import {
   excelSerialToIso,
   inferStatementYear,
+  normalizeDescription,
   parseAmount,
   parseBrazilianDate,
+  scoreParsedMovements,
   typeFromCreditDebit,
   typeFromLabel,
   typeFromSignedAmount,
@@ -171,6 +173,8 @@ const ALIASES: Record<ColumnRole, string[]> = {
 }
 
 const SKIP_DESCRIPTION = /^(saldoanterior|saldoinicial|saldofinal|saldoatual|saldododia|openingbalance|closingbalance|previousbalance|total|totais|subtotal|soma|transportado)$/
+const STOP_ROW =
+  /(?:^|\s)(?:totais?|total\s+geral|resumo\s+do\s+per[ií]odo|total\s+de\s+(?:cr[eé]ditos|d[eé]bitos|lan[cç]amentos)|extrato\s+para\s+simples\s+confer[eê]ncia)(?:\s|$)/i
 
 export function cellText(value: unknown) {
   if (value == null) return ''
@@ -739,10 +743,14 @@ export function movementsFromMappedRows(
   const start = map.headerIndex >= 0 ? map.headerIndex + 1 : 0
   const defaultYear = inferStatementYear(rows.flat().join(' '))
   let lastDate = ''
+  let pending: RawMovement | null = null
 
   for (let i = start; i < rows.length; i += 1) {
     const row = rows[i]
     if (!row || row.every((cell) => !cell?.trim())) continue
+
+    const rowText = row.join(' ').trim()
+    if (STOP_ROW.test(rowText.toLowerCase())) break
 
     let dateCell = (row[map.date] ?? '').trim()
     if (
@@ -759,7 +767,30 @@ export function movementsFromMappedRows(
     const counterparty =
       map.counterparty >= 0 ? row[map.counterparty]?.trim() || null : null
     if (!description.trim() && counterparty) description = counterparty
-    if (!posted || !description.trim()) {
+
+    if (!posted) {
+      const continuation = row
+        .map((cell) => cell?.trim() ?? '')
+        .filter((cell) => {
+          if (!cell) return false
+          if (parseBrazilianDate(cell, { defaultYear })) return false
+          if (looksLikeAmount(cell)) return false
+          if (bestRoleForHeader(cell)?.role === 'date') return false
+          return /[a-zA-ZÀ-ÿ]/.test(cell)
+        })
+        .join(' ')
+        .trim()
+      if (continuation && pending) {
+        pending.description = normalizeDescription(
+          `${pending.description} ${continuation}`.trim(),
+        )
+        continue
+      }
+      onWarning('Linha ignorada por data ou descrição vazia', i + 1)
+      continue
+    }
+
+    if (!description.trim()) {
       onWarning('Linha ignorada por data ou descrição vazia', i + 1)
       continue
     }
@@ -814,35 +845,16 @@ export function movementsFromMappedRows(
       counterparty,
       raw: { row: i + 1 },
     })
+    pending = movements[movements.length - 1] ?? null
   }
 
   return movements
 }
 
-function descriptionQuality(description: string) {
-  const norm = description.trim()
-  if (!norm) return -50
-  if (/^\d+$/.test(norm)) return -30
-  if (!/[a-zA-ZÀ-ÿ]/.test(norm)) return -10
-  if (/^(credito|debito|crédito|débito)$/i.test(norm)) return -25
-  return 10 + Math.min(norm.length, 40)
-}
-
 /** Prefer layouts whose descriptions look like real transaction text, not doc numbers. */
-export function scoreTabularMovements(movements: RawMovement[]) {
-  if (movements.length === 0) return -1
-  let score = movements.length * 100
-  for (const movement of movements) {
-    let quality = descriptionQuality(movement.description)
-    if (
-      /^\d+$/.test(movement.description.trim()) &&
-      movement.counterparty &&
-      /[a-zA-ZÀ-ÿ]/.test(movement.counterparty)
-    ) {
-      quality -= 15
-    }
-    score += quality
-    if (movement.type !== 'unknown') score += 5
-  }
-  return score
+export function scoreTabularMovements(
+  movements: RawMovement[],
+  sampleText?: string,
+) {
+  return scoreParsedMovements(movements, sampleText)
 }

@@ -291,6 +291,85 @@ export function emptyResult(format: ParseResult['format']): ParseResult {
   }
 }
 
+
+export function extractStatementBalances(text: string): {
+  start: number | null
+  end: number | null
+} {
+  const sample = text.slice(0, 12_000)
+  const pick = (pattern: RegExp) => {
+    const match = sample.match(pattern)
+    if (!match?.[1]) return null
+    const amount = parseAmount(match[1])
+    return amount == null ? null : Math.abs(amount)
+  }
+  return {
+    start: pick(
+      /saldo\s*(?:anterior|inicial)\D{0,24}?((?:R\$\s*)?\d[\d.\s,]*)/i,
+    ),
+    end: pick(
+      /saldo\s*(?:final|atual|do\s+dia)\D{0,24}?((?:R\$\s*)?\d[\d.\s,]*)/i,
+    ),
+  }
+}
+
+function descriptionQuality(description: string) {
+  const norm = description.trim()
+  if (!norm) return -50
+  if (/^\d+$/.test(norm)) return -30
+  if (!/[a-zA-ZÀ-ÿ]/.test(norm)) return -10
+  if (/^(credito|debito|cr[eé]dito|d[eé]bito)$/i.test(norm)) return -25
+  return 10 + Math.min(norm.length, 40)
+}
+
+/** Prefer parses whose descriptions, types and running balance look coherent. */
+export function scoreParsedMovements(
+  movements: RawMovement[],
+  sampleText?: string,
+): number {
+  if (movements.length === 0) return -1
+
+  let score = movements.length * 100
+  for (const movement of movements) {
+    let quality = descriptionQuality(movement.description)
+    if (
+      /^\d+$/.test(movement.description.trim()) &&
+      movement.counterparty &&
+      /[a-zA-ZÀ-ÿ]/.test(movement.counterparty)
+    ) {
+      quality -= 15
+    }
+    score += quality
+    if (movement.type !== 'unknown') score += 5
+    if (movement.balance != null && movement.balance > 0) score += 8
+    if (/^\d{4,}\s/.test(movement.description.trim())) score -= 20
+    if (
+      movement.balance != null &&
+      Math.abs(movement.balance - movement.amount) < 0.01
+    ) {
+      score -= 40
+    }
+  }
+
+  if (sampleText) {
+    const { start, end } = extractStatementBalances(sampleText)
+    if (start != null && end != null) {
+      let income = 0
+      let expense = 0
+      for (const movement of movements) {
+        if (movement.type === 'income') income += movement.amount
+        else if (movement.type === 'expense') expense += movement.amount
+      }
+      const expected = roundMoney(start + income - expense)
+      const diff = Math.abs(expected - end)
+      if (diff <= 0.02) score += 500
+      else score -= Math.min(400, Math.round(diff))
+    }
+  }
+
+  return score
+}
+
 export function finalizeMovements(movements: RawMovement[]): RawMovement[] {
   return movements
     .slice(0, MAX_TRANSACTIONS)
