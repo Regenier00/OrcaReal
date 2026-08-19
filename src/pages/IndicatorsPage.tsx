@@ -22,7 +22,7 @@ export function IndicatorsPage() {
 
   if (!data.companyLoading && !data.company) {
     return (
-      <div>
+      <div data-tour="indicators">
         <h1 className="font-display text-3xl font-bold text-ink">Indicadores operacionais</h1>
         <IndicatorsSubnav />
         <div className="mt-6">
@@ -37,7 +37,7 @@ export function IndicatorsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-tour="indicators">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">

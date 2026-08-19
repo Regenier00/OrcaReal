@@ -5,6 +5,7 @@ import { useCompany } from '@/features/company/useCompany'
 import { CompanySwitcher } from '@/components/company/CompanySwitcher'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { Button } from '@/components/ui/Button'
+import { PageTourButton } from '@/components/tour/PageTourButton'
 import { PlatformTour } from '@/components/tour/PlatformTour'
 import { TourProvider } from '@/features/tour/TourProvider'
 import { useTour } from '@/features/tour/useTour'
@@ -87,6 +88,7 @@ function AppShellFrame({ children }: { children?: ReactNode }) {
         className={cn('mx-auto max-w-[90rem] px-5 py-8', tourActive && 'pb-56')}
       >
         {children ?? <Outlet />}
+        <PageTourButton />
       </main>
       <PlatformTour />
     </div>

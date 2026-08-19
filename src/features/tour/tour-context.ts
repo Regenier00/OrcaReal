@@ -5,7 +5,14 @@ export interface TourContextValue {
   active: boolean
   index: number
   step: TourStep
+  pageMode: boolean
+  stepNumber: number
+  stepCount: number
+  isLast: boolean
+  nextLabel: string
+  skipLabel: string
   start: () => void
+  startPage: (pathname?: string) => void
   skip: () => void
   complete: () => void
   goNext: () => void

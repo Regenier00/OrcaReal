@@ -18,6 +18,7 @@ export interface TourStep {
   hook?: string
   collectFormulasFrom?: string
   formulas?: TourFormula[]
+  pagePaths?: string[]
   nextLabel: string
   finish?: boolean
 }
@@ -60,6 +61,7 @@ export const TOUR_STEPS: TourStep[] = [
     hook: 'O número e a conta, lado a lado.',
     collectFormulasFrom: 'indicators',
     formulas: [{ name: 'Total realizado', formula: KPI_FORMULAS.totalCost }],
+    pagePaths: ['/app/indicadores'],
     nextLabel: 'Ver os orçamentos',
   },
   {
@@ -108,12 +110,65 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'hero',
     kicker: 'Pronto',
     title: 'O mapa é seu. O ritmo também.',
-    body: 'Nada precisa ser preenchido agora. Quando quiser, o orçamento e o extrato entram — e o dashboard ganha vida no instante em que os dados chegam.',
+    body: 'Quando quiser, o orçamento e o extrato entram — e o dashboard ganha vida no instante em que os dados chegam.',
     hook: 'A plataforma já está no lugar. Você escolhe a hora de usar.',
     nextLabel: 'Explorar a plataforma',
     finish: true,
   },
 ]
+
+export const PAGE_TOUR_TRIGGER_LABEL = 'Ver como funciona'
+export const PAGE_TOUR_DONE_LABEL = 'Entendi'
+export const PAGE_TOUR_CLOSE_LABEL = 'Fechar'
+
+function matchesPagePath(pathname: string, pagePath: string) {
+  return pathname === pagePath || pathname.startsWith(`${pagePath}/`)
+}
+
+export function pageTourStepIndices(pathname: string): number[] {
+  const content = TOUR_STEPS.map((step, index) => ({ step, index })).filter(
+    ({ step }) => !step.finish
+  )
+
+  const exact = content.filter(({ step }) => step.path === pathname)
+  if (exact.length > 0) return exact.map(({ index }) => index)
+
+  const aliased = content.filter(({ step }) =>
+    (step.pagePaths ?? []).some((path) => matchesPagePath(pathname, path))
+  )
+  if (aliased.length > 0) return aliased.map(({ index }) => index)
+
+  const prefixes = [...new Set(content.map(({ step }) => step.path))]
+    .filter((path) => path !== '/app')
+    .sort((a, b) => b.length - a.length)
+
+  const prefix = prefixes.find((path) => matchesPagePath(pathname, path))
+  if (prefix) {
+    return content
+      .filter(({ step }) => step.path === prefix)
+      .map(({ index }) => index)
+  }
+
+  if (matchesPagePath(pathname, '/app/realizado')) {
+    return content
+      .filter(({ step }) => step.path.startsWith('/app/realizado'))
+      .map(({ index }) => index)
+  }
+
+  return []
+}
+
+export function pageTourStaysOnPath(pathname: string) {
+  const indices = pageTourStepIndices(pathname)
+  const first = indices[0]
+  if (first == null) return false
+  const step = TOUR_STEPS[first]
+  if (!step) return false
+  return (
+    pathname === step.path ||
+    (step.pagePaths ?? []).some((path) => matchesPagePath(pathname, path))
+  )
+}
 
 export function mergeCollectedFormulas(
   fallback: TourFormula[] | undefined,

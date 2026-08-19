@@ -8,7 +8,13 @@ import {
   skipTour,
   tourStorageKey,
 } from './storage.ts'
-import { mergeCollectedFormulas, TOUR_STEPS } from './steps.ts'
+import {
+  mergeCollectedFormulas,
+  pageTourStaysOnPath,
+  pageTourStepIndices,
+  PAGE_TOUR_TRIGGER_LABEL,
+  TOUR_STEPS,
+} from './steps.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -103,6 +109,65 @@ assert(
 assert(
   !TOUR_STEPS.some((step) => step.finish && /orçamentos\/novo|importar/.test(step.nextLabel)),
   'o fim não obriga a criar orçamento nem importar extrato'
+)
+assert(
+  !TOUR_STEPS.some((step) => /Nada precisa ser preenchido agora/i.test(step.body)),
+  'o último balão não diz que nada precisa ser preenchido agora'
+)
+assert(
+  PAGE_TOUR_TRIGGER_LABEL === 'Ver como funciona',
+  'o atalho de página usa o rótulo combinado'
+)
+
+const dashboardTour = pageTourStepIndices('/app')
+assert(dashboardTour.length === 3, 'dashboard reabre só os passos daquela tela')
+assert(
+  dashboardTour.every((index) => TOUR_STEPS[index]?.path === '/app' && !TOUR_STEPS[index]?.finish),
+  'dashboard não inclui o encerramento do mapa completo'
+)
+assert(
+  pageTourStepIndices('/app/orcamentos')[0] ===
+    TOUR_STEPS.findIndex((step) => step.id === 'budgets'),
+  'orçamentos reabre o tutorial da lista'
+)
+assert(
+  pageTourStepIndices('/app/orcamentos/novo')[0] ===
+    TOUR_STEPS.findIndex((step) => step.id === 'budgets'),
+  'filho de orçamentos usa o tutorial da página'
+)
+assert(
+  pageTourStepIndices('/app/realizado/importar').length === 1 &&
+    TOUR_STEPS[pageTourStepIndices('/app/realizado/importar')[0] ?? -1]?.id === 'actual-import',
+  'importar reabre só o tutorial da importação'
+)
+assert(
+  pageTourStepIndices('/app/realizado/nao-apropriados').length === 1 &&
+    TOUR_STEPS[pageTourStepIndices('/app/realizado/nao-apropriados')[0] ?? -1]?.id ===
+      'actual-classify',
+  'não apropriados reabre só o tutorial da apropriação'
+)
+assert(
+  pageTourStepIndices('/app/orcado-realizado')[0] ===
+    TOUR_STEPS.findIndex((step) => step.id === 'comparison'),
+  'orçado × realizado reabre o tutorial da comparação'
+)
+assert(
+  pageTourStepIndices('/app/indicadores').length === 1 &&
+    TOUR_STEPS[pageTourStepIndices('/app/indicadores')[0] ?? -1]?.id === 'indicators',
+  'indicadores reabre o tutorial daquela tela'
+)
+assert(
+  pageTourStepIndices('/app/empresa').length === 0,
+  'páginas sem passo próprio não disparam tutorial alheio'
+)
+assert(
+  pageTourStepIndices('/app/realizado').length === 2,
+  'a raiz do realizado cobre importar e apropriar'
+)
+assert(pageTourStaysOnPath('/app/indicadores'), 'indicadores explica a própria tela')
+assert(
+  !pageTourStaysOnPath('/app/orcamentos/novo'),
+  'filho de orçamentos abre o tutorial na lista'
 )
 
 const merged = mergeCollectedFormulas(

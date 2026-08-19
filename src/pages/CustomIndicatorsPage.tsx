@@ -56,7 +56,7 @@ export function CustomIndicatorsPage() {
 
   if (data.budgets.length === 0) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6" data-tour="indicators">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold text-ink">
@@ -101,7 +101,7 @@ export function CustomIndicatorsPage() {
   const concentration = byCode('cost_concentration')
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-tour="indicators">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">

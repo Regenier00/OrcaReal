@@ -2,19 +2,26 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { FormulaChip } from '@/components/indicators/FormulaChip'
 import { cn } from '@/lib/utils'
-import {
-  collectFormulasFromDom,
-  mergeCollectedFormulas,
-  TOUR_STEPS,
-  TOUR_SKIP_LABEL,
-} from '@/features/tour/steps'
+import { collectFormulasFromDom, mergeCollectedFormulas } from '@/features/tour/steps'
 import { useTour } from '@/features/tour/useTour'
 import { useTourTarget } from '@/features/tour/useTourTarget'
 
 const PAD = 10
 
 export function PlatformTour() {
-  const { active, index, step, skip, complete, goNext, goBack } = useTour()
+  const {
+    active,
+    step,
+    skip,
+    complete,
+    goNext,
+    goBack,
+    stepNumber,
+    stepCount,
+    isLast,
+    nextLabel,
+    skipLabel,
+  } = useTour()
   const rect = useTourTarget(step?.target, `${step?.id ?? 'welcome'}:${step?.path ?? ''}`)
   const [liveFormulas, setLiveFormulas] = useState(step?.formulas ?? [])
 
@@ -36,8 +43,7 @@ export function PlatformTour() {
 
   if (!active || !step) return null
 
-  const last = index === TOUR_STEPS.length - 1
-  const progressLabel = `${index + 1} de ${TOUR_STEPS.length}`
+  const progressLabel = `${stepNumber} de ${stepCount}`
 
   return (
     <div
@@ -96,7 +102,7 @@ export function PlatformTour() {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {index > 0 ? (
+                {stepNumber > 1 ? (
                   <Button
                     type="button"
                     variant="secondary"
@@ -106,8 +112,8 @@ export function PlatformTour() {
                     Voltar
                   </Button>
                 ) : null}
-                <Button type="button" variant="inverse" onClick={last ? complete : goNext}>
-                  {step.nextLabel}
+                <Button type="button" variant="inverse" onClick={isLast ? complete : goNext}>
+                  {nextLabel}
                 </Button>
               </div>
             </div>
@@ -116,12 +122,13 @@ export function PlatformTour() {
       </div>
 
       <TourDock
-        index={index}
-        total={TOUR_STEPS.length}
+        index={stepNumber - 1}
+        total={stepCount}
+        skipLabel={skipLabel}
         onSkip={skip}
-        onBack={index > 0 ? goBack : undefined}
-        onNext={last ? complete : goNext}
-        nextLabel={step.nextLabel}
+        onBack={stepNumber > 1 ? goBack : undefined}
+        onNext={isLast ? complete : goNext}
+        nextLabel={nextLabel}
       />
     </div>
   )
@@ -153,6 +160,7 @@ function Spotlight({
 function TourDock({
   index,
   total,
+  skipLabel,
   onSkip,
   onBack,
   onNext,
@@ -160,6 +168,7 @@ function TourDock({
 }: {
   index: number
   total: number
+  skipLabel: string
   onSkip: () => void
   onBack?: () => void
   onNext: () => void
@@ -173,7 +182,7 @@ function TourDock({
           onClick={onSkip}
           className="order-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:border-sky hover:bg-white/15 hover:text-sky sm:order-1"
         >
-          {TOUR_SKIP_LABEL}
+          {skipLabel}
         </button>
 
         <ol className="order-1 flex items-center justify-center gap-1.5 sm:order-2" aria-hidden>
