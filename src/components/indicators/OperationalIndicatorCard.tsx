@@ -20,7 +20,10 @@ export function OperationalIndicatorCard({
 }: {
   card: OperationalCardModel
   saving?: boolean
-  onSave: (values: Record<string, number>, monthKey: string) => Promise<unknown>
+  onSave: (
+    values: Record<string, number>,
+    monthKey: string
+  ) => Promise<{ ok: boolean; message?: string } | void>
 }) {
   const [open, setOpen] = useState(false)
   const invert = /custo|cac|ociosidade|dependência/i.test(card.def.name)
@@ -86,7 +89,10 @@ function OperationalDialog({
   card: OperationalCardModel
   saving?: boolean
   onClose: () => void
-  onSave: (values: Record<string, number>, monthKey: string) => Promise<unknown>
+  onSave: (
+    values: Record<string, number>,
+    monthKey: string
+  ) => Promise<{ ok: boolean; message?: string } | void>
 }) {
   const [texts, setTexts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -110,7 +116,11 @@ function OperationalDialog({
     }
     setError('')
     if (card.def.inputs.length > 0) {
-      await onSave(parsed.values, card.monthKey)
+      const result = await onSave(parsed.values, card.monthKey)
+      if (result && !result.ok) {
+        setError(result.message ?? 'Não foi possível salvar os dados.')
+        return
+      }
     }
     onClose()
   }
