@@ -18,7 +18,7 @@ const moduleIcons = {
 
 export function QuickAccess() {
   return (
-    <section>
+    <section data-tour="quick-access">
       <SectionHeading
         kicker="Acesso rápido"
         title="Continue o trabalho pelo atalho certo"

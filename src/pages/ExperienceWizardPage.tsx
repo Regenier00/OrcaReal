@@ -17,6 +17,7 @@ import {
 } from '@/features/experience/questionnaire'
 import { structureFor } from '@/features/experience/catalog'
 import { readStoredCompanyLocation } from '@/features/company/onboardingFlag'
+import { markTourPending } from '@/features/tour/storage'
 import { QuestionCard } from '@/components/experience/QuestionCard'
 import { ExperienceProgress } from '@/components/experience/ExperienceProgress'
 import { Button } from '@/components/ui/Button'
@@ -124,6 +125,7 @@ export function ExperienceWizardPage() {
       return
     }
     await refresh()
+    markTourPending(activeCompany.id)
     navigate('/app/ambiente-pronto', { replace: true })
   }
 

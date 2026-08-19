@@ -3,6 +3,7 @@ import { Dialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { FormulaChip } from '@/components/indicators/FormulaChip'
 import { formatMoney } from '@/features/budget/money'
 import {
   createCompanyCustomIndicator,
@@ -307,7 +308,7 @@ export function CreateIndicatorDialog({
             </p>
           )}
 
-          <p className="font-mono text-[11px] text-mist">{formulaHint(formula)}</p>
+          <FormulaChip name="Prévia" formula={formulaHint(formula)} className="mt-1" />
         </div>
 
         <Input

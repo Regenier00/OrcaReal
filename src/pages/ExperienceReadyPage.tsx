@@ -10,6 +10,7 @@ import {
 import { segmentLabel } from '@/features/company/segmentOptions'
 import { Button } from '@/components/ui/Button'
 import { FullPageStatus } from '@/components/ui/FullPageStatus'
+import { markTourPending } from '@/features/tour/storage'
 import type { CostCenter, Department } from '@/types/database'
 
 export function ExperienceReadyPage() {
@@ -24,6 +25,10 @@ export function ExperienceReadyPage() {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  useEffect(() => {
+    if (activeCompany) markTourPending(activeCompany.id)
+  }, [activeCompany])
 
   useEffect(() => {
     if (!activeCompany) return
@@ -121,7 +126,7 @@ export function ExperienceReadyPage() {
       )}
 
       <div className="mt-8 flex flex-wrap gap-3">
-        <Link to="/app">
+        <Link to="/app" state={{ startTour: true }}>
           <Button>Ver dashboard</Button>
         </Link>
         <Link to="/app/configurar-ambiente">

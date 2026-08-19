@@ -1,6 +1,7 @@
 import { formatMoney } from '@/features/budget/money'
 import { formatPct } from '@/lib/money'
 import { changeRatio, type MonthFinancials } from '@/features/home/dashboardModel'
+import { KPI_FORMULAS } from '@/features/home/kpiFormulas'
 import { KpiCard } from '@/components/home/KpiCard'
 import {
   ReceiptIcon,
@@ -24,7 +25,7 @@ export function FinancialSummary({
 }) {
   if (loading && !current) {
     return (
-      <section>
+      <section data-tour="financial-summary">
         <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, index) => (
@@ -54,7 +55,7 @@ export function FinancialSummary({
           : 'navy'
 
   return (
-    <section>
+    <section data-tour="financial-summary">
       <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -67,6 +68,7 @@ export function FinancialSummary({
               ? `Anterior: ${formatMoney(previous.revenue)}`
               : 'Receitas apropriadas no mês'
           }
+          formula={KPI_FORMULAS.revenue}
           change={changeRatio(current?.revenue ?? Number.NaN, previous?.revenue)}
           icon={<WalletIcon />}
           tone="navy"
@@ -82,6 +84,7 @@ export function FinancialSummary({
               ? `Anterior: ${formatMoney(previous.realized)}`
               : 'Custos e despesas do mês'
           }
+          formula={KPI_FORMULAS.realized}
           change={changeRatio(current?.realized ?? Number.NaN, previous?.realized)}
           invertChange
           icon={<ReceiptIcon />}
@@ -95,9 +98,10 @@ export function FinancialSummary({
           value={formatMoney(current?.profit ?? 0)}
           hint={
             current?.margin != null
-              ? `Margem de ${formatPct(current.margin)}`
+              ? `Margem de ${formatPct(current.margin)} · ${KPI_FORMULAS.margin}`
               : 'Informe a receita para ver a margem'
           }
+          formula={KPI_FORMULAS.profit}
           change={changeRatio(current?.profit ?? Number.NaN, previous?.profit)}
           icon={<TrendUpIcon />}
           tone={profitTone}
@@ -112,6 +116,7 @@ export function FinancialSummary({
               ? `${formatPct(Math.abs(current.variancePct))} em relação ao plano`
               : 'Crie um orçamento para comparar'
           }
+          formula={KPI_FORMULAS.variance}
           change={current?.variancePct ?? null}
           invertChange
           icon={<ScaleIcon />}

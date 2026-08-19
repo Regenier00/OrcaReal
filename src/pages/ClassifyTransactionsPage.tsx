@@ -145,14 +145,18 @@ export function ClassifyTransactionsPage() {
         (item.suggested_department_id ?? '') === nextDepartmentId &&
         (item.suggested_cost_center_id ?? '') === nextCostCenterId,
     )
-    if (!sameSuggestion) {
-      setDepartmentId('')
-      setCostCenterId('')
-      return
+    const apply = () => {
+      if (!sameSuggestion) {
+        setDepartmentId('')
+        setCostCenterId('')
+        return
+      }
+      if (!nextDepartmentId) return
+      setDepartmentId(nextDepartmentId)
+      setCostCenterId(nextCostCenterId)
     }
-    if (!nextDepartmentId) return
-    setDepartmentId(nextDepartmentId)
-    setCostCenterId(nextCostCenterId)
+    const frame = window.requestAnimationFrame(apply)
+    return () => window.cancelAnimationFrame(frame)
   }, [items, selected])
 
   const suggestionPreview = useMemo(() => {

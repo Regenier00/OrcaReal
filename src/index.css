@@ -74,6 +74,10 @@
   select {
     font: inherit;
   }
+
+  [data-tour] {
+    scroll-margin: 5rem 1rem 8rem;
+  }
 }
 
 @layer utilities {

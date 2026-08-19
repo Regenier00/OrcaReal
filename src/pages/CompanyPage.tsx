@@ -36,6 +36,8 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { OperationalPrioritiesEditor } from '@/components/company/OperationalPrioritiesEditor'
+import { useTour } from '@/features/tour/useTour'
+import { SKIP_TOUR_LABEL } from '@/features/tour/storage'
 import { cn } from '@/lib/utils'
 import type {
   CompanyMember,
@@ -651,6 +653,7 @@ function SettingsTab({
   companyId: string
   canEdit: boolean
 }) {
+  const { start } = useTour()
   const [settings, setSettings] = useState<CompanySettings | null>(null)
   const [locale, setLocale] = useState('pt-BR')
   const [currency, setCurrency] = useState('BRL')
@@ -730,6 +733,19 @@ function SettingsTab({
           Somente administradores podem alterar as configurações.
         </p>
       )}
+
+      <div className="rounded-2xl border border-paper-muted bg-paper px-4 py-4">
+        <h3 className="font-display text-base font-semibold text-navy">
+          Tutorial da plataforma
+        </h3>
+        <p className="mt-1 text-sm text-mist">
+          Um passeio curto pelo dashboard, pelos indicadores e pelo menu. Você
+          pode pular a qualquer momento em “{SKIP_TOUR_LABEL}”.
+        </p>
+        <Button type="button" variant="secondary" className="mt-3 w-fit" onClick={start}>
+          Rever o mapa da plataforma
+        </Button>
+      </div>
     </form>
   )
 }
@@ -769,13 +785,14 @@ function CompanyExperienceTab({
   const [employeeText, setEmployeeText] = useState(
     employeeCount != null ? String(employeeCount) : ''
   )
+  const [seenEmployeeCount, setSeenEmployeeCount] = useState(employeeCount)
   const [employeeSaving, setEmployeeSaving] = useState(false)
   const [employeeError, setEmployeeError] = useState('')
   const [employeeMessage, setEmployeeMessage] = useState('')
-
-  useEffect(() => {
+  if (employeeCount !== seenEmployeeCount) {
+    setSeenEmployeeCount(employeeCount)
     setEmployeeText(employeeCount != null ? String(employeeCount) : '')
-  }, [employeeCount])
+  }
 
   useEffect(() => {
     let mounted = true

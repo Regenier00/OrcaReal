@@ -5,6 +5,9 @@ import { useCompany } from '@/features/company/useCompany'
 import { CompanySwitcher } from '@/components/company/CompanySwitcher'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { Button } from '@/components/ui/Button'
+import { PlatformTour } from '@/components/tour/PlatformTour'
+import { TourProvider } from '@/features/tour/TourProvider'
+import { useTour } from '@/features/tour/useTour'
 import { cn } from '@/lib/utils'
 
 const links = [
@@ -18,8 +21,17 @@ const links = [
 ]
 
 export function AppShell({ children }: { children?: ReactNode }) {
+  return (
+    <TourProvider>
+      <AppShellFrame>{children}</AppShellFrame>
+    </TourProvider>
+  )
+}
+
+function AppShellFrame({ children }: { children?: ReactNode }) {
   const { signOut, user } = useAuth()
   const { activeCompany } = useCompany()
+  const { active: tourActive } = useTour()
 
   return (
     <div className="min-h-svh bg-paper">
@@ -44,7 +56,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             ) : null}
           </div>
 
-          <nav className="hidden items-center gap-1 sm:flex">
+          <nav data-tour="nav" className="hidden items-center gap-1 sm:flex">
             {links.map((link) => (
               <NavItem key={link.to} {...link} />
             ))}
@@ -61,14 +73,22 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-5 pb-3 sm:hidden">
+        <nav
+          data-tour="nav"
+          className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-5 pb-3 sm:hidden"
+        >
           {links.map((link) => (
             <NavItem key={link.to} {...link} />
           ))}
         </nav>
       </header>
 
-      <main className="mx-auto max-w-[90rem] px-5 py-8">{children ?? <Outlet />}</main>
+      <main
+        className={cn('mx-auto max-w-[90rem] px-5 py-8', tourActive && 'pb-32')}
+      >
+        {children ?? <Outlet />}
+      </main>
+      <PlatformTour key={tourActive ? 'tour-on' : 'tour-off'} />
     </div>
   )
 }
