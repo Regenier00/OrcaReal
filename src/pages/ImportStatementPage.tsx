@@ -141,6 +141,7 @@ export function ImportStatementPage() {
   return (
     <ActualPageShell
       title="Importar extrato"
+      tourId="actual-import"
       description="O extrato vira realizado da empresa. Depois da leitura, os lançamentos entram em Realizados não apropriados para você classificar antes do Orçado × Realizado."
       actions={
         <Link to={ACTUAL_PATHS.unappropriated}>

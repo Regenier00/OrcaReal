@@ -11,6 +11,7 @@ import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudget
 import { UnitCostSection } from '@/components/indicators/UnitCostSection'
 import { IndicatorsSubnav } from '@/components/indicators/IndicatorsSubnav'
 import { moneySideCardClass } from '@/components/indicators/moneySideStyle'
+import { FormulaChip } from '@/components/indicators/FormulaChip'
 import { useCompany } from '@/features/company/useCompany'
 import { cn } from '@/lib/utils'
 import type { SystemIndicator } from '@/types/database'
@@ -109,7 +110,8 @@ export function CustomIndicatorsPage() {
           <p className="mt-2 max-w-2xl text-sm text-mist">
             A unidade de operação vem do ramo, e você também pode criar unidades
             da empresa. O cálculo personalizado usa só o realizado: receitas e
-            custos separados, por período ou consolidado.
+            custos separados, por período ou consolidado. A fórmula de cada
+            indicador fica visível no card.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -234,7 +236,7 @@ function IndicatorCard({
     <div className={cn('rounded-2xl border px-4 py-4', moneySideCardClass(surface))}>
       <dt className="text-[11px] uppercase tracking-wide text-mist">{label}</dt>
       <dd className="mt-1 font-numeric text-xl font-semibold text-ink">{value}</dd>
-      <p className="mt-2 font-mono text-[11px] text-mist">{hint}</p>
+      <FormulaChip name={label} formula={hint} />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { OperationalIndicatorCard } from '@/components/indicators/OperationalIndicatorCard'
 import { formatMoney } from '@/features/budget/money'
+import { KPI_FORMULAS } from '@/features/home/kpiFormulas'
 import { KpiCard } from '@/components/home/KpiCard'
 import { SectionHeading } from '@/components/home/FinancialSummary'
 import { WalletIcon } from '@/components/home/DashboardIcons'
@@ -18,7 +19,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
   }
 
   return (
-    <section>
+    <section data-tour="indicators">
       {data.error || operational.error ? (
         <p className="mb-3 rounded-xl border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
           {data.error || operational.error}
@@ -28,7 +29,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
       <SectionHeading
         kicker="Indicadores"
         title="Resultado operacional do mês"
-        subtitle="O consolidado e os indicadores do modelo de operação, com variação frente ao mês anterior."
+        subtitle="O consolidado e os indicadores do modelo de operação, com a fórmula de cada um à vista."
       />
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -42,6 +43,7 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
               ? `Custos e despesas de ${data.monthLabel || 'mês atual'}`
               : 'Custos e despesas do mês'
           }
+          formula={KPI_FORMULAS.totalCost}
           change={data.costChange}
           invertChange
           icon={<WalletIcon />}

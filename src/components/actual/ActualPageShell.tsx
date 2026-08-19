@@ -8,11 +8,13 @@ export function ActualPageShell({
   description,
   actions,
   children,
+  tourId,
 }: {
   title: string
   description?: string
   actions?: ReactNode
   children: ReactNode
+  tourId?: string
 }) {
   const { company, loading } = useCompany()
 
@@ -28,7 +30,7 @@ export function ActualPageShell({
   }
 
   return (
-    <div>
+    <div data-tour={tourId}>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">{title}</h1>

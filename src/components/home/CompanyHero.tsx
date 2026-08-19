@@ -19,7 +19,7 @@ export function CompanyHero({
   onLogoChange?: (logoUrl: string | null) => Promise<void>
 }) {
   return (
-    <section className="rounded-3xl bg-navy bg-dashboard-hero text-white shadow-soft">
+    <section data-tour="hero" className="rounded-3xl bg-navy bg-dashboard-hero text-white shadow-soft">
       <div className="flex flex-col gap-6 px-5 py-6 sm:px-7 sm:py-7 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 items-start gap-4 sm:gap-5">
           <div className="rounded-full ring-2 ring-white/25">

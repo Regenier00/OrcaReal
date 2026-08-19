@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { ChangeBadge } from '@/components/home/ChangeBadge'
+import { FormulaChip } from '@/components/indicators/FormulaChip'
 import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
 
 export function KpiCard({
@@ -9,6 +10,7 @@ export function KpiCard({
   title,
   value,
   hint,
+  formula,
   change,
   invertChange,
   icon,
@@ -20,6 +22,7 @@ export function KpiCard({
   title: string
   value: string
   hint?: string
+  formula?: string
   change?: number | null
   invertChange?: boolean
   icon: ReactNode
@@ -60,6 +63,7 @@ export function KpiCard({
         {value}
       </p>
       {hint ? <p className="mt-2 text-sm leading-relaxed text-mist">{hint}</p> : null}
+      {formula ? <FormulaChip name={title} formula={formula} /> : null}
     </>
   )
 

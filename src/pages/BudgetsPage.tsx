@@ -69,7 +69,7 @@ export function BudgetsPage() {
   }
 
   return (
-    <div>
+    <div data-tour="budgets">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Orçamentos</h1>

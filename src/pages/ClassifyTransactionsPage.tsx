@@ -145,14 +145,18 @@ export function ClassifyTransactionsPage() {
         (item.suggested_department_id ?? '') === nextDepartmentId &&
         (item.suggested_cost_center_id ?? '') === nextCostCenterId,
     )
-    if (!sameSuggestion) {
-      setDepartmentId('')
-      setCostCenterId('')
-      return
+    const apply = () => {
+      if (!sameSuggestion) {
+        setDepartmentId('')
+        setCostCenterId('')
+        return
+      }
+      if (!nextDepartmentId) return
+      setDepartmentId(nextDepartmentId)
+      setCostCenterId(nextCostCenterId)
     }
-    if (!nextDepartmentId) return
-    setDepartmentId(nextDepartmentId)
-    setCostCenterId(nextCostCenterId)
+    const frame = window.requestAnimationFrame(apply)
+    return () => window.cancelAnimationFrame(frame)
   }, [items, selected])
 
   const suggestionPreview = useMemo(() => {
@@ -306,6 +310,7 @@ export function ClassifyTransactionsPage() {
   return (
     <ActualPageShell
       title="Realizados não apropriados"
+      tourId="actual-classify"
       description="Classifique departamento e centro de custo. Se o tipo estiver errado, corrija entrada ou saída. As saídas entram no Orçado × Realizado; as entradas vão para os cards de receita e para os indicadores."
       actions={
         <div className="flex flex-wrap gap-2">

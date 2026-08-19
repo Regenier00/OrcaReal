@@ -8,6 +8,7 @@ import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 import { formatOperationalValue, evaluateBreakdown } from '@/features/indicators/operationalDisplay'
 import { evaluateOperationalFormula } from '@/features/indicators/operationalFormula'
+import { FormulaChip } from '@/components/indicators/FormulaChip'
 import type { OperationalCardModel } from '@/features/experience/useOperationalIndicators'
 import type { OperationalInputDef } from '@/features/experience/catalog/operationModels'
 import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
@@ -60,9 +61,8 @@ export function OperationalIndicatorCard({
               : 'Sem dados'
             : formatOperationalValue(card.value, card.def.format)}
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-mist">
-          {card.def.unit} · {card.def.formulaHint}
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-mist">{card.def.unit}</p>
+        <FormulaChip name={card.def.name} formula={card.def.formulaHint} />
       </button>
 
       {open ? (
@@ -134,7 +134,7 @@ function OperationalDialog({
     >
       <div className="space-y-4">
         <p>{card.def.description}</p>
-        <p className="font-mono text-[11px] text-mist">{card.def.formulaHint}</p>
+        <FormulaChip name={card.def.name} formula={card.def.formulaHint} className="mt-1" />
         {card.monthLabel ? (
           <p className="text-xs text-mist">Período: {card.monthLabel}</p>
         ) : null}

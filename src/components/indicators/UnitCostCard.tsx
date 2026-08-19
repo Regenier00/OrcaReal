@@ -25,6 +25,7 @@ import {
   type FormulaContext,
 } from '@/features/indicators/formula'
 import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
+import { FormulaChip } from '@/components/indicators/FormulaChip'
 
 export function UnitCostCard({
   card,
@@ -89,8 +90,9 @@ export function UnitCostCard({
                   ? 'no consolidado'
                   : `em ${card.monthLabel || 'mês atual'}`
               }`
-            : `${card.def.displayUnit} · ${card.formulaHint}`}
+            : card.def.displayUnit}
         </p>
+        <FormulaChip name={card.def.indicatorName} formula={card.formulaHint} />
       </button>
 
       {open ? (
@@ -216,7 +218,7 @@ function IndicatorDialog({
     >
       <div className="space-y-4">
         <p>{card.def.quantityHelp}</p>
-        <p className="font-mono text-[11px] text-mist">{formulaHint(card.formula)}</p>
+        <FormulaChip name={card.def.indicatorName} formula={formulaHint(card.formula)} className="mt-1" />
         {canChangePeriod ? (
           <Select
             label="Mês"
