@@ -80,7 +80,7 @@ export function assertSafeStatementFile(fileName: string, bytes: Uint8Array) {
   const format = sniffFormat(fileName, bytes)
   if (format === 'unknown') {
     throw new Error(
-      'Formato não reconhecido. Envie um arquivo OFX, CSV, XLSX ou PDF estruturado.',
+      'Formato não reconhecido. Envie um arquivo OFX, CSV, XLSX ou PDF.',
     )
   }
   if (format === 'pdf' && !startsWith(bytes, '%PDF')) {

@@ -1,8 +1,20 @@
 import { supabase } from '@/lib/supabase'
 import { MAX_TRANSACTIONS } from '../../../supabase/functions/_shared/statement/limits.ts'
+import { setPdfOcrProvider } from '../../../supabase/functions/_shared/statement/ocr.ts'
 import { parseStatement } from '../../../supabase/functions/_shared/statement/parse.ts'
 import type { ParseResult } from '../../../supabase/functions/_shared/statement/types.ts'
 import type { StatementFileType, StatementImportStatus } from '@/types/database'
+
+let browserOcrInstalled = false
+
+function installBrowserPdfOcr() {
+  if (browserOcrInstalled || typeof document === 'undefined') return
+  browserOcrInstalled = true
+  setPdfOcrProvider(async (input) => {
+    const { recoverPdfText } = await import('./browserPdfOcr.ts')
+    return recoverPdfText(input)
+  })
+}
 
 export interface ProcessStatementSummary {
   importId: string
@@ -63,6 +75,7 @@ export async function processStatementFile(input: {
   bytes: Uint8Array
 }): Promise<ProcessStatementSummary> {
   try {
+    installBrowserPdfOcr()
     await updateImport(input.importId, { status: 'identifying' })
     await updateImport(input.importId, { status: 'parsing' })
 
@@ -77,7 +90,7 @@ export async function processStatementFile(input: {
     if (parsed.ocrRequired) {
       const message =
         parsed.warnings[0]?.message ??
-        'Este PDF precisa de OCR, que ainda não está disponível.'
+        'Não foi possível ler este PDF digitalizado. Envie OFX, CSV ou XLSX.'
       await updateImport(input.importId, {
         status: 'ocr_required',
         error_message: message,

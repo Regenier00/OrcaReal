@@ -80,7 +80,7 @@ export const TOUR_STEPS: TourStep[] = [
     target: 'actual-import',
     kicker: 'Realizado',
     title: 'O extrato vira realizado',
-    body: 'Aqui é onde você importa os extratos bancários. OFX, CSV, planilha ou PDF estruturado — os lançamentos entram sozinhos, prontos para o próximo passo.',
+    body: 'Aqui é onde você importa os extratos bancários. OFX, CSV, planilha ou PDF — inclusive digitalizado. Os lançamentos entram sozinhos, prontos para o próximo passo.',
     hook: 'O banco fala. A OrcaReal traduz.',
     nextLabel: 'Ver a apropriação',
   },

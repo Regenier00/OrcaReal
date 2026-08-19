@@ -133,7 +133,7 @@ export function ActualPage() {
                   Nenhum realizado ainda
                 </p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-                  Importe o extrato (OFX, CSV, XLSX ou PDF estruturado). O sistema
+                  Importe o extrato (OFX, CSV, XLSX ou PDF). O sistema
                   lê os lançamentos e envia os que faltam classificar para
                   Realizados não apropriados.
                 </p>

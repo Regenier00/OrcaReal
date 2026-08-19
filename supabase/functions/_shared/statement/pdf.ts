@@ -9,7 +9,8 @@ import {
   typeFromLabel,
   typeFromSignedAmount,
 } from './normalize.ts'
-import { extractPdfLayout } from './pdfExtract.ts'
+import { hasPdfOcrProvider, runPdfOcr } from './ocr.ts'
+import { extractPdfLayout, type PdfExtraction } from './pdfExtract.ts'
 import type {
   DetectedFile,
   ParseResult,
@@ -122,6 +123,79 @@ function rowsFromLines(text: string) {
   )
 }
 
+function rowsFromLooseText(text: string) {
+  return text
+    .split(/\n+/)
+    .map((line) => line.replace(/\t/g, '  ').trim())
+    .filter(Boolean)
+    .map((line) =>
+      line
+        .split(/\s{2,}/)
+        .map((cell) => cell.trim())
+        .filter(Boolean),
+    )
+    .slice(0, 12_000)
+}
+
+function uniquePdfTexts(texts: string[]) {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const text of texts) {
+    const key = text.replace(/\s+/g, ' ').trim()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(text)
+  }
+  return out
+}
+
+function parsePdfLayout(
+  extracted: Pick<PdfExtraction, 'text' | 'rows' | 'alignedRows'>,
+  collapsed: string,
+) {
+  const tableCandidates = [
+    extracted.rows,
+    extracted.alignedRows,
+    rowsFromLooseText(extracted.text),
+    rowsFromLooseText(collapsed),
+    rowsFromLines(extracted.text),
+    rowsFromLines(collapsed),
+  ].filter((rows) => rows.length > 0)
+
+  let bestMovements: RawMovement[] = []
+  let bestWarnings: ParseResult['warnings'] = []
+
+  for (const rows of tableCandidates) {
+    const tabular = parseTabularRows(rows)
+    if (tabular.movements.length > bestMovements.length) {
+      bestMovements = tabular.movements
+      bestWarnings = tabular.warnings
+    }
+  }
+
+  const lineSource =
+    bestMovements.length === 0
+      ? uniquePdfTexts([extracted.text, collapsed]).join('\n')
+      : extracted.text
+  const lineMovements = movementsFromLines(lineSource)
+  if (lineMovements.length > bestMovements.length) {
+    bestMovements = lineMovements
+    bestWarnings = []
+  }
+
+  return {
+    movements: finalizeMovements(bestMovements),
+    warnings: capWarnings(bestWarnings),
+  }
+}
+
+function applyBankHint(result: ParseResult, sample: string) {
+  const detected = detectBank(sample)
+  if (!detected.bankName && !detected.bankCode) return
+  result.bankCode = detected.bankCode
+  result.bankName = detected.bankName
+}
+
 export const pdfParser: StatementParser = {
   id: 'pdf',
   matches(file) {
@@ -131,10 +205,7 @@ export const pdfParser: StatementParser = {
     const result = emptyResult('pdf')
     const extracted = await extractPdfLayout(file.bytes)
     const collapsed = collapseSpacedGlyphs(extracted.text)
-    const sample = (extracted.text || collapsed).slice(0, 4000)
-    const detected = detectBank(sample)
-    result.bankCode = detected.bankCode
-    result.bankName = detected.bankName
+    applyBankHint(result, (extracted.text || collapsed).slice(0, 4000))
 
     if (extracted.encrypted && extracted.text.replace(/\s+/g, '').length < 40) {
       result.warnings.push({
@@ -144,49 +215,53 @@ export const pdfParser: StatementParser = {
       return result
     }
 
-    const printable = `${extracted.text}\n${collapsed}`
-    if (!looksExtractable(printable)) {
-      result.ocrRequired = true
-      result.warnings.push({
-        message:
-          'PDF sem texto extraível. OCR será suportado em breve para extratos digitalizados.',
+    const parsed = parsePdfLayout(extracted, collapsed)
+    result.movements = parsed.movements
+    result.warnings = parsed.warnings
+
+    if (result.movements.length === 0) {
+      const recovered = await runPdfOcr({
+        bytes: file.bytes,
+        extractedText: `${extracted.text}\n${collapsed}`,
       })
-      return result
-    }
-
-    const tableCandidates = [
-      extracted.rows,
-      extracted.alignedRows,
-      rowsFromLines(extracted.text),
-      rowsFromLines(collapsed),
-    ].filter((rows) => rows.length > 0)
-
-    let bestMovements: RawMovement[] = []
-    let bestWarnings: ParseResult['warnings'] = []
-
-    for (const rows of tableCandidates) {
-      const tabular = parseTabularRows(rows)
-      if (tabular.movements.length > bestMovements.length) {
-        bestMovements = tabular.movements
-        bestWarnings = tabular.warnings
+      if (recovered?.text.trim()) {
+        const ocrCollapsed = collapseSpacedGlyphs(recovered.text)
+        const recoveredParsed = parsePdfLayout(
+          {
+            text: recovered.text,
+            rows: rowsFromLooseText(recovered.text),
+            alignedRows: rowsFromLooseText(ocrCollapsed),
+          },
+          ocrCollapsed,
+        )
+        if (recoveredParsed.movements.length > result.movements.length) {
+          result.movements = recoveredParsed.movements
+          result.warnings = recoveredParsed.warnings
+          applyBankHint(result, recovered.text.slice(0, 4000))
+          if (recovered.usedOcr) {
+            result.warnings = capWarnings([
+              { message: 'PDF digitalizado: lançamentos lidos por OCR.' },
+              ...result.warnings,
+            ])
+          }
+        }
       }
     }
 
-    const lineMovements = movementsFromLines(
-      bestMovements.length === 0 ? `${extracted.text}\n${collapsed}` : extracted.text,
-    )
-    if (lineMovements.length > bestMovements.length) {
-      bestMovements = lineMovements
-      bestWarnings = []
-    }
-
-    result.movements = finalizeMovements(bestMovements)
-    result.warnings = capWarnings(bestWarnings)
     if (result.movements.length === 0) {
+      const printable = `${extracted.text}\n${collapsed}`
+      if (!looksExtractable(printable) && !hasPdfOcrProvider()) {
+        result.ocrRequired = true
+        result.warnings.push({
+          message:
+            'PDF sem texto extraível. Envie OFX, CSV, XLSX ou um PDF com texto selecionável.',
+        })
+        return result
+      }
       result.warnings.push({
         message: extracted.encrypted
           ? 'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.'
-          : 'Não foi possível ler lançamentos tabulares neste PDF. Envie OFX, CSV ou XLSX, ou um PDF estruturado.',
+          : 'Não foi possível ler lançamentos neste PDF. Envie OFX, CSV ou XLSX, ou um PDF com texto mais nítido.',
       })
     }
     return result
@@ -202,7 +277,8 @@ export const ocrParser: StatementParser = {
     const result = emptyResult('pdf')
     result.ocrRequired = true
     result.warnings.push({
-      message: 'Parser OCR reservado para extratos digitalizados.',
+      message:
+        'PDF sem texto extraível. Envie OFX, CSV, XLSX ou um PDF com texto selecionável.',
     })
     return result
   },

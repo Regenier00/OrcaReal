@@ -32,7 +32,7 @@ export async function parseStatement(
       warnings: [
         {
           message:
-            'Formato não reconhecido. Envie um arquivo OFX, CSV, XLSX ou PDF estruturado.',
+            'Formato não reconhecido. Envie um arquivo OFX, CSV, XLSX ou PDF.',
         },
       ],
       ocrRequired: false,

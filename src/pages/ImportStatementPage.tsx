@@ -8,6 +8,7 @@ import {
   pollStatementImport,
   uploadAndProcessStatement,
 } from '@/features/actual/actualService'
+import { completedStatementMessage } from '@/features/actual/importMessages'
 import {
   ACCEPTED_STATEMENT_ACCEPT,
   ACTUAL_PATHS,
@@ -24,20 +25,6 @@ import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
-
-function completedStatementMessage(item: StatementImport) {
-  const count = item.transaction_count
-  if (count === 1) {
-    return 'Extrato processado com sucesso. 1 lançamento importado.'
-  }
-  if (count > 1) {
-    return `Extrato processado com sucesso. ${count} lançamentos importados.`
-  }
-  if (item.duplicate_count > 0) {
-    return 'Extrato processado com sucesso. Nenhum lançamento novo — as duplicidades foram ignoradas.'
-  }
-  return 'Extrato processado com sucesso.'
-}
 
 export function ImportStatementPage() {
   const { user } = useAuth()
@@ -87,7 +74,7 @@ export function ImportStatementPage() {
     const next = list?.[0]
     if (!next) return
     if (!isAcceptedStatementFile(next.name)) {
-      setError('Envie um arquivo OFX, CSV, XLSX ou PDF estruturado.')
+      setError('Envie um arquivo OFX, CSV, XLSX ou PDF.')
       return
     }
     if (next.size > MAX_STATEMENT_FILE_BYTES) {
@@ -127,7 +114,7 @@ export function ImportStatementPage() {
         setCurrent,
       )
       setCurrent(finished)
-      if (finished.status === 'failed') {
+      if (finished.status === 'failed' || finished.status === 'ocr_required') {
         setError(finished.error_message || 'Falha ao processar o extrato.')
       }
     } catch (err) {
@@ -206,7 +193,7 @@ export function ImportStatementPage() {
           <section className="rounded-2xl border border-paper-muted bg-white p-6">
             <h2 className="font-display text-lg font-semibold text-navy">Arquivo</h2>
             <p className="mt-1 text-sm text-mist">
-              Formatos iniciais: OFX, CSV, XLSX e PDF estruturado. PDFs digitalizados ficarão prontos para OCR.
+              Formatos: OFX, CSV, XLSX e PDF. PDFs digitalizados são lidos por OCR neste navegador.
             </p>
             <label
               onDragOver={(event) => {
