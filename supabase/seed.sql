@@ -46,14 +46,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     'single',
     '["Serviços","Comércio","Indústria","Agronegócio","Tecnologia","Outros"]'::jsonb,
     10
-  ),
-  (
-    'main_objective',
-    'Qual é o objetivo principal ao usar a plataforma?',
-    null,
-    'single',
-    '["Comparar orçado e realizado","Entender custos","Organizar o orçamento","Gerar indicadores e relatórios"]'::jsonb,
-    40
   );
 
 insert into public.import_templates (code, name, version, kind, schema_definition) values

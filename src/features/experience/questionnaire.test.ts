@@ -62,6 +62,25 @@ assert(
   }),
   'wizard deve ignorar control_method mesmo se vier do banco'
 )
+assert(
+  RETIRED_QUESTION_CODES.has('main_objective'),
+  'main_objective deve estar aposentada: não personaliza a experiência'
+)
+assert(
+  !mixedCodes.has('main_objective'),
+  'cadastro não deve perguntar o objetivo ao usar a plataforma'
+)
+assert(
+  isRetiredQuestion({
+    code: 'main_objective',
+    prompt: 'Qual é o objetivo principal ao usar a plataforma?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 40,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar main_objective mesmo se vier do banco'
+)
 
 for (const code of [
   'com_type',
