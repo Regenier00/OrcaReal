@@ -1,12 +1,48 @@
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 import type { Plugin } from 'vite'
 
-const OCR_FILES: Array<[string, string]> = [
-  ['pdfjs-dist/build/pdf.worker.min.mjs', 'pdf.worker.min.mjs'],
-  ['tesseract.js/dist/worker.min.js', 'worker.min.js'],
-  ['tesseract.js-core/tesseract-core-lstm.wasm.js', 'tesseract-core-lstm.wasm.js'],
-  ['tesseract.js-core/tesseract-core-lstm.wasm', 'tesseract-core-lstm.wasm'],
+interface OcrAsset {
+  dest: string
+  pkg: string
+  files: string[]
+}
+
+const OCR_FILES: OcrAsset[] = [
+  {
+    dest: 'pdf.worker.min.mjs',
+    pkg: 'pdfjs-dist',
+    files: [
+      'build/pdf.worker.min.mjs',
+      'build/pdf.worker.mjs',
+      'legacy/build/pdf.worker.min.mjs',
+      'legacy/build/pdf.worker.mjs',
+    ],
+  },
+  {
+    dest: 'worker.min.js',
+    pkg: 'tesseract.js',
+    files: ['dist/worker.min.js', 'dist/worker.js'],
+  },
+  {
+    dest: 'tesseract-core-lstm.wasm.js',
+    pkg: 'tesseract.js-core',
+    files: [
+      'tesseract-core-lstm.wasm.js',
+      'tesseract-core-simd-lstm.wasm.js',
+      'tesseract-core.wasm.js',
+    ],
+  },
+  {
+    dest: 'tesseract-core-lstm.wasm',
+    pkg: 'tesseract.js-core',
+    files: [
+      'tesseract-core-lstm.wasm',
+      'tesseract-core-simd-lstm.wasm',
+      'tesseract-core.wasm',
+    ],
+  },
 ]
 
 const LANG_URLS = [
@@ -14,10 +50,27 @@ const LANG_URLS = [
   'https://tessdata.projectnaptha.com/4.0.0/por.traineddata.gz',
 ]
 
-function copyFile(from: string, to: string) {
-  if (!fs.existsSync(from)) {
-    throw new Error(`Arquivo OCR ausente: ${from}`)
+function packageDir(rootDir: string, name: string) {
+  try {
+    const require = createRequire(path.join(rootDir, 'package.json'))
+    return path.dirname(require.resolve(`${name}/package.json`))
+  } catch {
+    const fallback = path.join(rootDir, 'node_modules', name)
+    return fs.existsSync(path.join(fallback, 'package.json')) ? fallback : null
   }
+}
+
+function resolveSource(rootDir: string, asset: OcrAsset) {
+  const dir = packageDir(rootDir, asset.pkg)
+  if (!dir) return null
+  for (const file of asset.files) {
+    const from = path.join(dir, file)
+    if (fs.existsSync(from)) return from
+  }
+  return null
+}
+
+function copyIfNeeded(from: string, to: string) {
   if (fs.existsSync(to) && fs.statSync(to).size === fs.statSync(from).size) return
   fs.copyFileSync(from, to)
 }
@@ -45,8 +98,15 @@ export function ocrAssetsPlugin(rootDir: string): Plugin {
     name: 'ocr-assets',
     async buildStart() {
       fs.mkdirSync(destDir, { recursive: true })
-      for (const [source, name] of OCR_FILES) {
-        copyFile(path.join(rootDir, 'node_modules', source), path.join(destDir, name))
+      for (const asset of OCR_FILES) {
+        const from = resolveSource(rootDir, asset)
+        if (!from) {
+          this.warn(
+            `OCR: ${asset.dest} não encontrado. Rode npm install e suba o Vite de novo para importar PDF digitalizado.`,
+          )
+          continue
+        }
+        copyIfNeeded(from, path.join(destDir, asset.dest))
       }
       await ensureLanguageData(destDir)
     },
