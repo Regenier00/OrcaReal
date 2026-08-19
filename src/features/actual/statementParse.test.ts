@@ -204,6 +204,41 @@ function testCommonBrazilianLayouts() {
   assert(byDescription(caixa, 'TARIFA BANCARIA')?.type === 'expense', 'caixa tarifa')
 }
 
+function testCooperativeDatetimeDebitCredit() {
+  const aligned = parseTabularRows([
+    ['Lançamentos'],
+    ['Mês: Junho', 'Período dos lançamentos: 01/06/2026 até 30/06/2026', 'SALDO ANTERIOR', '8.370,37 C'],
+    ['', 'Nr. Doc', 'Histórico/Complemento', 'Favorecido', 'CPF/CNPJ', 'Valor', 'Saldo'],
+    ['29/06/2026 - 00:00:00', '1', 'SALDO DIA', '', '', '0,00 C', '8.370,37 C'],
+    ['29/06/2026 - 12:08:46', '445566', 'PIX ENVIADO', 'Maria Silva', '***.612.789-**', '150,00 D', '8.220,37 C'],
+    ['29/06/2026 - 15:40:01', '445567', 'PIX RECEBIDO', 'João Souza', '***.111.222-**', '200,00 C', '8.420,37 C'],
+  ])
+  assert(
+    aligned.movements.length === 2,
+    `cooperativa alinhada: ${aligned.movements.length} avisos=${aligned.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(aligned, 'PIX ENVIADO')?.postedAt === '2026-06-29', 'data com hora')
+  assert(byDescription(aligned, 'PIX ENVIADO')?.type === 'expense', 'valor D é saída')
+  assert(byDescription(aligned, 'PIX ENVIADO')?.amount === 150, 'não usar o saldo')
+  assert(byDescription(aligned, 'PIX RECEBIDO')?.type === 'income', 'valor C é entrada')
+  assert(
+    !aligned.movements.some((item) => item.description.includes('SALDO DIA')),
+    'saldo do dia não é lançamento',
+  )
+
+  const shifted = parseTabularRows([
+    ['Nr. Doc', 'Histórico/Complemento', 'Favorecido', 'CPF/CNPJ', 'Valor', 'Saldo'],
+    ['29/06/2026 - 12:08:46', '445566', 'PIX ENVIADO', 'Maria Silva', '***.612.789-**', '150,00 D', '8.220,37 C'],
+    ['30/06/2026 - 09:11:00', '445568', 'TARIFA MANUTENCAO', '', '', '12,90 D', '8.207,47 C'],
+  ])
+  assert(
+    shifted.movements.length === 2,
+    `cooperativa data à esquerda: ${shifted.movements.length} avisos=${shifted.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(shifted, 'PIX ENVIADO')?.amount === 150, 'pix com cabeçalho deslocado')
+  assert(byDescription(shifted, 'TARIFA MANUTENCAO')?.type === 'expense', 'tarifa D')
+}
+
 function testRejectsExecutable() {
   const mz = new Uint8Array([0x4d, 0x5a, 0x90, 0x00, 0x03])
   let failed = false
@@ -854,6 +889,59 @@ async function testPdfYearlessAndWrappedLines() {
   assert(byDescription(result, 'TARIFA')?.amount === 12.9, 'linha seguinte com valor')
 }
 
+async function testPdfCooperativeDatetimeDebitCredit() {
+  const content = pdfTable([
+    {
+      y: 720,
+      cells: [{ x: 50, text: 'Lançamentos  Período 01/06/2026 até 30/06/2026' }],
+    },
+    {
+      y: 700,
+      cells: [
+        { x: 50, text: 'Nr. Doc' },
+        { x: 140, text: 'Histórico/Complemento' },
+        { x: 320, text: 'Favorecido' },
+        { x: 430, text: 'Valor' },
+        { x: 520, text: 'Saldo' },
+      ],
+    },
+    {
+      y: 682,
+      cells: [
+        { x: 40, text: '29/06/2026 - 12:08:46' },
+        { x: 50, text: '445566' },
+        { x: 140, text: 'PIX ENVIADO' },
+        { x: 320, text: 'Maria Silva' },
+        { x: 430, text: '150,00 D' },
+        { x: 520, text: '8.220,37 C' },
+      ],
+    },
+    {
+      y: 664,
+      cells: [
+        { x: 40, text: '29/06/2026 - 15:40:01' },
+        { x: 50, text: '445567' },
+        { x: 140, text: 'PIX RECEBIDO' },
+        { x: 320, text: 'João Souza' },
+        { x: 430, text: '200,00 C' },
+        { x: 520, text: '8.420,37 C' },
+      ],
+    },
+  ])
+  const result = await parseStatement(
+    'extrato-cooperativa.pdf',
+    await makeStatementPdf(content),
+  )
+  assert(
+    result.movements.length === 2,
+    `pdf cooperativa: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX ENVIADO')?.type === 'expense', 'pdf D')
+  assert(byDescription(result, 'PIX ENVIADO')?.amount === 150, 'pdf valor não é saldo')
+  assert(byDescription(result, 'PIX RECEBIDO')?.type === 'income', 'pdf C')
+  assert(byDescription(result, 'PIX ENVIADO')?.postedAt === '2026-06-29', 'pdf data com hora')
+}
+
 async function testPdfFormXObject() {
   const formContent = pdfTable([
     {
@@ -981,6 +1069,7 @@ testDatetimeSerialsAndFilledDownDates()
 testTwoRowDebitCreditHeader()
 await testCsvWithPreamble()
 testCommonBrazilianLayouts()
+testCooperativeDatetimeDebitCredit()
 testSparseExcelLikeRows()
 testRejectsExecutable()
 await testUnknownFormat()
@@ -997,6 +1086,7 @@ await testPdfNeedsOcr()
 await testPdfJpegImageExtraction()
 testYearlessDatesUseStatementYear()
 await testPdfYearlessAndWrappedLines()
+await testPdfCooperativeDatetimeDebitCredit()
 await testPdfFormXObject()
 await testPdfOcrRunsWhenHeaderLooksLikeStatement()
 await testPdfOcrReadsMovements()

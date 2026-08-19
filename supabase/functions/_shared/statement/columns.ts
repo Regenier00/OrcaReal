@@ -139,6 +139,7 @@ const ALIASES: Record<ColumnRole, string[]> = {
     'doc',
     'nrodoc',
     'numerodocumento',
+    'nrdocumento',
     'nrdoc',
     'ndoc',
     'numero',
@@ -292,6 +293,7 @@ function looksLikeTextDate(value: string) {
   if (!raw) return false
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return true
   if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(raw)) return true
+  if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s*[-–—]/.test(raw)) return true
   if (/^\d{1,2}[/-]\d{1,2}$/.test(raw)) return Boolean(parseBrazilianDate(raw))
   if (/^\d{1,2}[./\-\s]+[A-Za-zÀ-ÿ]{3,}/.test(raw)) {
     return Boolean(parseBrazilianDate(raw))
@@ -306,10 +308,14 @@ function looksLikeAmount(value: string) {
   if (looksLikeTextDate(value) || looksLikeExcelSerial(value)) return false
   const amount = parseAmount(value)
   if (amount == null) return false
-  const compact = value.trim().replace(/\s/g, '')
-  if (/r\$/i.test(value)) return true
-  if (/[.,]\d{1,2}$/.test(compact.replace(/[+-]$/, ''))) return true
-  if (/^[+-]/.test(compact) || /[+-]$/.test(compact)) return true
+  const compact = value
+    .trim()
+    .replace(/\s/g, '')
+    .replace(/[dDcC]$/i, '')
+    .replace(/[+-]$/, '')
+  if (/r\$/i.test(value) || /[dDcC]\s*$/i.test(value.trim())) return true
+  if (/[.,]\d{1,2}$/.test(compact)) return true
+  if (/^[+-]/.test(compact) || /[+-]$/.test(value.trim())) return true
   return /^-?\d+([.,]\d+)?$/.test(compact) && Math.abs(amount) < 1e9
 }
 
@@ -376,6 +382,109 @@ function columnStats(rows: string[][], start: number): ColStats[] {
 
 function ratio(part: number, total: number) {
   return total > 0 ? part / total : 0
+}
+
+function cloneMap(map: ColumnMap): ColumnMap {
+  return { ...map }
+}
+
+function dateColumnQuality(stats: ColStats | undefined) {
+  if (!stats || stats.filled === 0) return 0
+  return ratio(stats.textDates, stats.filled)
+}
+
+/** Extra layout: recover a date column that the header mapped as something else. */
+function withInferredDateColumn(map: ColumnMap, rows: string[][], start: number) {
+  const next = cloneMap(map)
+  const stats = columnStats(rows, start)
+  if (dateColumnQuality(stats[next.date]) >= 0.4) return next
+
+  const bestDate = [...stats]
+    .filter((col) => dateColumnQuality(col) >= 0.5)
+    .sort((a, b) => b.textDates - a.textDates)[0]
+  if (!bestDate || next.date === bestDate.index) return next
+
+  const stolen = (Object.keys(next) as Array<keyof ColumnMap>).find(
+    (key) => key !== 'headerIndex' && key !== 'date' && next[key] === bestDate.index,
+  )
+  if (
+    stolen === 'description' ||
+    stolen === 'amount' ||
+    stolen === 'debit' ||
+    stolen === 'credit'
+  ) {
+    return next
+  }
+  next.date = bestDate.index
+  if (stolen) next[stolen] = -1
+  return fillFromContent(next, rows, start)
+}
+
+/** Extra layout: date column sits left of the printed header row. */
+function withLeadingDateShift(
+  map: ColumnMap,
+  rows: string[][],
+  start: number,
+  headers: string[],
+) {
+  const next = cloneMap(map)
+  const stats = columnStats(rows, start)
+  if (dateColumnQuality(stats[0]) < 0.5) return next
+
+  const firstHeader = headers[0] ?? ''
+  const firstRole = bestRoleForHeader(firstHeader)?.role
+  if (firstRole === 'date') return next
+
+  const headerStartsWithDocOrBlank =
+    !firstHeader.trim() || firstRole === 'document'
+
+  // Data has dates in col 0, but the header row starts with Nr. Doc (or blank).
+  if (
+    headerStartsWithDocOrBlank &&
+    next.date === 0 &&
+    next.document === 0 &&
+    next.description === 1
+  ) {
+    for (const key of Object.keys(next) as Array<keyof ColumnMap>) {
+      if (key === 'headerIndex' || key === 'date' || next[key] < 0) continue
+      next[key] += 1
+    }
+    return next
+  }
+
+  if (dateColumnQuality(stats[next.date]) >= 0.4) return next
+  if (next.date === 0) return next
+
+  const roles = (Object.keys(next) as Array<keyof ColumnMap>).filter(
+    (key) => key !== 'headerIndex' && next[key] >= 0,
+  )
+  if (roles.length === 0 || Math.min(...roles.map((key) => next[key])) > 0) return next
+
+  for (const key of roles) next[key] += 1
+  next.date = 0
+  return next
+}
+
+function shouldTryLeadingDateShift(
+  map: ColumnMap,
+  headers: string[],
+  rows: string[][],
+  start: number,
+) {
+  const stats = columnStats(rows, start)
+  if (dateColumnQuality(stats[0]) < 0.5) return false
+  const firstRole = bestRoleForHeader(headers[0] ?? '')?.role
+  if (firstRole === 'date') return false
+  if (!isComplete(map)) return true
+  if (
+    map.date === 0 &&
+    map.document === 0 &&
+    map.description === 1 &&
+    (firstRole === 'document' || !headers[0]?.trim())
+  ) {
+    return true
+  }
+  return dateColumnQuality(stats[map.date]) < 0.4
 }
 
 function fillFromContent(map: ColumnMap, rows: string[][], start: number) {
@@ -572,7 +681,21 @@ export function detectTabularLayouts(
     const mapped = mapFromHeaders(candidate.headers)
     mapped.headerIndex = candidate.index
     const dataStart = mapped.headerIndex >= 0 ? mapped.headerIndex + 1 : 0
-    pushMap(splitSparseAmountColumns(fillFromContent(mapped, rows, dataStart), rows, dataStart))
+    const filledBase = fillFromContent(cloneMap(mapped), rows, dataStart)
+    const filled = splitSparseAmountColumns(cloneMap(filledBase), rows, dataStart)
+    pushMap(filled)
+    if (!isComplete(filledBase)) {
+      pushMap(
+        splitSparseAmountColumns(
+          withInferredDateColumn(cloneMap(filledBase), rows, dataStart),
+          rows,
+          dataStart,
+        ),
+      )
+    }
+    if (shouldTryLeadingDateShift(filledBase, candidate.headers, rows, dataStart)) {
+      pushMap(withLeadingDateShift(cloneMap(filledBase), rows, dataStart, candidate.headers))
+    }
   }
 
   pushMap(fillFromContent(emptyMap(-1), rows, 0))
@@ -631,8 +754,11 @@ export function movementsFromMappedRows(
     if (!dateCell && lastDate) dateCell = lastDate
 
     const posted = parseBrazilianDate(dateCell, { defaultYear })
-    const description = row[map.description] ?? ''
+    let description = row[map.description] ?? ''
     const typeLabel = map.type >= 0 ? row[map.type] ?? '' : ''
+    const counterparty =
+      map.counterparty >= 0 ? row[map.counterparty]?.trim() || null : null
+    if (!description.trim() && counterparty) description = counterparty
     if (!posted || !description.trim()) {
       onWarning('Linha ignorada por data ou descrição vazia', i + 1)
       continue
@@ -676,8 +802,6 @@ export function movementsFromMappedRows(
       map.document >= 0 ? row[map.document]?.trim() || null : null
     const externalId =
       map.id >= 0 ? row[map.id]?.trim() || null : documentNumber
-    const counterparty =
-      map.counterparty >= 0 ? row[map.counterparty]?.trim() || null : null
 
     movements.push({
       postedAt: posted,
@@ -693,4 +817,32 @@ export function movementsFromMappedRows(
   }
 
   return movements
+}
+
+function descriptionQuality(description: string) {
+  const norm = description.trim()
+  if (!norm) return -50
+  if (/^\d+$/.test(norm)) return -30
+  if (!/[a-zA-ZÀ-ÿ]/.test(norm)) return -10
+  if (/^(credito|debito|crédito|débito)$/i.test(norm)) return -25
+  return 10 + Math.min(norm.length, 40)
+}
+
+/** Prefer layouts whose descriptions look like real transaction text, not doc numbers. */
+export function scoreTabularMovements(movements: RawMovement[]) {
+  if (movements.length === 0) return -1
+  let score = movements.length * 100
+  for (const movement of movements) {
+    let quality = descriptionQuality(movement.description)
+    if (
+      /^\d+$/.test(movement.description.trim()) &&
+      movement.counterparty &&
+      /[a-zA-ZÀ-ÿ]/.test(movement.counterparty)
+    ) {
+      quality -= 15
+    }
+    score += quality
+    if (movement.type !== 'unknown') score += 5
+  }
+  return score
 }
