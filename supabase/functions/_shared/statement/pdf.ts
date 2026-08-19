@@ -1,14 +1,15 @@
+import { parseTabularRows } from './csv.ts'
 import { detectBank } from './banks.ts'
-import { inflateLimited } from './inflate.ts'
-import { MAX_PDF_STREAMS, MAX_UNCOMPRESSED_ENTRY } from './limits.ts'
 import {
   capWarnings,
   emptyResult,
   finalizeMovements,
   parseAmount,
   parseBrazilianDate,
+  typeFromLabel,
   typeFromSignedAmount,
 } from './normalize.ts'
+import { extractPdfLayout } from './pdfExtract.ts'
 import type {
   DetectedFile,
   ParseResult,
@@ -16,85 +17,109 @@ import type {
   StatementParser,
 } from './types.ts'
 
-async function inflatePdfStream(data: Uint8Array) {
-  try {
-    return await inflateLimited(data, 'deflate', MAX_UNCOMPRESSED_ENTRY)
-  } catch {
-    return inflateLimited(data, 'deflate-raw', MAX_UNCOMPRESSED_ENTRY)
-  }
+const DATE_PATTERN =
+  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}'
+const DATE_RE = new RegExp(`(${DATE_PATTERN})`)
+const DATE_SPLIT_RE = new RegExp(`(?=${DATE_PATTERN})`)
+const AMOUNT_PATTERN =
+  '(?:R\\$\\s*)?-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?|(?:R\\$\\s*)?-?\\d+[.,]\\d{2}-?|\\(\\d{1,3}(?:\\.\\d{3})*,\\d{2}\\)|\\d{1,3}(?:\\.\\d{3})*,\\d{2}\\s*[DdCc]'
+
+function amountRegex() {
+  return new RegExp(AMOUNT_PATTERN, 'g')
+}
+const SKIP_LINE =
+  /saldo\s*(anterior|inicial|final|atual)|opening balance|closing balance|^totais?$|^subtotal$/i
+
+function looksExtractable(text: string) {
+  const compact = text.replace(/\s+/g, '')
+  if (compact.length >= 40) return true
+  if (DATE_RE.test(text) && amountRegex().test(text)) return true
+  return /[A-Za-zÀ-ÿ]{6,}/.test(compact) && compact.length >= 24
 }
 
-function decodePdfString(value: string) {
-  return value
-    .replace(/\\n/g, ' ')
-    .replace(/\\r/g, ' ')
-    .replace(/\\t/g, ' ')
-    .replace(/\\\(/g, '(')
-    .replace(/\\\)/g, ')')
-    .replace(/\\\\/g, '\\')
-    .replace(/\\(\d{1,3})/g, (_, oct) =>
-      String.fromCharCode(Number.parseInt(oct, 8)),
-    )
-}
-
-function extractLiteralStrings(content: string) {
-  const texts: string[] = []
-  const re = /\((?:\\.|[^\\)]){0,400}\)/g
-  let match: RegExpExecArray | null
-  let count = 0
-  while ((match = re.exec(content))) {
-    texts.push(decodePdfString(match[0].slice(1, -1)))
-    count += 1
-    if (count > 20_000) break
-  }
-  return texts
-}
-
-async function extractPdfText(bytes: Uint8Array) {
-  const latin = new TextDecoder('latin1').decode(bytes)
-  const texts: string[] = []
-  const marker = 'stream'
-  let cursor = 0
-  let streams = 0
-
-  while (streams < MAX_PDF_STREAMS) {
-    const start = latin.indexOf(marker, cursor)
-    if (start < 0) break
-    const dataStart = start + marker.length
-    const after = latin.slice(dataStart, dataStart + 2)
-    const bodyStart =
-      after === '\r\n' ? dataStart + 2 : after.startsWith('\n') ? dataStart + 1 : dataStart
-    const end = latin.indexOf('endstream', bodyStart)
-    if (end < 0) break
-    const raw = latin.slice(bodyStart, end)
-    cursor = end + 9
-    streams += 1
-    if (raw.length > MAX_UNCOMPRESSED_ENTRY) continue
-
-    const binary = Uint8Array.from(raw, (char) => char.charCodeAt(0))
-    let decoded = raw
-    try {
-      decoded = new TextDecoder('latin1').decode(await inflatePdfStream(binary))
-    } catch {
-      decoded = raw.slice(0, 50_000)
-    }
-    texts.push(...extractLiteralStrings(decoded))
-  }
-
-  if (texts.length === 0) {
-    texts.push(...extractLiteralStrings(latin.slice(0, 200_000)))
-  }
-
-  return texts.join(' ')
+function collapseSpacedGlyphs(text: string) {
+  const tokens = text.split(/\s+/).filter(Boolean)
+  if (tokens.length < 16) return text
+  const singles = tokens.filter((token) => token.length === 1).length
+  if (singles < tokens.length * 0.55) return text
+  return tokens.join('')
 }
 
 function linesFromText(text: string) {
   return text
-    .replace(/\s{2,}/g, ' ')
-    .split(/(?=\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/)
-    .map((line) => line.trim())
+    .split(/\n+/)
+    .flatMap((line) => line.split(DATE_SPLIT_RE))
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
     .filter(Boolean)
     .slice(0, 12_000)
+}
+
+function pickAmount(line: string) {
+  const matches = [...line.matchAll(amountRegex())]
+  if (matches.length === 0) return null
+  const chosen =
+    matches.length >= 2 ? matches[matches.length - 2][0] : matches[matches.length - 1][0]
+  const signed = parseAmount(chosen)
+  if (signed == null || signed === 0) return null
+  const after = line.slice((matches.length >= 2 ? matches[matches.length - 2] : matches[0]).index ?? 0)
+  const suffix = after.match(/^\s*(?:R\$\s*)?[^\s]*\s*([DdCc])\b/)
+  const labeled = suffix ? typeFromLabel(suffix[1]) : typeFromLabel(chosen)
+  return { raw: chosen, signed, labeled }
+}
+
+function movementFromLine(line: string): RawMovement | null {
+  const dateMatch = line.match(DATE_RE)
+  if (!dateMatch) return null
+  const posted = parseBrazilianDate(dateMatch[1])
+  if (!posted) return null
+
+  const amount = pickAmount(line)
+  if (!amount) return null
+
+  let type = amount.labeled ?? 'unknown'
+  let signed = amount.signed
+  if (type === 'expense' && signed > 0) signed = -signed
+  if (type === 'income' && signed < 0) signed = Math.abs(signed)
+  if (type === 'unknown') type = typeFromSignedAmount(signed)
+
+  const description = line
+    .replace(dateMatch[0], ' ')
+    .replace(amount.raw, ' ')
+    .replace(amountRegex(), ' ')
+    .replace(/saldo.*/i, ' ')
+    .replace(/\b[DdCc]\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!description || !/[a-zA-ZÀ-ÿ]/.test(description)) return null
+  if (SKIP_LINE.test(description)) return null
+
+  return {
+    postedAt: posted,
+    description,
+    amount: Math.abs(signed),
+    type,
+    balance: null,
+    externalId: null,
+    documentNumber: null,
+    counterparty: null,
+    raw: { source: 'pdf', line },
+  }
+}
+
+function movementsFromLines(text: string): RawMovement[] {
+  const movements: RawMovement[] = []
+  for (const line of linesFromText(text)) {
+    const movement = movementFromLine(line)
+    if (movement) movements.push(movement)
+  }
+  return finalizeMovements(movements)
+}
+
+function rowsFromLines(text: string) {
+  return linesFromText(text).map((line) =>
+    line.split(/\s{2,}|\t/).filter(Boolean),
+  )
 }
 
 export const pdfParser: StatementParser = {
@@ -104,13 +129,23 @@ export const pdfParser: StatementParser = {
   },
   async parse(file: DetectedFile): Promise<ParseResult> {
     const result = emptyResult('pdf')
-    const text = await extractPdfText(file.bytes)
-    const detected = detectBank(text.slice(0, 4000))
+    const extracted = await extractPdfLayout(file.bytes)
+    const collapsed = collapseSpacedGlyphs(extracted.text)
+    const sample = (extracted.text || collapsed).slice(0, 4000)
+    const detected = detectBank(sample)
     result.bankCode = detected.bankCode
     result.bankName = detected.bankName
 
-    const printable = text.replace(/[^\S\n]+/g, ' ').trim()
-    if (printable.length < 40) {
+    if (extracted.encrypted && extracted.text.replace(/\s+/g, '').length < 40) {
+      result.warnings.push({
+        message:
+          'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.',
+      })
+      return result
+    }
+
+    const printable = `${extracted.text}\n${collapsed}`
+    if (!looksExtractable(printable)) {
       result.ocrRequired = true
       result.warnings.push({
         message:
@@ -119,47 +154,39 @@ export const pdfParser: StatementParser = {
       return result
     }
 
-    const movements: RawMovement[] = []
-    for (const line of linesFromText(printable)) {
-      const dateMatch = line.match(/(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/)
-      if (!dateMatch) continue
-      const posted = parseBrazilianDate(dateMatch[1])
-      if (!posted) continue
+    const tableCandidates = [
+      extracted.rows,
+      extracted.alignedRows,
+      rowsFromLines(extracted.text),
+      rowsFromLines(collapsed),
+    ].filter((rows) => rows.length > 0)
 
-      const amountMatches = [
-        ...line.matchAll(/-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+[.,]\d{2}/g),
-      ]
-      if (amountMatches.length === 0) continue
-      const signed = parseAmount(amountMatches[amountMatches.length - 1][0])
-      if (signed == null || signed === 0) continue
+    let bestMovements: RawMovement[] = []
+    let bestWarnings: ParseResult['warnings'] = []
 
-      const description = line
-        .replace(dateMatch[0], '')
-        .replace(amountMatches[amountMatches.length - 1][0], '')
-        .replace(/saldo.*/i, '')
-        .trim()
-
-      if (!description) continue
-
-      movements.push({
-        postedAt: posted,
-        description,
-        amount: Math.abs(signed),
-        type: typeFromSignedAmount(signed),
-        balance: null,
-        externalId: null,
-        documentNumber: null,
-        counterparty: null,
-        raw: { source: 'pdf' },
-      })
+    for (const rows of tableCandidates) {
+      const tabular = parseTabularRows(rows)
+      if (tabular.movements.length > bestMovements.length) {
+        bestMovements = tabular.movements
+        bestWarnings = tabular.warnings
+      }
     }
 
-    result.movements = finalizeMovements(movements)
-    result.warnings = capWarnings(result.warnings)
+    const lineMovements = movementsFromLines(
+      bestMovements.length === 0 ? `${extracted.text}\n${collapsed}` : extracted.text,
+    )
+    if (lineMovements.length > bestMovements.length) {
+      bestMovements = lineMovements
+      bestWarnings = []
+    }
+
+    result.movements = finalizeMovements(bestMovements)
+    result.warnings = capWarnings(bestWarnings)
     if (result.movements.length === 0) {
       result.warnings.push({
-        message:
-          'Não foi possível ler lançamentos tabulares neste PDF. Envie OFX, CSV ou XLSX, ou um PDF estruturado.',
+        message: extracted.encrypted
+          ? 'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.'
+          : 'Não foi possível ler lançamentos tabulares neste PDF. Envie OFX, CSV ou XLSX, ou um PDF estruturado.',
       })
     }
     return result
