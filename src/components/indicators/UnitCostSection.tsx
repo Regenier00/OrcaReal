@@ -117,8 +117,7 @@ export function UnitCostSection({
             Indicadores da empresa
           </h2>
           <p className="mt-1 max-w-2xl text-sm text-mist">
-            Cálculo personalizado com receitas e custos realizados, no período ou
-            no consolidado.
+            Cálculo personalizado com receitas e custos realizados, mês a mês.
           </p>
           {customCards.length > 0 ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

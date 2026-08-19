@@ -17,10 +17,9 @@ import {
 } from '@/features/experience/unitCost'
 import {
   isEmployeeHeadcountIndicator,
+  mergeEmployeeVolumes,
   parseEmployeeCount,
-  volumesFromEmployeeCount,
 } from '@/features/experience/employeeCount'
-import { updateCompanyEmployeeCount } from '@/features/company/companyService'
 import { listCompanyComparisonOptions, loadComparisonPair } from '@/features/comparison/comparisonService'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
 import type { LoadedBudget } from '@/features/budget/model'
@@ -92,7 +91,7 @@ export function useUnitCostCards(input?: {
   actual?: LoadedActual | null
   classified?: ClassifiedActualSlice[]
 }) {
-  const { activeCompany, companyProfile, segments, refresh } = useCompany()
+  const { activeCompany, companyProfile, segments } = useCompany()
   const [defs, setDefs] = useState<SegmentUnitCostDef[]>([])
   const [customIndicators, setCustomIndicators] = useState<CompanyCustomIndicator[]>([])
   const [customUnits, setCustomUnits] = useState<CompanyCustomUnit[]>([])
@@ -240,7 +239,7 @@ export function useUnitCostCards(input?: {
     const catalogCards = defs.map((def) => {
       const stored = volumes[def.indicatorCode] ?? {}
       const nextVolumes = isEmployeeHeadcountIndicator(def.indicatorCode)
-        ? volumesFromEmployeeCount(employeeCount, monthKeys)
+        ? mergeEmployeeVolumes(stored, employeeCount, monthKeys)
         : stored
       return buildCard({
         def: {
@@ -298,20 +297,6 @@ export function useUnitCostCards(input?: {
   const saveQuantity = async (indicatorCode: string, quantity: number, month: string) => {
     if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
     setSavingCode(indicatorCode)
-
-    if (isEmployeeHeadcountIndicator(indicatorCode)) {
-      const saved = await updateCompanyEmployeeCount({
-        companyId: activeCompany.id,
-        employeeCount: quantity,
-      })
-      setSavingCode('')
-      if (!saved.ok) {
-        setError(saved.message)
-        return saved
-      }
-      await refresh()
-      return { ok: true as const, data: volumesFromEmployeeCount(quantity, months.map((item) => item.key)) }
-    }
 
     const current = volumes[indicatorCode] ?? {}
     const saved = await saveUnitVolume({

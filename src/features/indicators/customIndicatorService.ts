@@ -5,6 +5,7 @@ import { slug } from '@/features/experience/catalog/helpers'
 import {
   defaultCustomFormula,
   isCustomFormula,
+  normalizeCustomIndicatorFormula,
   type CustomFormula,
 } from '@/features/indicators/formula'
 import type { CompanyCustomIndicator, CompanyCustomUnit } from '@/types/database'
@@ -170,10 +171,11 @@ export async function createCompanyCustomIndicator(input: {
     return { ok: false, message: 'Selecione ou crie a unidade de operação.' }
   }
 
-  const formula = input.formula ?? defaultCustomFormula()
-  if (!isCustomFormula(formula)) {
+  const rawFormula = input.formula ?? defaultCustomFormula()
+  if (!isCustomFormula(rawFormula)) {
     return { ok: false, message: 'A fórmula do indicador é inválida.' }
   }
+  const formula = normalizeCustomIndicatorFormula(rawFormula)
 
   const { data: session } = await supabase.auth.getUser()
   const { data, error } = await supabase
@@ -216,5 +218,6 @@ export async function deleteCompanyCustomIndicator(
 }
 
 export function parseIndicatorFormula(value: unknown): CustomFormula {
-  return isCustomFormula(value) ? value : defaultCustomFormula()
+  const formula = isCustomFormula(value) ? value : defaultCustomFormula()
+  return normalizeCustomIndicatorFormula(formula)
 }

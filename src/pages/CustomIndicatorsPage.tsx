@@ -65,7 +65,7 @@ export function CustomIndicatorsPage() {
             <p className="mt-2 max-w-2xl text-sm text-mist">
               O custo por unidade vem do ramo da empresa. Crie indicadores com
               unidades da empresa e um cálculo só com o realizado: receitas e custos
-              separados, no mês ou no consolidado.
+              separados, mês a mês.
             </p>
           </div>
           {canCreate ? (
@@ -110,7 +110,7 @@ export function CustomIndicatorsPage() {
           <p className="mt-2 max-w-2xl text-sm text-mist">
             A unidade de operação vem do ramo, e você também pode criar unidades
             da empresa. O cálculo personalizado usa só o realizado: receitas e
-            custos separados, por período ou consolidado. A fórmula de cada
+            custos separados, mês a mês. A fórmula de cada
             indicador fica visível no card.
           </p>
         </div>

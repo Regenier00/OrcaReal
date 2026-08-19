@@ -12,9 +12,9 @@ export const EMPLOYEE_HEADCOUNT_COSTS: SegmentUnitCostDef[] = [
     unitCode: 'employee',
     unitName: 'Funcionário',
     displayUnit: 'R$/funcionário',
-    quantityPrompt: 'Quantos funcionários a empresa possui?',
+    quantityPrompt: 'Quantos funcionários a empresa tinha neste mês?',
     quantityHelp:
-      'A quantidade vem do perfil da empresa e preenche este indicador automaticamente.',
+      'Informe a quantidade de funcionários de cada mês. O cadastro da empresa serve só como valor inicial.',
     quantityNoun: 'funcionários',
     quantityNounSingular: 'funcionário',
   },
@@ -25,9 +25,9 @@ export const EMPLOYEE_HEADCOUNT_COSTS: SegmentUnitCostDef[] = [
     unitCode: 'employee',
     unitName: 'Funcionário',
     displayUnit: 'R$/funcionário',
-    quantityPrompt: 'Quantos funcionários a empresa possui?',
+    quantityPrompt: 'Quantos funcionários a empresa tinha neste mês?',
     quantityHelp:
-      'A quantidade vem do perfil da empresa e preenche este indicador automaticamente.',
+      'Informe a quantidade de funcionários de cada mês. O cadastro da empresa serve só como valor inicial.',
     quantityNoun: 'funcionários',
     quantityNounSingular: 'funcionário',
   },
