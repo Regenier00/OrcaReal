@@ -43,6 +43,26 @@ const mixed = QUESTIONS.filter(
 )
 const mixedCodes = new Set(mixed.map((question) => question.code))
 
+assert(
+  RETIRED_QUESTION_CODES.has('control_method'),
+  'control_method deve estar aposentada: não personaliza a experiência'
+)
+assert(
+  !mixedCodes.has('control_method'),
+  'cadastro não deve perguntar como a empresa controla as finanças hoje'
+)
+assert(
+  isRetiredQuestion({
+    code: 'control_method',
+    prompt: 'Como a empresa controla as finanças hoje?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 30,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar control_method mesmo se vier do banco'
+)
+
 for (const code of [
   'com_type',
   'com_products',

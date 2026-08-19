@@ -4,6 +4,7 @@ import type { ExperienceQuestion } from './types.ts'
 export const RETIRED_QUESTION_CODES = new Set([
   'analysis_units',
   'maturity',
+  'control_method',
   'activities',
   'tech_costs',
   'hlt_costs',
@@ -101,6 +102,7 @@ export const RETIRED_QUESTION_CODES = new Set([
 
 export const RETIRED_QUESTION_PROMPTS = new Set([
   'Como você avalia a maturidade do controle financeiro?',
+  'Como a empresa controla as finanças hoje?',
   'Quais custos são mais relevantes?',
   'Quais atividades a empresa realiza?',
   'Qual é o tipo de comércio?',

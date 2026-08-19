@@ -48,14 +48,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     10
   ),
   (
-    'control_method',
-    'Como a empresa controla as finanças hoje?',
-    'Não há resposta certa — queremos entender o ponto de partida.',
-    'single',
-    '["Excel","Sistema contábil","ERP","Anotações manuais","Quase não controla"]'::jsonb,
-    30
-  ),
-  (
     'main_objective',
     'Qual é o objetivo principal ao usar a plataforma?',
     null,
