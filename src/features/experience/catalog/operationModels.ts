@@ -93,12 +93,6 @@ const OWN = {
     'Quantas unidades foram produzidas no período?',
     'Usamos o volume produzido para dividir custos e depreciação.'
   ),
-  assetsValue: money(
-    'total_assets',
-    'Ativos totais',
-    'Qual é o valor total dos ativos no período?',
-    'O ROA divide o lucro pelo valor dos ativos.'
-  ),
   investment: money(
     'investment',
     'Capital investido',
@@ -110,30 +104,6 @@ const OWN = {
     'Custos fixos',
     'Qual é o total de custos fixos do período?',
     'O ponto de equilíbrio usa os custos fixos e a margem de contribuição do realizado.'
-  ),
-  idle: qty(
-    'idle_capacity',
-    'Capacidade ociosa',
-    'Qual é a capacidade ociosa no período?',
-    'Informe na mesma unidade da capacidade total.'
-  ),
-  capacity: qty(
-    'total_capacity',
-    'Capacidade total',
-    'Qual é a capacidade total dos ativos?',
-    'Usamos capacidade ociosa ÷ capacidade total.'
-  ),
-  maintenance: money(
-    'maintenance_cost',
-    'Custo de manutenção',
-    'Qual é o custo de manutenção do período?',
-    'O indicador divide a manutenção pela quantidade de ativos.'
-  ),
-  assetCount: qty(
-    'asset_count',
-    'Quantidade de ativos',
-    'Quantos ativos a operação utiliza?',
-    'Máquinas, veículos ou instalações usadas na produção.'
   ),
   depreciation: money(
     'depreciation',
@@ -370,16 +340,6 @@ export const OPERATION_MODELS: OperationModelDef[] = [
         inputs: [],
       },
       {
-        code: 'own_roa',
-        name: 'ROA',
-        description: 'Retorno sobre os ativos: lucro do período dividido pelo valor dos ativos.',
-        unit: '%',
-        format: 'pct',
-        formula: pct(profit(), input('total_assets')),
-        formulaHint: 'lucro / ativos totais',
-        inputs: [OWN.assetsValue],
-      },
-      {
         code: 'own_roi',
         name: 'ROI',
         description: 'Retorno sobre o investimento: lucro do período dividido pelo capital investido.',
@@ -400,26 +360,6 @@ export const OPERATION_MODELS: OperationModelDef[] = [
         inputs: [OWN.fixed],
       },
       {
-        code: 'own_asset_idle',
-        name: 'Ociosidade dos ativos',
-        description: 'Percentual da capacidade que ficou ociosa no período.',
-        unit: '%',
-        format: 'pct',
-        formula: pct(input('idle_capacity'), input('total_capacity')),
-        formulaHint: 'capacidade ociosa / capacidade total',
-        inputs: [OWN.idle, OWN.capacity],
-      },
-      {
-        code: 'own_maintenance_per_asset',
-        name: 'Custo de manutenção por ativo',
-        description: 'Custo de manutenção dividido pela quantidade de ativos.',
-        unit: 'R$/ativo',
-        format: 'money',
-        formula: div(input('maintenance_cost'), input('asset_count')),
-        formulaHint: 'manutenção / quantidade de ativos',
-        inputs: [OWN.maintenance, OWN.assetCount],
-      },
-      {
         code: 'own_depreciation_per_unit',
         name: 'Custo de depreciação por unidade',
         description: 'Depreciação do período dividida pelas unidades produzidas.',
@@ -428,16 +368,6 @@ export const OPERATION_MODELS: OperationModelDef[] = [
         formula: div(input('depreciation'), input('units_produced')),
         formulaHint: 'depreciação / unidades produzidas',
         inputs: [OWN.depreciation, OWN.units],
-      },
-      {
-        code: 'own_productivity_per_asset',
-        name: 'Produtividade por ativo',
-        description: 'Unidades produzidas por ativo utilizado.',
-        unit: 'un/ativo',
-        format: 'number',
-        formula: div(input('units_produced'), input('asset_count')),
-        formulaHint: 'unidades produzidas / quantidade de ativos',
-        inputs: [OWN.units, OWN.assetCount],
       },
     ],
   },

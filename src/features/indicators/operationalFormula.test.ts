@@ -5,7 +5,6 @@ import {
   div,
   employeeCount,
   evaluateOperationalFormula,
-  formulaInputKeys,
   input,
   lit,
   max,
@@ -27,6 +26,8 @@ import {
   operationalIndicatorsFor,
   selectedOperationPriorities,
 } from '../experience/catalog/operationModels.ts'
+
+const ASSET_WORD = /\bativos?\b/i
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -277,10 +278,8 @@ assert(evalCode('out_savings') === 1500, 'catálogo economia')
 const beLease = evalCode('lease_break_even')
 assert(beLease === 5454.55, `ponto de equilíbrio do arrendamento: ${beLease}`)
 
-assert(formulaInputKeys(findOperationalIndicator('own_roa')!.formula).includes('total_assets'), 'ROA pede ativos')
-
 assert(OPERATION_MODELS.length === 5, 'cinco modelos de operação')
-assert(OPERATION_MODELS[0].indicators.length === 10, 'operação própria tem 10 indicadores')
+assert(OPERATION_MODELS[0].indicators.length === 6, 'operação própria tem 6 indicadores')
 assert(OPERATION_MODELS[1].indicators.length === 10, 'arrendada tem 10 indicadores')
 assert(OPERATION_MODELS[2].indicators.length === 10, 'terceirizada tem 10 indicadores')
 assert(OPERATION_MODELS[3].indicators.length === 12, 'mista tem 12 indicadores')
@@ -292,13 +291,23 @@ assert(operationModelFromValue('mista')?.id === 'mixed', 'aceita slug antigo mis
 assert(operationModelFromValue('operacao_propria')?.id === 'own', 'aceita operação própria')
 
 const options = operationIndicatorOptionsFor('operacao_propria')
-assert(options.some((item) => item.label === 'ROA'), 'cards da operação própria incluem ROA')
+assert(options.some((item) => item.label === 'ROI'), 'cards da operação própria incluem ROI')
+assert(
+  options.every((item) => !ASSET_WORD.test(item.label)),
+  'operação própria não oferece opções sobre ativo'
+)
+assert(
+  OPERATION_MODELS[0].indicators.every(
+    (item) => !ASSET_WORD.test(`${item.name} ${item.description} ${item.unit} ${item.formulaHint}`)
+  ),
+  'indicadores da operação própria não falam sobre ativo'
+)
 assert(
   operationalIndicatorsFor('franquia', ['fr_cac', 'fr_ltv']).map((item) => item.code).join() ===
     'fr_cac,fr_ltv',
   'filtra indicadores selecionados'
 )
-assert(selectedOperationPriorities(['own_roi', 'own_roa']).length === 2, 'lê prioridades múltiplas')
+assert(selectedOperationPriorities(['own_roi', 'own_operating_margin']).length === 2, 'lê prioridades múltiplas')
 assert(selectedOperationPriorities('__skipped__').length === 0, 'pular não seleciona indicadores')
 
 const names = OPERATION_MODELS.flatMap((model) => model.indicators.map((item) => item.code))
