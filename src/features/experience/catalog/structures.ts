@@ -47,15 +47,12 @@ export const STRUCTURES: Record<string, StructureTemplate> = {
     defaultUnitCodes: ['kg'],
   }),
   commerce: structure({
-    extraDepartments: ['Loja'],
-    extraCostCenters: ['CMV', 'Frete', 'Comissões', 'Marketplace'],
+    extraCostCenters: ['CMV'],
     extraCategories: [
       { name: 'CMV', type: 'cost' },
-      { name: 'Frete sobre vendas', type: 'expense' },
-      { name: 'Comissões', type: 'expense' },
       { name: 'Vendas de mercadorias', type: 'revenue' },
     ],
-    oxrDimensions: ['categoria', 'produto', 'loja'],
+    oxrDimensions: ['categoria', 'produto', 'canal'],
     defaultUnitCodes: ['sold_unit'],
   }),
   industry: structure({

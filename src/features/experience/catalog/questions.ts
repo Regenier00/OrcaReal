@@ -1,6 +1,7 @@
 import { BRAZIL_STATES, YES_NO, opts, q } from './helpers.ts'
 import { REVENUE_MODEL_OPTIONS } from './revenueModels.ts'
 import { OPERATION_MODEL_OPTIONS, OPERATION_MODELS } from './operationModels.ts'
+import { SALES_CHANNEL_OPTIONS } from './salesChannels.ts'
 import type { ExperienceQuestion } from '../types.ts'
 
 const common: ExperienceQuestion[] = [
@@ -142,7 +143,18 @@ const fishing: ExperienceQuestion[] = [
 ]
 
 const commerce: ExperienceQuestion[] = [
-  q({ code: 'com_channel', segmentCode: 'commerce', prompt: 'Como a empresa vende?', helpText: 'Pode marcar física e online.', options: opts('Física', 'Online'), mapsTo: 'fact.sales_channel' }, 110),
+  q(
+    {
+      code: 'com_channel',
+      segmentCode: 'commerce',
+      prompt: 'Como a empresa vende?',
+      helpText:
+        'Pode marcar loja física, e-commerce e marketplace. Centros de custo, categorias e indicadores mudam conforme os canais.',
+      options: SALES_CHANNEL_OPTIONS,
+      mapsTo: 'fact.sales_channel',
+    },
+    110
+  ),
   q({ code: 'com_stock', segmentCode: 'commerce', prompt: 'A empresa controla estoque?', options: YES_NO, mapsTo: 'fact.stock_control' }, 120),
 ]
 

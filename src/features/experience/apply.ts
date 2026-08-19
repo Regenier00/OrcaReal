@@ -8,6 +8,10 @@ import {
   selectedRevenueModels,
 } from '@/features/experience/catalog/revenueModels'
 import { operationModelLabel } from '@/features/experience/catalog/operationModels'
+import {
+  formatSalesChannels,
+  overlaySalesChannelStructure,
+} from '@/features/experience/catalog/salesChannels'
 import { defaultUnitCodesForSegments, unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { buildDashboardLayout, selectIndicators } from '@/features/experience/indicators'
 import type {
@@ -119,7 +123,11 @@ export function applyExperience(
   ctx: EvaluationContext
 ): AppliedExperience {
   const extraSegmentCodes = extraSegmentCodesFromAnswers(ctx.answers)
-  const structure = mergeStructures(ctx.segmentCode, extraSegmentCodes, catalog)
+  const structure = overlaySalesChannelStructure(
+    mergeStructures(ctx.segmentCode, extraSegmentCodes, catalog),
+    [ctx.segmentCode, ...extraSegmentCodes],
+    ctx.answers
+  )
   const analysisUnitCodes = unique([
     ...defaultUnitCodesForSegments([ctx.segmentCode, ...extraSegmentCodes]),
     ...structure.defaultUnitCodes,
@@ -186,6 +194,9 @@ export function buildProfileSummary(
     .map((code) => catalog.analysisUnits.find((item) => item.code === code)?.name ?? code)
     .join(', ')
 
+  const facts = profile.profile_facts
+  const channelSummary = formatSalesChannels(facts.sales_channel)
+
   const parts = [
     `Ramo: ${ramo}`,
     extras.length ? `Outras operações: ${extras.join(', ')}` : null,
@@ -200,13 +211,13 @@ export function buildProfileSummary(
     profile.operation_model
       ? `Operação: ${operationModelLabel(profile.operation_model) || profile.operation_model}`
       : null,
+    channelSummary ? `Canais: ${channelSummary}` : null,
     profile.state
       ? `Local: ${[profile.city, profile.state].filter(Boolean).join(' / ')}`
       : null,
     units ? `Unidades de análise: ${units}` : null,
   ].filter(Boolean)
 
-  const facts = profile.profile_facts
   if (typeof facts.animal_count === 'number' || typeof facts.animal_count === 'string') {
     parts.push(`${facts.animal_count} animais`)
   }

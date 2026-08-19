@@ -121,6 +121,12 @@ for (const code of [
 }
 
 assert(mixedCodes.has('com_channel'), 'comércio ainda deve perguntar o canal de venda')
+const channelQuestion = QUESTIONS.find((question) => question.code === 'com_channel')
+assert(
+  channelQuestion?.options?.map((item) => item.label).join() ===
+    'Loja física,E-commerce,Marketplace',
+  'canal de venda oferece loja física, e-commerce e marketplace'
+)
 assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
 assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 
