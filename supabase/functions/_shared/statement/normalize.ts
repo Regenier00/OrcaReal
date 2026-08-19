@@ -98,7 +98,45 @@ export function excelSerialToIso(serial: number) {
   return new Date(epoch + Math.floor(serial + 1e-9) * 86400000).toISOString().slice(0, 10)
 }
 
-export function parseBrazilianDate(value: unknown): string | null {
+export interface DateParseOptions {
+  defaultYear?: number
+}
+
+export function inferStatementYear(text: string, fallback?: number) {
+  const now = fallback ?? new Date().getUTCFullYear()
+  const counts = new Map<number, number>()
+  const yearRe = /\b((?:19|20)\d{2})\b/g
+  let match: RegExpExecArray | null
+  while ((match = yearRe.exec(text))) {
+    const year = Number(match[1])
+    if (year < 1990 || year > now + 1) continue
+    counts.set(year, (counts.get(year) ?? 0) + 1)
+  }
+  let best = now
+  let bestCount = 0
+  for (const [year, count] of counts) {
+    if (count > bestCount || (count === bestCount && year >= best)) {
+      best = year
+      bestCount = count
+    }
+  }
+  return best
+}
+
+function resolveDayMonth(first: number, second: number) {
+  let day = first
+  let month = second
+  if (month > 12 && day <= 12) {
+    day = second
+    month = first
+  }
+  return { day, month }
+}
+
+export function parseBrazilianDate(
+  value: unknown,
+  options?: DateParseOptions,
+): string | null {
   const raw = String(value ?? '').trim()
   if (!raw) return null
 
@@ -114,15 +152,15 @@ export function parseBrazilianDate(value: unknown): string | null {
     /^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)?$/,
   )
   if (parts) {
-    let first = Number(parts[1])
-    let second = Number(parts[2])
-    const year = parseYearToken(parts[3])
-    if (second > 12 && first <= 12) {
-      const swapped = first
-      first = second
-      second = swapped
-    }
-    return isoDate(year, second, first)
+    const { day, month } = resolveDayMonth(Number(parts[1]), Number(parts[2]))
+    return isoDate(parseYearToken(parts[3]), month, day)
+  }
+
+  const yearless = raw.match(/^(\d{1,2})[/-](\d{1,2})$/)
+  if (yearless) {
+    const { day, month } = resolveDayMonth(Number(yearless[1]), Number(yearless[2]))
+    const year = options?.defaultYear ?? new Date().getUTCFullYear()
+    return isoDate(year, month, day)
   }
 
   const named = raw.match(
@@ -146,7 +184,11 @@ export function parseBrazilianDate(value: unknown): string | null {
 }
 
 export function parseAmount(value: unknown): number | null {
-  let raw = String(value ?? '').trim().replace(/[rR]\$\s?/g, '').replace(/\s/g, '')
+  let raw = String(value ?? '')
+    .trim()
+    .replace(/[rR]\$\s?/g, '')
+    .replace(/(\d{1,3})\s+(\d{3},\d{2})\b/g, '$1.$2')
+    .replace(/\s/g, '')
   if (!raw) return null
 
   const negative =

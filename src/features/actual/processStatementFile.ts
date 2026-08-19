@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { MAX_TRANSACTIONS } from '../../../supabase/functions/_shared/statement/limits.ts'
+import { statementError, statementLog } from '../../../supabase/functions/_shared/statement/log.ts'
 import { setPdfOcrProvider } from '../../../supabase/functions/_shared/statement/ocr.ts'
 import { parseStatement } from '../../../supabase/functions/_shared/statement/parse.ts'
 import type { ParseResult } from '../../../supabase/functions/_shared/statement/types.ts'
@@ -79,7 +80,18 @@ export async function processStatementFile(input: {
     await updateImport(input.importId, { status: 'identifying' })
     await updateImport(input.importId, { status: 'parsing' })
 
+    statementLog('Processando extrato', {
+      arquivo: input.fileName,
+      bytes: input.bytes.byteLength,
+    })
     const parsed = await parseStatement(input.fileName, input.bytes)
+    statementLog('Leitura concluída', {
+      formato: parsed.format,
+      banco: parsed.bankName,
+      lancamentos: parsed.movements.length,
+      ocrPendente: parsed.ocrRequired,
+      avisos: parsed.warnings.map((item) => item.message),
+    })
     const detectedType = fileTypeFromParse(parsed)
     await updateImport(input.importId, {
       status: 'normalizing',
@@ -156,6 +168,7 @@ export async function processStatementFile(input: {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Falha ao processar o extrato.'
+    statementError('Falha ao processar o extrato', error)
     await updateImport(input.importId, {
       status: 'failed',
       error_message: message,

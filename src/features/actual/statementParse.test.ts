@@ -803,6 +803,122 @@ async function testPdfJpegImageExtraction() {
   assert(images[0]?.[0] === 0xff && images[0]?.[1] === 0xd8, 'SOI jpeg')
 }
 
+function testYearlessDatesUseStatementYear() {
+  const result = parseTabularRows([
+    ['ITAU EXTRATO CONTA CORRENTE'],
+    ['Período: 01/08/2026 a 31/08/2026'],
+    ['Data', 'Histórico', 'Valor', 'Saldo'],
+    ['01/08', 'PIX RECEBIDO CLIENTE', '350,00', '1.600,00'],
+    ['02/08', 'TARIFA MANUTENCAO', '-12,90', '1.587,10'],
+  ])
+  assert(result.movements.length === 2, `sem ano: ${result.movements.length}`)
+  assert(byDescription(result, 'PIX RECEBIDO')?.postedAt === '2026-08-01', 'ano do período')
+  assert(byDescription(result, 'TARIFA')?.postedAt === '2026-08-02', 'segunda data sem ano')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa sem ano')
+}
+
+async function testPdfYearlessAndWrappedLines() {
+  const content = pdfTable([
+    {
+      y: 720,
+      cells: [{ x: 50, text: 'ITAU EXTRATO CONTA CORRENTE 08/2026' }],
+    },
+    {
+      y: 700,
+      cells: [
+        { x: 50, text: '01/08' },
+        { x: 130, text: 'PIX RECEBIDO CLIENTE' },
+        { x: 360, text: '350,00' },
+        { x: 450, text: '1.600,00' },
+      ],
+    },
+    {
+      y: 682,
+      cells: [{ x: 50, text: '02/08' }],
+    },
+    {
+      y: 664,
+      cells: [
+        { x: 130, text: 'TARIFA MANUTENCAO' },
+        { x: 360, text: '-12,90' },
+        { x: 450, text: '1.587,10' },
+      ],
+    },
+  ])
+  const result = await parseStatement('extrato-sem-ano.pdf', await makeStatementPdf(content))
+  assert(
+    result.movements.length === 2,
+    `pdf sem ano/linhas: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO')?.postedAt === '2026-08-01', 'pdf ano inferido')
+  assert(byDescription(result, 'TARIFA')?.amount === 12.9, 'linha seguinte com valor')
+}
+
+async function testPdfFormXObject() {
+  const formContent = pdfTable([
+    {
+      y: 700,
+      cells: [
+        { x: 50, text: '01/08/2026' },
+        { x: 140, text: 'PIX RECEBIDO CLIENTE' },
+        { x: 380, text: '350,00' },
+      ],
+    },
+    {
+      y: 682,
+      cells: [
+        { x: 50, text: '02/08/2026' },
+        { x: 140, text: 'TARIFA MANUTENCAO' },
+        { x: 380, text: '-12,90' },
+      ],
+    },
+  ])
+  const pageContent = 'q /Fm1 Do Q'
+  const pdf = assemblePdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /XObject << /Fm1 5 0 R >> /Font << /F1 6 0 R >> >> >>',
+    `<< /Length ${pageContent.length} >>\nstream\n${pageContent}endstream`,
+    `<< /Type /XObject /Subtype /Form /BBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Length ${formContent.length} >>\nstream\n${formContent}endstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ])
+  const result = await parseStatement('extrato-form.pdf', pdf)
+  assert(
+    result.movements.length === 2,
+    `form xobject: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix no form')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa no form')
+}
+
+async function testPdfOcrRunsWhenHeaderLooksLikeStatement() {
+  const content = `BT
+/F1 12 Tf
+1 0 0 1 50 700 Tm
+(Periodo 01/08/2026 a 31/08/2026) Tj
+ET`
+  let ocrCalls = 0
+  setPdfOcrProvider(async () => {
+    ocrCalls += 1
+    return {
+      text: `01/08/2026  PIX RECEBIDO CLIENTE  350,00
+02/08/2026  TARIFA MANUTENCAO  -12,90`,
+      usedOcr: true,
+    }
+  })
+  try {
+    const result = await parseStatement(
+      'scan-cabecalho.pdf',
+      await makeStatementPdf(content),
+    )
+    assert(ocrCalls >= 1, `OCR deveria rodar, chamadas=${ocrCalls}`)
+    assert(result.movements.length === 2, `ocr cabecalho: ${result.movements.length}`)
+    assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix apos ocr')
+  } finally {
+    setPdfOcrProvider(null)
+  }
+}
+
 async function testPdfOcrReadsMovements() {
   const content = `BT
 /F1 12 Tf
@@ -879,6 +995,10 @@ await testPdfFlateAndTjArray()
 await testPdfToUnicode()
 await testPdfNeedsOcr()
 await testPdfJpegImageExtraction()
+testYearlessDatesUseStatementYear()
+await testPdfYearlessAndWrappedLines()
+await testPdfFormXObject()
+await testPdfOcrRunsWhenHeaderLooksLikeStatement()
 await testPdfOcrReadsMovements()
 testCompletedStatementMessage()
 console.log('statement parse tests ok')

@@ -1,5 +1,6 @@
 import {
   excelSerialToIso,
+  inferStatementYear,
   parseAmount,
   parseBrazilianDate,
   typeFromCreditDebit,
@@ -291,6 +292,7 @@ function looksLikeTextDate(value: string) {
   if (!raw) return false
   if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return true
   if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/.test(raw)) return true
+  if (/^\d{1,2}[/-]\d{1,2}$/.test(raw)) return Boolean(parseBrazilianDate(raw))
   if (/^\d{1,2}[./\-\s]+[A-Za-zÀ-ÿ]{3,}/.test(raw)) {
     return Boolean(parseBrazilianDate(raw))
   }
@@ -612,6 +614,7 @@ export function movementsFromMappedRows(
 ): RawMovement[] {
   const movements: RawMovement[] = []
   const start = map.headerIndex >= 0 ? map.headerIndex + 1 : 0
+  const defaultYear = inferStatementYear(rows.flat().join(' '))
   let lastDate = ''
 
   for (let i = start; i < rows.length; i += 1) {
@@ -619,12 +622,15 @@ export function movementsFromMappedRows(
     if (!row || row.every((cell) => !cell?.trim())) continue
 
     let dateCell = (row[map.date] ?? '').trim()
-    if (bestRoleForHeader(dateCell)?.role === 'date' && !parseBrazilianDate(dateCell)) {
+    if (
+      bestRoleForHeader(dateCell)?.role === 'date' &&
+      !parseBrazilianDate(dateCell, { defaultYear })
+    ) {
       continue
     }
     if (!dateCell && lastDate) dateCell = lastDate
 
-    const posted = parseBrazilianDate(dateCell)
+    const posted = parseBrazilianDate(dateCell, { defaultYear })
     const description = row[map.description] ?? ''
     const typeLabel = map.type >= 0 ? row[map.type] ?? '' : ''
     if (!posted || !description.trim()) {

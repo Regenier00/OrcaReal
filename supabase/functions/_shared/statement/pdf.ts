@@ -1,9 +1,11 @@
 import { parseTabularRows } from './csv.ts'
 import { detectBank } from './banks.ts'
+import { statementLog, statementWarn } from './log.ts'
 import {
   capWarnings,
   emptyResult,
   finalizeMovements,
+  inferStatementYear,
   parseAmount,
   parseBrazilianDate,
   typeFromLabel,
@@ -19,17 +21,17 @@ import type {
 } from './types.ts'
 
 const DATE_PATTERN =
-  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}'
+  '\\d{1,2}[./-]\\d{1,2}[./-]\\d{2,4}|\\d{1,2}[./\\-\\s]+[A-Za-zÀ-ÿ]{3,9}\\.?[./\\-\\s]+\\d{2,4}|\\d{1,2}[/\\-]\\d{1,2}(?![\\d./-])'
 const DATE_RE = new RegExp(`(${DATE_PATTERN})`)
 const DATE_SPLIT_RE = new RegExp(`(?=${DATE_PATTERN})`)
 const AMOUNT_PATTERN =
-  '(?:R\\$\\s*)?-?\\d{1,3}(?:\\.\\d{3})*,\\d{2}-?|(?:R\\$\\s*)?-?\\d+[.,]\\d{2}-?|\\(\\d{1,3}(?:\\.\\d{3})*,\\d{2}\\)|\\d{1,3}(?:\\.\\d{3})*,\\d{2}\\s*[DdCc]'
+  '(?:R\\$\\s*)?-?\\d{1,3}(?:[.\\s]\\d{3})*,\\d{2}-?|(?:R\\$\\s*)?-?\\d+[.,]\\d{2}-?|\\(\\d{1,3}(?:[.\\s]\\d{3})*,\\d{2}\\)|\\d{1,3}(?:[.\\s]\\d{3})*,\\d{2}\\s*[DdCc]'
 
 function amountRegex() {
   return new RegExp(AMOUNT_PATTERN, 'g')
 }
 const SKIP_LINE =
-  /saldo\s*(anterior|inicial|final|atual)|opening balance|closing balance|^totais?$|^subtotal$/i
+  /saldo\s*(anterior|inicial|final|atual)|^saldo$|opening balance|closing balance|^totais?$|^subtotal$|^per[ií]odo\b|^p[aá]gina\b|^agencia\b|^ag[eê]ncia\b/i
 
 function looksExtractable(text: string) {
   const compact = text.replace(/\s+/g, '')
@@ -46,6 +48,15 @@ function collapseSpacedGlyphs(text: string) {
   return tokens.join('')
 }
 
+function cleanExtractedStatementText(text: string) {
+  return text
+    .replace(/\u00a0/g, ' ')
+    .replace(/\b[Oo](?=\d[./-])/g, '0')
+    .replace(/(\d[./-])[Oo](?=[./\d-])/g, '$10')
+    .replace(/(\d{1,3})\s+(\d{3},\d{2})\b/g, '$1.$2')
+    .replace(/(\d),\s+(\d{2})\b/g, '$1,$2')
+}
+
 function linesFromText(text: string) {
   return text
     .split(/\n+/)
@@ -53,6 +64,46 @@ function linesFromText(text: string) {
     .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
     .filter(Boolean)
     .slice(0, 12_000)
+}
+
+function lineHasDate(line: string) {
+  return DATE_RE.test(line)
+}
+
+function lineHasAmount(line: string) {
+  return amountRegex().test(line)
+}
+
+function mergeStatementLines(lines: string[]) {
+  const merged: string[] = []
+  let pending = ''
+  let lastDate = ''
+  for (const line of lines) {
+    const hasDate = lineHasDate(line)
+    const hasAmount = lineHasAmount(line)
+    if (hasDate) lastDate = line.match(DATE_RE)?.[1] ?? lastDate
+    if (hasDate && hasAmount) {
+      if (pending) merged.push(pending)
+      merged.push(line)
+      pending = ''
+      continue
+    }
+    if (hasDate && !hasAmount) {
+      if (pending) merged.push(pending)
+      pending = line
+      continue
+    }
+    if (!hasDate && hasAmount) {
+      const prefix = pending || lastDate
+      merged.push(prefix ? `${prefix} ${line}` : line)
+      pending = ''
+      continue
+    }
+    if (pending) pending = `${pending} ${line}`
+    else if (lastDate && /[a-zA-ZÀ-ÿ]/.test(line)) pending = `${lastDate} ${line}`
+  }
+  if (pending) merged.push(pending)
+  return merged
 }
 
 function pickAmount(line: string) {
@@ -68,10 +119,13 @@ function pickAmount(line: string) {
   return { raw: chosen, signed, labeled }
 }
 
-function movementFromLine(line: string): RawMovement | null {
+function movementFromLine(
+  line: string,
+  defaultYear: number,
+): RawMovement | null {
   const dateMatch = line.match(DATE_RE)
   if (!dateMatch) return null
-  const posted = parseBrazilianDate(dateMatch[1])
+  const posted = parseBrazilianDate(dateMatch[1], { defaultYear })
   if (!posted) return null
 
   const amount = pickAmount(line)
@@ -108,10 +162,10 @@ function movementFromLine(line: string): RawMovement | null {
   }
 }
 
-function movementsFromLines(text: string): RawMovement[] {
+function movementsFromLines(text: string, defaultYear: number): RawMovement[] {
   const movements: RawMovement[] = []
-  for (const line of linesFromText(text)) {
-    const movement = movementFromLine(line)
+  for (const line of mergeStatementLines(linesFromText(text))) {
+    const movement = movementFromLine(line, defaultYear)
     if (movement) movements.push(movement)
   }
   return finalizeMovements(movements)
@@ -153,6 +207,7 @@ function parsePdfLayout(
   extracted: Pick<PdfExtraction, 'text' | 'rows' | 'alignedRows'>,
   collapsed: string,
 ) {
+  const defaultYear = inferStatementYear(`${extracted.text}\n${collapsed}`)
   const tableCandidates = [
     extracted.rows,
     extracted.alignedRows,
@@ -177,7 +232,7 @@ function parsePdfLayout(
     bestMovements.length === 0
       ? uniquePdfTexts([extracted.text, collapsed]).join('\n')
       : extracted.text
-  const lineMovements = movementsFromLines(lineSource)
+  const lineMovements = movementsFromLines(lineSource, defaultYear)
   if (lineMovements.length > bestMovements.length) {
     bestMovements = lineMovements
     bestWarnings = []
@@ -204,47 +259,79 @@ export const pdfParser: StatementParser = {
   async parse(file: DetectedFile): Promise<ParseResult> {
     const result = emptyResult('pdf')
     const extracted = await extractPdfLayout(file.bytes)
-    const collapsed = collapseSpacedGlyphs(extracted.text)
+    const collapsed = collapseSpacedGlyphs(
+      cleanExtractedStatementText(extracted.text),
+    )
+    const cleanedText = cleanExtractedStatementText(extracted.text)
+    extracted.text = cleanedText
     applyBankHint(result, (extracted.text || collapsed).slice(0, 4000))
+    statementLog('PDF extraído', {
+      arquivo: file.fileName,
+      caracteres: extracted.text.replace(/\s+/g, '').length,
+      linhas: extracted.rows.length,
+      criptografado: extracted.encrypted,
+    })
 
     if (extracted.encrypted && extracted.text.replace(/\s+/g, '').length < 40) {
       result.warnings.push({
         message:
           'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.',
       })
+      statementWarn('PDF protegido por senha')
       return result
     }
 
     const parsed = parsePdfLayout(extracted, collapsed)
     result.movements = parsed.movements
     result.warnings = parsed.warnings
+    statementLog('Primeira leitura do PDF', {
+      lancamentos: result.movements.length,
+    })
 
-    if (result.movements.length === 0) {
+    const applyRecovered = async (forceOcr: boolean) => {
       const recovered = await runPdfOcr({
         bytes: file.bytes,
         extractedText: `${extracted.text}\n${collapsed}`,
+        forceOcr,
       })
-      if (recovered?.text.trim()) {
-        const ocrCollapsed = collapseSpacedGlyphs(recovered.text)
-        const recoveredParsed = parsePdfLayout(
-          {
-            text: recovered.text,
-            rows: rowsFromLooseText(recovered.text),
-            alignedRows: rowsFromLooseText(ocrCollapsed),
-          },
-          ocrCollapsed,
-        )
-        if (recoveredParsed.movements.length > result.movements.length) {
-          result.movements = recoveredParsed.movements
-          result.warnings = recoveredParsed.warnings
-          applyBankHint(result, recovered.text.slice(0, 4000))
-          if (recovered.usedOcr) {
-            result.warnings = capWarnings([
-              { message: 'PDF digitalizado: lançamentos lidos por OCR.' },
-              ...result.warnings,
-            ])
-          }
+      if (!recovered?.text.trim()) {
+        statementLog(forceOcr ? 'OCR não devolveu texto' : 'pdf.js não devolveu texto extra')
+        return recovered
+      }
+      const recoveredText = cleanExtractedStatementText(recovered.text)
+      const ocrCollapsed = collapseSpacedGlyphs(recoveredText)
+      const recoveredParsed = parsePdfLayout(
+        {
+          text: recoveredText,
+          rows: rowsFromLooseText(recoveredText),
+          alignedRows: rowsFromLooseText(ocrCollapsed),
+        },
+        ocrCollapsed,
+      )
+      statementLog(recovered.usedOcr ? 'OCR concluído' : 'Texto do pdf.js', {
+        caracteres: recoveredText.replace(/\s+/g, '').length,
+        lancamentos: recoveredParsed.movements.length,
+      })
+      if (recoveredParsed.movements.length > result.movements.length) {
+        result.movements = recoveredParsed.movements
+        result.warnings = recoveredParsed.warnings
+        applyBankHint(result, recoveredText.slice(0, 4000))
+        if (recovered.usedOcr) {
+          result.warnings = capWarnings([
+            { message: 'PDF digitalizado: lançamentos lidos por OCR.' },
+            ...result.warnings,
+          ])
         }
+      }
+      return recovered
+    }
+
+    if (result.movements.length === 0) {
+      const recovered = await applyRecovered(false)
+      if (result.movements.length === 0 && recovered && !recovered.usedOcr) {
+        await applyRecovered(true)
+      } else if (result.movements.length === 0 && !recovered) {
+        await applyRecovered(true)
       }
     }
 
@@ -256,12 +343,16 @@ export const pdfParser: StatementParser = {
           message:
             'PDF sem texto extraível. Envie OFX, CSV, XLSX ou um PDF com texto selecionável.',
         })
+        statementWarn('PDF sem texto extraível e sem OCR neste ambiente')
         return result
       }
-      result.warnings.push({
-        message: extracted.encrypted
-          ? 'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.'
-          : 'Não foi possível ler lançamentos neste PDF. Envie OFX, CSV ou XLSX, ou um PDF com texto mais nítido.',
+      const message = extracted.encrypted
+        ? 'Este PDF está protegido por senha e não pode ser lido. Exporte o extrato sem senha, ou envie OFX, CSV ou XLSX.'
+        : 'Não foi possível ler lançamentos neste PDF. Envie OFX, CSV ou XLSX, ou um PDF com texto mais nítido.'
+      result.warnings.push({ message })
+      statementWarn('Nenhum lançamento identificado no PDF', {
+        caracteres: printable.replace(/\s+/g, '').length,
+        ocrDisponivel: hasPdfOcrProvider(),
       })
     }
     return result

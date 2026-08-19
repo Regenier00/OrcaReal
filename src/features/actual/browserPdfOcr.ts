@@ -2,10 +2,11 @@ import { getDocument, GlobalWorkerOptions, type PDFPageProxy } from 'pdfjs-dist'
 import { createWorker } from 'tesseract.js'
 import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
 import type { PdfOcrInput, PdfOcrResult } from '../../../supabase/functions/_shared/statement/ocr.ts'
+import { statementError, statementLog, statementWarn } from '../../../supabase/functions/_shared/statement/log.ts'
 
 const MAX_TEXT_PAGES = 40
 const MAX_OCR_PAGES = 25
-const DATE_RE = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/
+const DATE_RE = /\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}[/-]\d{1,2}(?![\d./-])/
 const AMOUNT_RE = /\d{1,3}(?:[.\s]\d{3})*,\d{2}|\d+[.,]\d{2}/
 
 let workerConfigured = false
@@ -28,9 +29,15 @@ function compactLength(text: string) {
   return text.replace(/\s+/g, '').length
 }
 
-function looksLikeStatement(text: string) {
-  if (compactLength(text) < 24) return false
-  return DATE_RE.test(text) && AMOUNT_RE.test(text)
+function statementSignals(text: string) {
+  const dates = text.match(new RegExp(DATE_RE.source, 'g'))?.length ?? 0
+  const amounts = text.match(new RegExp(AMOUNT_RE.source, 'g'))?.length ?? 0
+  return { dates, amounts, compact: compactLength(text) }
+}
+
+function isWeakStatementText(text: string) {
+  const signals = statementSignals(text)
+  return signals.dates < 2 || signals.amounts < 2 || signals.compact < 80
 }
 
 interface PdfRun {
@@ -113,9 +120,9 @@ async function textFromPage(page: PDFPageProxy) {
 
 function pageViewport(page: PDFPageProxy) {
   const base = page.getViewport({ scale: 1 })
-  const maxEdge = 2000
-  const scale = Math.min(2, maxEdge / Math.max(base.width, base.height, 1))
-  return page.getViewport({ scale: Math.max(1.35, scale) })
+  const maxEdge = 2400
+  const scale = Math.min(2.6, maxEdge / Math.max(base.width, base.height, 1))
+  return page.getViewport({ scale: Math.max(1.8, scale) })
 }
 
 async function renderPage(page: PDFPageProxy) {
@@ -140,7 +147,13 @@ function jpegBlob(bytes: Uint8Array) {
 async function ocrImages(images: Array<HTMLCanvasElement | Blob>): Promise<string> {
   if (images.length === 0) return ''
   const worker = await createWorker('por', 1, {
-    logger: () => undefined,
+    logger: (message) => {
+      if (message.status !== 'recognizing text' || message.progress == null) return
+      const pct = Math.round(message.progress * 100)
+      if (pct === 0 || pct === 100 || pct % 25 === 0) {
+        statementLog(`OCR ${pct}%`)
+      }
+    },
     workerPath: ocrAsset('worker.min.js'),
     corePath: ocrAsset('tesseract-core-lstm.wasm.js'),
     langPath: ocrLangPath(),
@@ -148,7 +161,9 @@ async function ocrImages(images: Array<HTMLCanvasElement | Blob>): Promise<strin
   })
   const parts: string[] = []
   try {
-    await worker.setParameters({ preserve_interword_spaces: '1' })
+    await worker.setParameters({
+      preserve_interword_spaces: '1',
+    })
     const limit = Math.min(images.length, MAX_OCR_PAGES)
     for (let i = 0; i < limit; i += 1) {
       const recognized = await worker.recognize(images[i])
@@ -201,24 +216,41 @@ async function extractWithPdfJs(bytes: Uint8Array) {
   }
 }
 
-export async function recoverPdfText({ bytes }: PdfOcrInput): Promise<PdfOcrResult | null> {
+export async function recoverPdfText({
+  bytes,
+  extractedText,
+  forceOcr,
+}: PdfOcrInput): Promise<PdfOcrResult | null> {
   if (typeof document === 'undefined') return null
 
   let opened: Awaited<ReturnType<typeof extractWithPdfJs>> | null = null
   try {
     opened = await extractWithPdfJs(bytes)
-  } catch {
-    /* worker do pdf.js falhou; o OCR usa JPEG embutido */
+  } catch (error) {
+    statementError('pdf.js não abriu o arquivo', error)
   }
 
   const nativeText = opened?.text ?? ''
   const pages = opened?.pages ?? []
-  if (looksLikeStatement(nativeText)) {
+  const nativeSignals = statementSignals(nativeText)
+  statementLog('Texto nativo do pdf.js', {
+    ...nativeSignals,
+    paginas: pages.length,
+    forcarOcr: Boolean(forceOcr),
+    textoAnterior: compactLength(extractedText),
+  })
+
+  const nativeWeak = isWeakStatementText(nativeText)
+  if (!forceOcr && nativeText.trim() && !nativeWeak) {
     await opened?.cleanup().catch(() => undefined)
+    statementLog('OCR dispensado: o PDF já tem texto suficiente para tentar a leitura')
     return { text: nativeText, usedOcr: false }
   }
 
   try {
+    statementLog('OCR iniciado no navegador', {
+      paginas: Math.min(pages.length || 1, MAX_OCR_PAGES),
+    })
     const images: Array<HTMLCanvasElement | Blob> = []
     if (pages.length > 0) {
       try {
@@ -226,23 +258,36 @@ export async function recoverPdfText({ bytes }: PdfOcrInput): Promise<PdfOcrResu
         for (let i = 0; i < limit; i += 1) {
           images.push(await renderPage(pages[i]))
         }
-      } catch {
+      } catch (error) {
+        statementWarn('Não foi possível renderizar páginas para OCR; tentando JPEG embutido', error)
         images.length = 0
       }
     }
     if (images.length === 0) {
       const jpegs = await extractPdfJpegImages(bytes)
+      statementLog('JPEGs embutidos no PDF', { quantidade: jpegs.length })
       for (const jpeg of jpegs.slice(0, MAX_OCR_PAGES)) {
         images.push(jpegBlob(jpeg))
       }
     }
+    if (images.length === 0) {
+      statementWarn('Nenhuma imagem disponível para OCR')
+      if (nativeText) return { text: nativeText, usedOcr: false }
+      return null
+    }
     const ocrText = await ocrImages(images)
+    const ocrSignals = statementSignals(ocrText)
+    statementLog('Texto reconhecido pelo OCR', ocrSignals)
     if (compactLength(ocrText) >= 24) {
       return { text: ocrText, usedOcr: true }
     }
-    if (nativeText) return { text: nativeText, usedOcr: false }
+    if (nativeText) {
+      statementWarn('OCR devolveu pouco texto; usando o texto nativo')
+      return { text: nativeText, usedOcr: false }
+    }
     return null
-  } catch {
+  } catch (error) {
+    statementError('OCR falhou ao ler o PDF', error)
     if (nativeText) return { text: nativeText, usedOcr: false }
     return null
   } finally {
