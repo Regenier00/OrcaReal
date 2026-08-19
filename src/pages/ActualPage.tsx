@@ -8,6 +8,7 @@ import {
 } from '@/features/actual/actualService'
 import type { ActualSummary } from '@/features/actual/actualService'
 import { ACTUAL_PATHS } from '@/features/actual/model'
+import { canDeleteImportedStatements } from '@/features/actual/permissions'
 import type { StatementImport } from '@/types/database'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
@@ -17,7 +18,8 @@ import { ImportedStatementsList } from '@/components/actual/ImportedStatementsLi
 import { ImportSummary } from '@/components/actual/ImportSummary'
 
 export function ActualPage() {
-  const { company, loading: companyLoading } = useCompany()
+  const { company, activeMembership, loading: companyLoading } = useCompany()
+  const canDelete = canDeleteImportedStatements(activeMembership?.role)
   const [summary, setSummary] = useState<ActualSummary | null>(null)
   const [imports, setImports] = useState<StatementImport[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
@@ -70,7 +72,7 @@ export function ActualPage() {
   )
 
   const handleDelete = async () => {
-    if (!company || !pendingDelete) return
+    if (!company || !pendingDelete || !canDelete) return
     setDeleting(true)
     try {
       await deleteStatementImport(company.id, pendingDelete.id)
@@ -142,7 +144,7 @@ export function ActualPage() {
             ) : (
               <ImportedStatementsList
                 imports={imports}
-                onDelete={setPendingDelete}
+                onDelete={canDelete ? setPendingDelete : undefined}
               />
             )}
           </section>

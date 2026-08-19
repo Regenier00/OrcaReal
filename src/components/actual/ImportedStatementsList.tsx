@@ -12,7 +12,7 @@ export function ImportedStatementsList({
   onDelete,
 }: {
   imports: StatementImport[]
-  onDelete: (item: StatementImport) => void
+  onDelete?: (item: StatementImport) => void
 }) {
   return (
     <ul className="mt-4 divide-y divide-paper-muted overflow-hidden rounded-2xl border border-paper-muted bg-white">
@@ -44,14 +44,16 @@ export function ImportedStatementsList({
                 Não apropriados
               </Button>
             </Link>
-            <Button
-              type="button"
-              variant="secondary"
-              className="!px-3 !py-2 !text-xs text-danger"
-              onClick={() => onDelete(item)}
-            >
-              Excluir
-            </Button>
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="secondary"
+                className="!px-3 !py-2 !text-xs text-danger"
+                onClick={() => onDelete(item)}
+              >
+                Excluir
+              </Button>
+            ) : null}
           </div>
         </li>
       ))}
