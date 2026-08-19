@@ -230,6 +230,9 @@ function mapActualError(error: unknown, fallback: string) {
   if (normalized.includes('sem acesso')) {
     return 'Sem acesso a esta empresa.'
   }
+  if (normalized.includes('apenas administradores')) {
+    return 'Apenas administradores da empresa podem excluir extratos importados.'
+  }
   if (normalized.includes('importação não encontrada')) {
     return 'Esse extrato já não está mais disponível.'
   }
@@ -298,7 +301,10 @@ export async function deleteStatementImport(
     p_import_id: importId,
   })
 
-  if (!error) return
+  if (!error) {
+    await removeStatementImportFile(current?.file_path)
+    return
+  }
 
   if (!isMissingDbObject(error)) {
     console.error('Erro ao excluir extrato via RPC:', error)
@@ -329,13 +335,16 @@ export async function deleteStatementImport(
     throw new Error(mapActualError(importError, 'Não foi possível excluir o extrato.'))
   }
 
-  if (current?.file_path) {
-    const { error: storageError } = await supabase.storage
-      .from('statement-imports')
-      .remove([current.file_path])
-    if (storageError) {
-      console.error('Erro ao excluir arquivo do extrato:', storageError)
-    }
+  await removeStatementImportFile(current?.file_path)
+}
+
+async function removeStatementImportFile(filePath?: string | null) {
+  if (!filePath) return
+  const { error } = await supabase.storage
+    .from('statement-imports')
+    .remove([filePath])
+  if (error) {
+    console.error('Erro ao excluir arquivo do extrato:', error)
   }
 }
 

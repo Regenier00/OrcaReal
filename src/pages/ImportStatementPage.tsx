@@ -16,6 +16,7 @@ import {
   MAX_STATEMENT_FILE_BYTES,
   isAcceptedStatementFile,
 } from '@/features/actual/model'
+import { canDeleteImportedStatements } from '@/features/actual/permissions'
 import type { BankAccount, StatementImport } from '@/types/database'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
@@ -40,7 +41,8 @@ function completedStatementMessage(item: StatementImport) {
 
 export function ImportStatementPage() {
   const { user } = useAuth()
-  const { company } = useCompany()
+  const { company, activeMembership } = useCompany()
+  const canDelete = canDeleteImportedStatements(activeMembership?.role)
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [accountId, setAccountId] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -136,7 +138,7 @@ export function ImportStatementPage() {
   }
 
   const handleDelete = async () => {
-    if (!company || !pendingDelete) return
+    if (!company || !pendingDelete || !canDelete) return
     setDeleting(true)
     try {
       await deleteStatementImport(company.id, pendingDelete.id)
@@ -279,14 +281,16 @@ export function ImportStatementPage() {
                 <Link to={`${ACTUAL_PATHS.unappropriated}?importacao=${current.id}`}>
                   <Button type="button">Ir para não apropriados</Button>
                 </Link>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="text-danger"
-                  onClick={() => setPendingDelete(current)}
-                >
-                  Excluir extrato
-                </Button>
+                {canDelete ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="text-danger"
+                    onClick={() => setPendingDelete(current)}
+                  >
+                    Excluir extrato
+                  </Button>
+                ) : null}
               </div>
             </div>
           ) : null}
