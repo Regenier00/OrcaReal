@@ -19,8 +19,18 @@ export default defineConfig(({ mode }) => {
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY = key
   }
 
+  const define: Record<string, string> = {}
+  if (url) {
+    define['import.meta.env.VITE_SUPABASE_URL'] = JSON.stringify(url)
+  }
+  if (key) {
+    define['import.meta.env.VITE_SUPABASE_ANON_KEY'] = JSON.stringify(key)
+    define['import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY'] = JSON.stringify(key)
+  }
+
   return {
     plugins: [react(), tailwindcss()],
+    define,
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
