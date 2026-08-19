@@ -24,6 +24,20 @@ import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
 
+function completedStatementMessage(item: StatementImport) {
+  const count = item.transaction_count
+  if (count === 1) {
+    return 'Extrato processado com sucesso. 1 lançamento importado.'
+  }
+  if (count > 1) {
+    return `Extrato processado com sucesso. ${count} lançamentos importados.`
+  }
+  if (item.duplicate_count > 0) {
+    return 'Extrato processado com sucesso. Nenhum lançamento novo — as duplicidades foram ignoradas.'
+  }
+  return 'Extrato processado com sucesso.'
+}
+
 export function ImportStatementPage() {
   const { user } = useAuth()
   const { company } = useCompany()
@@ -231,6 +245,14 @@ export function ImportStatementPage() {
             {FILE_TYPE_LABEL[current.file_type]} · {IMPORT_STATUS_LABEL[current.status]}
             {current.detected_bank ? ` · ${current.detected_bank}` : ''}
           </p>
+          {current.status === 'completed' ? (
+            <p
+              role="status"
+              className="mt-4 rounded-xl border border-ok/20 bg-ok-soft px-4 py-3 text-sm font-medium text-ok"
+            >
+              {completedStatementMessage(current)}
+            </p>
+          ) : null}
           <div className="mt-4">
             <ImportProgress status={current.status} />
           </div>
