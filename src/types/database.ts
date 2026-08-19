@@ -15,6 +15,7 @@ export interface Company {
   document: string | null
   description: string | null
   logo_url: string | null
+  brand_color: string | null
   created_at: string
   updated_at: string
 }

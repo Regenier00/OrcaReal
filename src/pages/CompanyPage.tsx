@@ -13,6 +13,7 @@ import {
   updateCompanyData,
   updateCompanyEmployeeCount,
   updateCompanyLogo,
+  updateCompanyBrandColor,
   updateCompanySegment,
   updateCompanySettings,
 } from '@/features/company/companyService'
@@ -35,6 +36,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
+import { CompanyBrandColorField } from '@/components/company/CompanyBrandColorField'
 import { OperationalPrioritiesEditor } from '@/components/company/OperationalPrioritiesEditor'
 import { useTour } from '@/features/tour/useTour'
 import { SKIP_TOUR_LABEL } from '@/features/tour/storage'
@@ -113,6 +115,7 @@ export function CompanyPage() {
             document={activeCompany.document ?? ''}
             description={activeCompany.description ?? ''}
             logoUrl={activeCompany.logo_url}
+            brandColor={activeCompany.brand_color}
             segmentId={companyProfile?.segment_id ?? ''}
             customSegment={companyProfile?.custom_segment ?? ''}
             segments={segments}
@@ -176,6 +179,7 @@ function CompanyDataTab({
   document,
   description,
   logoUrl,
+  brandColor,
   segmentId,
   customSegment,
   segments,
@@ -188,6 +192,7 @@ function CompanyDataTab({
   document: string
   description: string
   logoUrl: string | null
+  brandColor: string | null
   segmentId: string
   customSegment: string
   segments: Array<{ id: string; code: string; name: string }>
@@ -205,6 +210,7 @@ function CompanyDataTab({
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [colorError, setColorError] = useState('')
 
   const selectedCode = segments.find((item) => item.id === formSegmentId)?.code
   const orderedSegments = useMemo(() => {
@@ -290,6 +296,27 @@ function CompanyDataTab({
           }
         />
       </div>
+      <CompanyBrandColorField
+        value={brandColor}
+        disabled={!canEdit}
+        error={colorError}
+        onChange={
+          canEdit
+            ? async (nextColor) => {
+                setColorError('')
+                const result = await updateCompanyBrandColor({
+                  companyId,
+                  brandColor: nextColor,
+                })
+                if (!result.ok) {
+                  setColorError(result.message)
+                  return
+                }
+                onSaved()
+              }
+            : undefined
+        }
+      />
       <Input
         label="Nome da empresa"
         value={formName}

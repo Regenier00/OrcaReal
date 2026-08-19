@@ -5,7 +5,7 @@ import {
   sortCostCentersByDefault,
   sortDepartmentsByDefault,
 } from '@/features/company/defaultDepartments'
-import type { SegmentCode } from '@/features/company/segmentOptions'
+import { parseBrandColor, ORCAREAL_BRAND_COLOR } from '@/lib/brandColor'
 import { parseEmployeeCount } from '@/features/experience/employeeCount'
 import type {
   Company,
@@ -37,6 +37,7 @@ function asCompany(value: unknown): Company | null {
     document: row.document ?? null,
     description: row.description ?? null,
     logo_url: typeof row.logo_url === 'string' && row.logo_url ? row.logo_url : null,
+    brand_color: parseBrandColor(row.brand_color),
     created_at: row.created_at ?? '',
     updated_at: row.updated_at ?? '',
   }
@@ -397,6 +398,53 @@ export function logoUrlFromSettings(
 ): string | null {
   const value = settings?.logo_url
   return typeof value === 'string' && value.trim() ? value : null
+}
+
+export async function updateCompanyBrandColor(input: {
+  companyId: string
+  brandColor: string | null
+}): Promise<ServiceResult<string | null>> {
+  const parsed = parseBrandColor(input.brandColor)
+  if (input.brandColor && !parsed) {
+    return { ok: false, message: 'Informe uma cor no formato #RRGGBB.' }
+  }
+  const brandColor = parsed === ORCAREAL_BRAND_COLOR ? null : parsed
+
+  const { data, error } = await supabase
+    .from('companies')
+    .update({
+      brand_color: brandColor,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', input.companyId)
+    .select()
+    .single()
+
+  if (!error) {
+    return { ok: true, data: asCompany(data)?.brand_color ?? brandColor }
+  }
+
+  const settingsResult = await getCompanySettings(input.companyId)
+  if (!settingsResult.ok) return fail(error)
+
+  if (!settingsResult.data) {
+    const { error: insertError } = await supabase.from('company_settings').insert({
+      company_id: input.companyId,
+      settings: { brand_color: brandColor },
+    })
+    if (insertError) return fail(error)
+    return { ok: true, data: brandColor }
+  }
+
+  const updated = await updateCompanySettings({
+    companyId: input.companyId,
+    settings: {
+      ...settingsResult.data.settings,
+      brand_color: brandColor,
+    },
+  })
+  if (!updated.ok) return fail(error)
+  return { ok: true, data: brandColor }
 }
 
 export async function updateCompanyLogo(input: {
