@@ -16,17 +16,23 @@ export function FinancialSummary({
   monthLabel,
   greeting,
   loading,
+  isConsolidated,
 }: {
   current: MonthFinancials | null
   previous: MonthFinancials | null
   monthLabel: string
   greeting?: string
   loading?: boolean
+  isConsolidated?: boolean
 }) {
   if (loading && !current) {
     return (
       <section data-tour="financial-summary">
-        <SummaryIntro greeting={greeting} monthLabel={monthLabel} />
+        <SummaryIntro
+          greeting={greeting}
+          monthLabel={monthLabel}
+          isConsolidated={isConsolidated}
+        />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }, (_, index) => (
             <div
@@ -64,12 +70,18 @@ export function FinancialSummary({
           title="Entradas do período"
           value={formatMoney(current?.revenue ?? 0)}
           hint={
-            previous
-              ? `Anterior: ${formatMoney(previous.revenue)}`
-              : 'Receitas apropriadas no mês'
+            isConsolidated
+              ? 'Soma de receitas no período completo'
+              : previous
+                ? `Anterior: ${formatMoney(previous.revenue)}`
+                : 'Receitas apropriadas no mês'
           }
           formula={KPI_FORMULAS.revenue}
-          change={changeRatio(current?.revenue ?? Number.NaN, previous?.revenue)}
+          change={
+            isConsolidated
+              ? null
+              : changeRatio(current?.revenue ?? Number.NaN, previous?.revenue)
+          }
           icon={<WalletIcon />}
           tone="navy"
           surface="revenue"
@@ -80,12 +92,18 @@ export function FinancialSummary({
           title="Saídas realizadas"
           value={formatMoney(current?.realized ?? 0)}
           hint={
-            previous
-              ? `Anterior: ${formatMoney(previous.realized)}`
-              : 'Custos e despesas do mês'
+            isConsolidated
+              ? 'Soma de custos e despesas no período completo'
+              : previous
+                ? `Anterior: ${formatMoney(previous.realized)}`
+                : 'Custos e despesas do mês'
           }
           formula={KPI_FORMULAS.realized}
-          change={changeRatio(current?.realized ?? Number.NaN, previous?.realized)}
+          change={
+            isConsolidated
+              ? null
+              : changeRatio(current?.realized ?? Number.NaN, previous?.realized)
+          }
           invertChange
           icon={<ReceiptIcon />}
           tone="danger"
@@ -102,7 +120,11 @@ export function FinancialSummary({
               : 'Informe a receita para ver a margem'
           }
           formula={KPI_FORMULAS.profit}
-          change={changeRatio(current?.profit ?? Number.NaN, previous?.profit)}
+          change={
+            isConsolidated
+              ? null
+              : changeRatio(current?.profit ?? Number.NaN, previous?.profit)
+          }
           icon={<TrendUpIcon />}
           tone={profitTone}
         />
@@ -117,7 +139,7 @@ export function FinancialSummary({
               : 'Crie um orçamento para comparar'
           }
           formula={KPI_FORMULAS.variance}
-          change={current?.variancePct ?? null}
+          change={isConsolidated ? null : (current?.variancePct ?? null)}
           invertChange
           icon={<ScaleIcon />}
           tone={varianceTone}
@@ -130,20 +152,29 @@ export function FinancialSummary({
 function SummaryIntro({
   greeting,
   monthLabel,
+  isConsolidated,
 }: {
   greeting?: string
   monthLabel: string
+  isConsolidated?: boolean
 }) {
   return (
     <div>
       <h2 className="font-display text-xl font-semibold text-navy sm:text-2xl">
-        {greeting || 'Veja como está o resultado financeiro no mês.'}
+        {greeting ||
+          (isConsolidated
+            ? 'Veja como está o resultado financeiro no período.'
+            : 'Veja como está o resultado financeiro no mês.')}
       </h2>
       <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-navy-bright">
         Resumo financeiro
       </p>
       {monthLabel ? (
-        <p className="mt-1 text-sm text-mist">Leitura consolidada de {monthLabel}.</p>
+        <p className="mt-1 text-sm text-mist">
+          {isConsolidated
+            ? `Leitura consolidada de ${monthLabel}.`
+            : `Leitura consolidada de ${monthLabel}.`}
+        </p>
       ) : (
         <p className="mt-1 text-sm text-mist">Leitura consolidada do período ativo.</p>
       )}

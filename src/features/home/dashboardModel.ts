@@ -131,6 +131,40 @@ export function buildFinancialSeries(
     .filter((item) => item.budgeted !== 0 || item.realized !== 0)
 }
 
+export function periodFinancials(
+  months: BudgetMonth[],
+  actual: { items: AmountItem[] } | null,
+  classified: ClassifiedSlice[],
+  budget: { items: AmountItem[] } | null
+): MonthFinancials {
+  const series = buildFinancialSeries(months, actual, classified, budget)
+  const revenue = roundMoney(sum(series.map((item) => item.revenue)))
+  const costs = roundMoney(sum(series.map((item) => item.costs)))
+  const expenses = roundMoney(sum(series.map((item) => item.expenses)))
+  const realized = roundMoney(sum(series.map((item) => item.realized)))
+  const budgeted = roundMoney(sum(series.map((item) => item.budgeted)))
+  const profit = roundMoney(revenue - realized)
+  const margin = revenue > 0 ? profit / revenue : null
+  const variance = roundMoney(realized - budgeted)
+  const variancePct =
+    budgeted === 0 ? (realized === 0 ? 0 : null) : variance / budgeted
+
+  return {
+    key: 'all',
+    label: 'Período completo',
+    shortLabel: 'Período',
+    revenue,
+    costs,
+    expenses,
+    realized,
+    budgeted,
+    profit,
+    margin,
+    variance,
+    variancePct,
+  }
+}
+
 function matchesCategory(categoryType: string | null, types: CategoryFilter) {
   if (types === 'all') return true
   if (types === 'non-revenue') return categoryType !== 'revenue'
