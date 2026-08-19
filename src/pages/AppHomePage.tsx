@@ -5,7 +5,6 @@ import { useCompany } from '@/features/company/useCompany'
 import { updateCompanyLogo } from '@/features/company/companyService'
 import { segmentLabel } from '@/features/company/segmentOptions'
 import { monthResultGreeting } from '@/lib/greeting'
-import { defaultUnitCostMonth } from '@/features/experience/unitCost'
 import type { ComparisonMonthKey } from '@/features/comparison/model'
 import { Button } from '@/components/ui/Button'
 import { CompanyHero } from '@/components/home/CompanyHero'
@@ -29,21 +28,12 @@ export function AppHomePage() {
   } = useCompany()
   const metadataName = String(user?.user_metadata?.name ?? '')
   const [profileName, setProfileName] = useState('')
-  const [period, setPeriod] = useState<ComparisonMonthKey | null>(null)
-  const dashboard = useUnitCostCards(
-    period != null ? { preferredMonth: period } : undefined
-  )
+  const [period, setPeriod] = useState<ComparisonMonthKey>('all')
+  const dashboard = useUnitCostCards({ preferredMonth: period })
 
   useEffect(() => {
-    if (dashboard.months.length === 0) return
-    setPeriod((current) => {
-      if (current === 'all') return current
-      if (current && dashboard.months.some((item) => item.key === current)) return current
-      return defaultUnitCostMonth(dashboard.months) ?? dashboard.months[dashboard.months.length - 1]?.key ?? 'all'
-    })
-  }, [dashboard.months])
-
-  const selectedPeriod = period ?? dashboard.periodKey
+    setPeriod('all')
+  }, [activeCompany?.id])
 
   const segment = segments.find((item) => item.id === companyProfile?.segment_id)
   const segmentName =
@@ -102,7 +92,7 @@ export function AppHomePage() {
       {dashboard.months.length > 0 ? (
         <PeriodFilter
           months={dashboard.months}
-          value={selectedPeriod}
+          value={period}
           onChange={setPeriod}
         />
       ) : null}
