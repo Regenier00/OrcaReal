@@ -35,6 +35,11 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
+        // Pacote CJS: o Vite servia src/index.js sem export nomeado createWorker.
+        'tesseract.js': path.resolve(
+          import.meta.dirname,
+          'node_modules/tesseract.js/dist/tesseract.esm.min.js',
+        ),
       },
     },
     optimizeDeps: {

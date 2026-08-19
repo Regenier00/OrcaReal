@@ -1052,6 +1052,11 @@ function testResolveCreateWorker() {
   }
 }
 
+async function testTesseractPackageExportsCreateWorker() {
+  const createWorker = resolveCreateWorker(await import('tesseract.js'))
+  assert(typeof createWorker === 'function', 'pacote tesseract.js')
+}
+
 function testCompletedStatementMessage() {
   assert(
     completedStatementMessage({ transaction_count: 12, duplicate_count: 0 }) ===
@@ -1110,5 +1115,6 @@ await testPdfFormXObject()
 await testPdfOcrRunsWhenHeaderLooksLikeStatement()
 await testPdfOcrReadsMovements()
 testResolveCreateWorker()
+await testTesseractPackageExportsCreateWorker()
 testCompletedStatementMessage()
 console.log('statement parse tests ok')
