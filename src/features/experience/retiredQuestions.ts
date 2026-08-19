@@ -16,6 +16,7 @@ export const RETIRED_QUESTION_CODES = new Set([
   'agro_productivity',
   'agro_estimated_production',
   'agro_avg_price',
+  'pec_buy_sell',
   'pec_animals',
   'pec_properties',
   'pec_lots',
@@ -103,6 +104,7 @@ export const RETIRED_QUESTION_CODES = new Set([
 ])
 
 export const RETIRED_QUESTION_PROMPTS = new Set([
+  'A empresa compra e vende animais com frequência?',
   'Como você avalia a maturidade do controle financeiro?',
   'Como a empresa controla as finanças hoje?',
   'Qual é o objetivo principal ao usar a plataforma?',

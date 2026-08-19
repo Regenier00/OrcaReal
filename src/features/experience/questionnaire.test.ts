@@ -127,6 +127,25 @@ assert(
     'Loja física,E-commerce,Marketplace',
   'canal de venda oferece loja física, e-commerce e marketplace'
 )
+assert(
+  RETIRED_QUESTION_CODES.has('pec_buy_sell'),
+  'pec_buy_sell deve estar aposentada: não personaliza indicadores nem estrutura'
+)
+assert(
+  !mixedCodes.has('pec_buy_sell'),
+  'pecuária não deve perguntar se compra e vende animais com frequência'
+)
+assert(
+  isRetiredQuestion({
+    code: 'pec_buy_sell',
+    prompt: 'A empresa compra e vende animais com frequência?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 140,
+    segmentCode: 'livestock',
+  }),
+  'wizard deve ignorar pec_buy_sell mesmo se vier do banco'
+)
 assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
 assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 
