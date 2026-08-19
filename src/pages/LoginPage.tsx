@@ -45,7 +45,7 @@ export function LoginPage() {
 
   return (
     <div className="min-h-svh bg-paper">
-      <div className="bg-ink bg-hero-atmosphere">
+      <div className="border-b border-paper-muted bg-white">
         <PublicHeader />
       </div>
 

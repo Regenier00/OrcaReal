@@ -14,7 +14,7 @@ export function PageTourButton() {
       <button
         type="button"
         onClick={() => startPage(pathname)}
-        className="rounded-full border border-paper-muted bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft/70 transition hover:border-navy/25 hover:text-navy"
+        className="rounded-full border border-paper-muted bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft/70 transition hover:border-brand/30 hover:text-brand"
       >
         {PAGE_TOUR_TRIGGER_LABEL}
       </button>

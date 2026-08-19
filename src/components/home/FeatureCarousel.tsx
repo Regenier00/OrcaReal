@@ -86,7 +86,7 @@ export function FeatureCarousel({ activeId, onChange }: FeatureCarouselProps) {
           </p>
           <p className="mt-4 text-sm text-mist">{current.detail}</p>
         </div>
-        <div className="rounded-xl border border-paper-muted bg-paper px-5 py-6">
+        <div className="rounded-xl border border-paper-muted bg-white px-5 py-6">
           <FeatureIllustration id={current.id} />
         </div>
       </div>
@@ -103,8 +103,8 @@ export function FeatureCarousel({ activeId, onChange }: FeatureCarouselProps) {
             className={cn(
               'h-1.5 rounded-full outline-none transition-all duration-300',
               feature.id === current.id
-                ? 'w-8 bg-ink'
-                : 'w-3 bg-paper-muted hover:bg-ink/30'
+                ? 'w-8 bg-brand'
+                : 'w-3 bg-paper-muted hover:bg-brand/30'
             )}
           >
             <span className="sr-only">

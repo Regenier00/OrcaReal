@@ -45,16 +45,16 @@ export function DemoPage() {
 
   return (
     <div className="min-h-svh bg-paper">
-      <div className="bg-ink bg-hero-atmosphere">
+      <div className="border-b border-paper-muted bg-white">
         <PublicHeader />
-        <div className="mx-auto max-w-6xl px-6 pb-10 pt-6 sm:px-10">
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/45">
+        <div className="mx-auto max-w-6xl px-6 pb-8 pt-4 sm:px-10">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-brand">
             Demonstração · {demoCompany.segment}
           </p>
-          <h1 className="mt-3 font-display text-3xl font-bold text-white sm:text-5xl">
+          <h1 className="mt-2 font-display text-3xl font-bold text-ink sm:text-4xl">
             Experimente o essencial, sem conta.
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/65 sm:text-base">
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-mist sm:text-base">
             Dados da {demoCompany.name}, {demoCompany.period}. Você navega à vontade.
             Importar, salvar, exportar e simular sem limite pedem cadastro — é aí que
             o produto passa a ser o da sua empresa.
@@ -76,8 +76,8 @@ export function DemoPage() {
               className={cn(
                 'rounded-full border px-4 py-2 text-sm font-medium transition',
                 item.id === feature
-                  ? 'border-ink/30 bg-ink text-paper'
-                  : 'border-paper-muted bg-white text-ink-soft/75 hover:border-ink/20'
+                  ? 'border-brand bg-brand text-white'
+                  : 'border-paper-muted bg-white text-ink-soft/75 hover:border-brand/30'
               )}
             >
               {item.title}

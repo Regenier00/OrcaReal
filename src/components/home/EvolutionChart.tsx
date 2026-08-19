@@ -65,8 +65,8 @@ export function EvolutionChart({
           </h2>
         </div>
         <ul className="flex flex-wrap gap-3 text-[11px] font-medium text-mist">
-          <LegendDot className="bg-navy-soft" label="Orçado" />
-          <LegendDot className="bg-navy" label="Realizado" />
+          <LegendDot className="bg-brand-soft" label="Orçado" />
+          <LegendDot className="bg-brand" label="Realizado" />
         </ul>
       </div>
 
@@ -121,7 +121,7 @@ export function EvolutionChart({
                     width={geometry.barWidth}
                     height={budgetHeight}
                     rx="1.5"
-                    className={selected ? 'fill-sky' : 'fill-navy-soft'}
+                    className={selected ? 'fill-sky' : 'fill-brand-soft'}
                   />
                   <rect
                     x={realizedX}
@@ -129,7 +129,7 @@ export function EvolutionChart({
                     width={geometry.barWidth}
                     height={realizedHeight}
                     rx="1.5"
-                    className={selected ? 'fill-navy-mid' : 'fill-navy'}
+                    className={selected ? 'fill-brand-hover' : 'fill-brand'}
                   />
                   <rect
                     x={x - 3}

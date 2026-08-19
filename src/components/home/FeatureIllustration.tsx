@@ -126,7 +126,7 @@ export function FeatureIllustration({ id }: FeatureIllustrationProps) {
       ].map((item) => (
         <div
           key={item.label}
-          className="rounded-lg border border-paper-muted bg-paper px-3 py-3"
+          className="rounded-lg border border-paper-muted bg-white px-3 py-3"
         >
           <p className="text-[11px] uppercase tracking-wide text-mist">{item.label}</p>
             <p className="mt-1 font-numeric text-lg font-semibold text-ink">{item.value}</p>

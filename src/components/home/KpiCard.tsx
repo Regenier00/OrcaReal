@@ -47,7 +47,7 @@ export function KpiCard({
                   tone === 'ok' && 'bg-ok-soft text-ok',
                   tone === 'danger' && 'bg-danger-soft text-danger',
                   tone === 'warn' && 'bg-warn-soft text-warn',
-                  tone === 'navy' && 'bg-navy-soft text-navy'
+                  tone === 'navy' && 'bg-brand-soft text-brand'
                 )
           )}
         >

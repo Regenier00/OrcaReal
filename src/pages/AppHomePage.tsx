@@ -113,7 +113,7 @@ export function AppHomePage() {
                     </p>
                   </div>
                   {active ? (
-                    <span className="rounded-full bg-navy-soft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-navy">
+                    <span className="rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand">
                       Ativa
                     </span>
                   ) : (

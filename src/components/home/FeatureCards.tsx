@@ -19,10 +19,10 @@ export function FeatureCards({ activeId, onSelect }: FeatureCardsProps) {
               aria-pressed={selected}
               className={cn(
                 'flex h-full w-full cursor-pointer flex-col rounded-2xl border p-6 text-left transition duration-200',
-                'outline-none focus-visible:border-ink/40',
+                'outline-none focus-visible:border-brand',
                 selected
-                  ? 'border-ink/35 bg-white'
-                  : 'border-paper-muted bg-white/80 hover:border-ink/20 hover:bg-white'
+                  ? 'border-brand bg-white shadow-card'
+                  : 'border-paper-muted bg-white hover:border-brand/25'
               )}
             >
               <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-mist">

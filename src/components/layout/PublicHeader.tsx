@@ -6,19 +6,19 @@ interface PublicHeaderProps {
   tone?: 'dark' | 'light'
 }
 
-export function PublicHeader({ className, tone = 'dark' }: PublicHeaderProps) {
+export function PublicHeader({ className, tone = 'light' }: PublicHeaderProps) {
   const dark = tone === 'dark'
 
   return (
     <header
       className={cn(
-        'relative z-20 flex items-center justify-between gap-4 px-6 py-5 sm:px-10',
+        'relative z-20 flex items-center justify-between gap-4 px-6 py-3 sm:px-10',
         className
       )}
     >
       <Link to="/" className="font-display text-xl font-extrabold tracking-tight sm:text-2xl">
         <span className={dark ? 'text-white' : 'text-ink'}>Orca</span>
-        <span className={dark ? 'text-sky' : 'text-navy-bright'}>Real</span>
+        <span className={dark ? 'text-sky' : 'text-brand'}>Real</span>
       </Link>
 
       <nav className="flex items-center gap-4 sm:gap-6">
@@ -28,7 +28,7 @@ export function PublicHeader({ className, tone = 'dark' }: PublicHeaderProps) {
             'text-sm font-medium transition',
             dark
               ? 'text-white/70 hover:text-white'
-              : 'text-ink-soft/70 hover:text-ink'
+              : 'text-ink-soft/70 hover:text-brand'
           )}
         >
           Experimentar
@@ -39,7 +39,7 @@ export function PublicHeader({ className, tone = 'dark' }: PublicHeaderProps) {
             'text-sm font-medium transition',
             dark
               ? 'text-white/70 hover:text-white'
-              : 'text-ink-soft/70 hover:text-ink'
+              : 'text-ink-soft/70 hover:text-brand'
           )}
         >
           Já tem conta? Entrar

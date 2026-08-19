@@ -17,7 +17,7 @@ export function ExperienceProgress({
         <span>{width}%</span>
       </div>
       <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-paper-muted">
-        <div className="h-full rounded-full bg-navy transition-all" style={{ width: `${width}%` }} />
+        <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${width}%` }} />
       </div>
     </div>
   )

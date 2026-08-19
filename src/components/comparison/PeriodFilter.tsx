@@ -27,8 +27,8 @@ export function PeriodFilter({ months, value, onChange }: PeriodFilterProps) {
           className={cn(
             'rounded-full border px-3 py-1 text-xs font-medium transition',
             value === option.key
-              ? 'border-ink/30 bg-ink text-paper'
-              : 'border-paper-muted bg-white text-ink-soft/70 hover:border-ink/20'
+              ? 'border-brand bg-brand text-white'
+              : 'border-paper-muted bg-white text-ink-soft/70 hover:border-brand/30'
           )}
         >
           {option.label}

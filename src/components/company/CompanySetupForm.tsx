@@ -148,8 +148,8 @@ export function CompanySetupForm({
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-sm transition',
                   selected
-                    ? 'border-navy bg-navy text-paper'
-                    : 'border-paper-muted bg-paper text-ink-soft hover:border-navy-bright'
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-paper-muted bg-white text-ink-soft hover:border-brand'
                 )}
               >
                 {item}
@@ -197,8 +197,8 @@ export function CompanySetupForm({
                 className={cn(
                   'rounded-full border px-3 py-1.5 text-sm transition',
                   selected
-                    ? 'border-navy bg-navy text-paper'
-                    : 'border-paper-muted bg-paper text-ink-soft hover:border-navy-bright'
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-paper-muted bg-white text-ink-soft hover:border-brand'
                 )}
               >
                 {item}
