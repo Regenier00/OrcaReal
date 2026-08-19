@@ -35,10 +35,19 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, './src'),
+        // Pacote CJS: o Vite servia src/index.js sem export nomeado createWorker.
+        'tesseract.js': path.resolve(
+          import.meta.dirname,
+          'node_modules/tesseract.js/dist/tesseract.esm.min.js',
+        ),
       },
     },
     optimizeDeps: {
-      exclude: ['pdfjs-dist', 'tesseract.js', 'tesseract.js-core'],
+      // tesseract.js é CJS (src/index.js usa module.exports). Se ficar em
+      // exclude, o Vite serve esse arquivo como ESM e createWorker some.
+      include: ['tesseract.js'],
+      needsInterop: ['tesseract.js'],
+      exclude: ['pdfjs-dist', 'tesseract.js-core'],
     },
     worker: {
       format: 'es',

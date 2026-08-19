@@ -8,6 +8,7 @@ import { detectTabularLayout } from '../../../supabase/functions/_shared/stateme
 import { assertSafeStatementFile } from '../../../supabase/functions/_shared/statement/inspect.ts'
 import { excelSerialToIso } from '../../../supabase/functions/_shared/statement/normalize.ts'
 import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
+import { resolveCreateWorker } from './tesseractWorker.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -1033,6 +1034,29 @@ ET`
   }
 }
 
+function testResolveCreateWorker() {
+  const named = async () => ({}) as never
+  assert(resolveCreateWorker({ createWorker: named }) === named, 'export nomeado')
+  assert(
+    resolveCreateWorker({ default: { createWorker: named } }) === named,
+    'export default CJS',
+  )
+  try {
+    resolveCreateWorker({})
+    throw new Error('deveria falhar sem createWorker')
+  } catch (error) {
+    assert(
+      error instanceof Error && error.message.includes('createWorker'),
+      'módulo vazio',
+    )
+  }
+}
+
+async function testTesseractPackageExportsCreateWorker() {
+  const createWorker = resolveCreateWorker(await import('tesseract.js'))
+  assert(typeof createWorker === 'function', 'pacote tesseract.js')
+}
+
 function testCompletedStatementMessage() {
   assert(
     completedStatementMessage({ transaction_count: 12, duplicate_count: 0 }) ===
@@ -1090,5 +1114,7 @@ await testPdfCooperativeDatetimeDebitCredit()
 await testPdfFormXObject()
 await testPdfOcrRunsWhenHeaderLooksLikeStatement()
 await testPdfOcrReadsMovements()
+testResolveCreateWorker()
+await testTesseractPackageExportsCreateWorker()
 testCompletedStatementMessage()
 console.log('statement parse tests ok')

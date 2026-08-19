@@ -1,8 +1,8 @@
 import { getDocument, GlobalWorkerOptions, type PDFPageProxy } from 'pdfjs-dist'
-import { createWorker } from 'tesseract.js'
 import { extractPdfJpegImages } from '../../../supabase/functions/_shared/statement/pdfExtract.ts'
 import type { PdfOcrInput, PdfOcrResult } from '../../../supabase/functions/_shared/statement/ocr.ts'
 import { statementError, statementLog, statementWarn } from '../../../supabase/functions/_shared/statement/log.ts'
+import { loadCreateWorker } from './tesseractWorker.ts'
 
 const MAX_TEXT_PAGES = 40
 const MAX_OCR_PAGES = 25
@@ -146,6 +146,7 @@ function jpegBlob(bytes: Uint8Array) {
 
 async function ocrImages(images: Array<HTMLCanvasElement | Blob>): Promise<string> {
   if (images.length === 0) return ''
+  const createWorker = await loadCreateWorker()
   const worker = await createWorker('por', 1, {
     logger: (message) => {
       if (message.status !== 'recognizing text' || message.progress == null) return
