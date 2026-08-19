@@ -16,9 +16,11 @@ import type { ExperienceAnswers } from '@/features/experience/types'
 export function PersonalizedDashboard({
   data,
   greeting,
+  isConsolidated,
 }: {
   data: HomeDashboardData
   greeting?: string
+  isConsolidated?: boolean
 }) {
   const { activeCompany, companyProfile, segments } = useCompany()
   const dashboard = data
@@ -62,11 +64,12 @@ export function PersonalizedDashboard({
         monthLabel={dashboard.monthLabel}
         greeting={greeting}
         loading={dashboard.loading}
+        isConsolidated={isConsolidated}
       />
 
       <EvolutionChart series={dashboard.series} loading={dashboard.loading} />
 
-      <MonthResultSection data={dashboard} />
+      <MonthResultSection data={dashboard} isConsolidated={isConsolidated} />
 
       {prompts[0] ? (
         <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-paper-muted bg-white px-5 py-4 shadow-card">

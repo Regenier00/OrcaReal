@@ -2,6 +2,7 @@ import {
   buildFinancialSeries,
   changeRatio,
   monthFinancials,
+  periodFinancials,
   previousMonth,
   sumClassifiedForMonth,
   sumItemsForMonth,
@@ -82,5 +83,10 @@ assert(series.length === 3, 'mostra meses com orçado ou realizado')
 assert(series.some((item) => item.key === '2026-09'), 'inclui mês orçado sem realizado')
 assert(series.find((item) => item.key === '2026-09')?.realized === 0, 'mês futuro pode ter realizado zero')
 assert(!series.some((item) => item.key === '2026-10'), 'omite mês sem orçado e sem realizado')
+
+const consolidated = periodFinancials([jul, aug], actual, classified, budgetWithFuture)
+assert(consolidated.revenue === 2400, 'consolidado soma receitas dos meses com dados')
+assert(consolidated.realized === 1130, 'consolidado soma saídas dos meses com dados')
+assert(consolidated.budgeted === 1100, 'consolidado soma orçado dos meses com dados')
 
 console.log('dashboard model tests ok')

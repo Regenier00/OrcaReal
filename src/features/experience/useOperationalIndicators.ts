@@ -138,10 +138,21 @@ export function useOperationalIndicators(input?: {
     }
   }, [activeCompany, companyProfile, providedRealized, reloadKey])
 
-  const monthKey = useMemo(
-    () => defaultUnitCostMonth(months, input?.preferredMonth) ?? months[months.length - 1]?.key ?? '',
-    [months, input?.preferredMonth]
-  )
+  const periodKey = useMemo<ComparisonMonthKey>(() => {
+    const preferred = input?.preferredMonth
+    if (preferred === 'all') return 'all'
+    if (preferred && months.some((item) => item.key === preferred)) return preferred
+    return defaultUnitCostMonth(months, preferred) ?? months[months.length - 1]?.key ?? 'all'
+  }, [months, input?.preferredMonth])
+
+  const isConsolidated = periodKey === 'all'
+
+  const monthKey = useMemo(() => {
+    if (isConsolidated) {
+      return defaultUnitCostMonth(months) ?? months[months.length - 1]?.key ?? ''
+    }
+    return periodKey
+  }, [months, isConsolidated, periodKey])
 
   const totals = useMemo(
     () => buildActualTotals(months, actual, classified),
@@ -158,11 +169,14 @@ export function useOperationalIndicators(input?: {
   const cards = useMemo<OperationalCardModel[]>(() => {
     if (!model) return []
     const month = months.find((item) => item.key === monthKey)
-    const period = totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 }
-    const previousPeriod = previous
-      ? (totals.byMonth[previous.key] ?? { revenue: 0, cost: 0 })
-      : null
-    const monthInputs = namedInputs[monthKey] ?? {}
+    const period = isConsolidated
+      ? totals.consolidated
+      : (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 })
+    const previousPeriod =
+      !isConsolidated && previous
+        ? (totals.byMonth[previous.key] ?? { revenue: 0, cost: 0 })
+        : null
+    const monthInputs = isConsolidated ? {} : (namedInputs[monthKey] ?? {})
 
     return defs.map((def) => {
       const context: OperationalFormulaContext = {
@@ -191,16 +205,16 @@ export function useOperationalIndicators(input?: {
         def,
         model,
         monthKey,
-        monthLabel: month?.fullLabel ?? monthKey,
+        monthLabel: isConsolidated ? 'Período completo' : (month?.fullLabel ?? monthKey),
         value,
         previousValue,
-        change: changeRatio(value ?? Number.NaN, previousValue),
+        change: isConsolidated ? null : changeRatio(value ?? Number.NaN, previousValue),
         context,
         breakdown: def.breakdown ? evaluateBreakdown(def.breakdown, context) : [],
         inputs: monthInputs,
       }
     })
-  }, [model, defs, months, monthKey, totals, previous, namedInputs, employeeCount])
+  }, [model, defs, months, monthKey, isConsolidated, totals, previous, namedInputs, employeeCount])
 
   const saveInputs = async (
     indicatorCode: string,
@@ -234,8 +248,12 @@ export function useOperationalIndicators(input?: {
     selectedCodes,
     cards,
     months,
+    periodKey,
+    isConsolidated,
     monthKey,
-    monthLabel: months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey,
+    monthLabel: isConsolidated
+      ? 'Período completo'
+      : (months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey),
     loading: Boolean(activeCompany) && loading,
     error,
     savingCode,

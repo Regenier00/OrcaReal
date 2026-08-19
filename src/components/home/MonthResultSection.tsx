@@ -7,10 +7,16 @@ import { WalletIcon } from '@/components/home/DashboardIcons'
 import { useOperationalIndicators } from '@/features/experience/useOperationalIndicators'
 import type { HomeDashboardData } from '@/features/experience/useUnitCostCards'
 
-export function MonthResultSection({ data }: { data: HomeDashboardData }) {
+export function MonthResultSection({
+  data,
+  isConsolidated,
+}: {
+  data: HomeDashboardData
+  isConsolidated?: boolean
+}) {
   const operational = useOperationalIndicators(
     data.months.length > 0
-      ? { months: data.months, preferredMonth: data.monthKey }
+      ? { months: data.months, preferredMonth: data.periodKey }
       : undefined
   )
 
@@ -28,7 +34,11 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
 
       <SectionHeading
         kicker="Indicadores"
-        title="Resultado operacional do mês"
+        title={
+          isConsolidated
+            ? 'Resultado operacional do período'
+            : 'Resultado operacional do mês'
+        }
         subtitle="O consolidado e os indicadores do modelo de operação, com a fórmula de cada um à vista."
       />
 
@@ -39,12 +49,14 @@ export function MonthResultSection({ data }: { data: HomeDashboardData }) {
           title="Total realizado"
           value={formatMoney(data.totalCost)}
           hint={
-            data.previousMonthLabel
-              ? `Custos e despesas de ${data.monthLabel || 'mês atual'}`
-              : 'Custos e despesas do mês'
+            isConsolidated
+              ? 'Custos e despesas somados no período completo'
+              : data.previousMonthLabel
+                ? `Custos e despesas de ${data.monthLabel || 'mês atual'}`
+                : 'Custos e despesas do mês'
           }
           formula={KPI_FORMULAS.totalCost}
-          change={data.costChange}
+          change={isConsolidated ? null : data.costChange}
           invertChange
           icon={<WalletIcon />}
           tone="danger"

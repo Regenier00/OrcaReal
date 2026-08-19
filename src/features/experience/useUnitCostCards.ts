@@ -30,8 +30,10 @@ import { listClassifiedActualSlices } from '@/features/actual/actualService'
 import {
   buildFinancialSeries,
   changeRatio,
+  periodFinancials,
   previousMonth,
 } from '@/features/home/dashboardModel'
+import type { ComparisonMonthKey } from '@/features/comparison/model'
 import {
   buildActualTotals,
   consolidatedQuantity,
@@ -86,7 +88,7 @@ export interface UnitCostCardModel {
 
 export function useUnitCostCards(input?: {
   months?: BudgetMonth[]
-  preferredMonth?: string | null
+  preferredMonth?: ComparisonMonthKey | string | null
   actual?: LoadedActual | null
   classified?: ClassifiedActualSlice[]
 }) {
@@ -207,10 +209,21 @@ export function useUnitCostCards(input?: {
     }
   }, [activeCompany, companyProfile, segments, providedRealized, reloadKey])
 
-  const monthKey = useMemo(
-    () => defaultUnitCostMonth(months, input?.preferredMonth) ?? months[months.length - 1]?.key ?? '',
-    [months, input?.preferredMonth]
-  )
+  const periodKey = useMemo<ComparisonMonthKey>(() => {
+    const preferred = input?.preferredMonth
+    if (preferred === 'all') return 'all'
+    if (preferred && months.some((item) => item.key === preferred)) return preferred
+    return defaultUnitCostMonth(months, preferred) ?? months[months.length - 1]?.key ?? 'all'
+  }, [months, input?.preferredMonth])
+
+  const isConsolidated = periodKey === 'all'
+
+  const monthKey = useMemo(() => {
+    if (isConsolidated) {
+      return defaultUnitCostMonth(months) ?? months[months.length - 1]?.key ?? ''
+    }
+    return periodKey
+  }, [months, isConsolidated, periodKey])
 
   const totals = useMemo(
     () => buildActualTotals(months, actual, classified),
@@ -328,10 +341,9 @@ export function useUnitCostCards(input?: {
     return result
   }
 
-  const monthLabel =
-    months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey
-  const totalCost = monthKey ? (totals.byMonth[monthKey]?.cost ?? 0) : 0
-  const previousTotalCost = previous ? (totals.byMonth[previous.key]?.cost ?? 0) : null
+  const monthLabel = isConsolidated
+    ? 'Período completo'
+    : (months.find((item) => item.key === monthKey)?.fullLabel ?? monthKey)
 
   const series = useMemo(
     () => buildFinancialSeries(months, actual, classified, fetchedBudget),
@@ -339,13 +351,24 @@ export function useUnitCostCards(input?: {
   )
 
   const currentFinancials = useMemo(
-    () => series.find((item) => item.key === monthKey) ?? series[series.length - 1] ?? null,
-    [series, monthKey]
+    () =>
+      isConsolidated
+        ? periodFinancials(months, actual, classified, fetchedBudget)
+        : (series.find((item) => item.key === monthKey) ?? series[series.length - 1] ?? null),
+    [isConsolidated, months, actual, classified, fetchedBudget, series, monthKey]
   )
   const previousFinancials = useMemo(
-    () => (previous ? series.find((item) => item.key === previous.key) ?? null : null),
-    [series, previous]
+    () =>
+      isConsolidated
+        ? null
+        : previous
+          ? (series.find((item) => item.key === previous.key) ?? null)
+          : null,
+    [isConsolidated, series, previous]
   )
+
+  const totalCost = currentFinancials?.realized ?? 0
+  const previousTotalCost = previousFinancials?.realized ?? null
 
   return {
     cards,
@@ -353,6 +376,8 @@ export function useUnitCostCards(input?: {
     reloadCustom,
     deleteCustom,
     months,
+    periodKey,
+    isConsolidated,
     monthKey,
     monthLabel,
     previousMonthLabel: previous?.fullLabel ?? '',
@@ -363,7 +388,11 @@ export function useUnitCostCards(input?: {
     currentFinancials,
     previousFinancials,
     formulaContext: {
-      period: monthKey ? (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 }) : { revenue: 0, cost: 0 },
+      period: isConsolidated
+        ? totals.consolidated
+        : monthKey
+          ? (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 })
+          : { revenue: 0, cost: 0 },
       consolidated: totals.consolidated,
       periodQuantity: null,
       consolidatedQuantity: null,
