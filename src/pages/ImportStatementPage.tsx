@@ -200,7 +200,7 @@ export function ImportStatementPage() {
               onDragLeave={() => setDragOver(false)}
               onDrop={handleDrop}
               className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
-                dragOver ? 'border-navy-bright bg-paper' : 'border-paper-muted bg-paper/60'
+                dragOver ? 'border-brand bg-brand-soft/50' : 'border-paper-muted bg-white'
               }`}
             >
               <input

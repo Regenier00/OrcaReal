@@ -139,7 +139,7 @@ export function ExperienceReadyPage() {
 
 function SummaryCard({ title, items }: { title: string; items: string[] }) {
   return (
-    <section className="rounded-2xl border border-paper-muted bg-paper px-4 py-4">
+    <section className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
       <h2 className="font-display text-lg font-semibold text-navy">{title}</h2>
       {items.length === 0 ? (
         <p className="mt-2 text-sm text-mist">Ainda sem itens nesta camada.</p>
@@ -148,7 +148,7 @@ function SummaryCard({ title, items }: { title: string; items: string[] }) {
           {items.map((item) => (
             <li
               key={item}
-              className="rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-soft"
+              className="rounded-full bg-paper px-3 py-1 text-xs font-medium text-ink-soft"
             >
               {item}
             </li>

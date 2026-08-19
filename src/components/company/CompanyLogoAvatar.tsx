@@ -62,7 +62,7 @@ export function CompanyLogoAvatar({
           'relative flex items-center justify-center overflow-hidden rounded-full',
           size === 'lg'
             ? 'h-[4.5rem] w-[4.5rem] bg-paper text-lg text-navy ring-1 ring-paper-muted'
-            : 'h-8 w-8 bg-white/15 text-[10px] text-white ring-1 ring-white/20'
+            : 'h-8 w-8 bg-brand-soft text-[10px] text-brand ring-1 ring-paper-muted'
         )}
       >
         {logoUrl ? (
@@ -77,7 +77,7 @@ export function CompanyLogoAvatar({
         ) : null}
       </span>
       {canEdit && !logoUrl ? (
-        <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-navy text-[11px] font-semibold text-white ring-2 ring-white">
+        <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-white ring-2 ring-white">
           +
         </span>
       ) : null}

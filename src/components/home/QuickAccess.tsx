@@ -33,10 +33,10 @@ export function QuickAccess() {
               to={module.to}
               className={cn(
                 'group flex h-full flex-col rounded-2xl border border-paper-muted bg-white p-5 shadow-card transition',
-                'hover:-translate-y-0.5 hover:border-navy/15 hover:shadow-soft'
+                'hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-soft'
               )}
             >
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-soft text-navy transition group-hover:bg-navy group-hover:text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand transition group-hover:bg-brand group-hover:text-white">
                 <Icon />
               </span>
               <h3 className="mt-4 font-display text-base font-semibold text-navy">

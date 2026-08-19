@@ -60,8 +60,8 @@ export function QuestionCard({
                 className={cn(
                   'rounded-xl border px-3 py-3 text-left text-sm leading-snug transition',
                   active
-                    ? 'border-navy bg-navy text-paper shadow-card'
-                    : 'border-paper-muted bg-paper text-ink-soft hover:border-navy-bright'
+                    ? 'border-brand bg-brand text-white shadow-card'
+                    : 'border-paper-muted bg-white text-ink-soft hover:border-brand'
                 )}
               >
                 {option.label}
@@ -117,7 +117,7 @@ function chipClass(active: boolean) {
   return cn(
     'rounded-full border px-4 py-2 text-sm transition',
     active
-      ? 'border-navy bg-navy text-paper'
-      : 'border-paper-muted bg-white text-ink-soft hover:border-navy-bright'
+      ? 'border-brand bg-brand text-white'
+      : 'border-paper-muted bg-white text-ink-soft hover:border-brand'
   )
 }

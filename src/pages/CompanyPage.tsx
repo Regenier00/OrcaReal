@@ -95,7 +95,7 @@ export function CompanyPage() {
             className={cn(
               'whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition',
               tab === item.id
-                ? 'bg-navy text-paper'
+                ? 'bg-brand text-white'
                 : 'bg-white text-ink-soft hover:bg-paper-muted'
             )}
           >
@@ -734,7 +734,7 @@ function SettingsTab({
         </p>
       )}
 
-      <div className="rounded-2xl border border-paper-muted bg-paper px-4 py-4">
+      <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
         <h3 className="font-display text-base font-semibold text-navy">
           Tutorial da plataforma
         </h3>
@@ -905,7 +905,7 @@ function CompanyExperienceTab({
 
       <form
         onSubmit={(event) => void handleSaveEmployeeCount(event)}
-        className="max-w-xl space-y-3 rounded-2xl border border-paper-muted bg-paper px-4 py-4"
+        className="max-w-xl space-y-3 rounded-2xl border border-paper-muted bg-white px-4 py-4"
       >
         <div>
           <h3 className="font-display text-lg font-semibold text-navy">

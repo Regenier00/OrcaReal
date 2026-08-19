@@ -25,7 +25,7 @@ export function WizardSteps({
             <span
               className={cn(
                 'inline-flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-xs font-semibold',
-                active && 'bg-navy text-paper',
+                active && 'bg-brand text-white',
                 done && 'bg-ok text-white',
                 !active && !done && 'bg-paper-muted text-mist'
               )}

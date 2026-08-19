@@ -18,7 +18,7 @@ export function IndicatorsSubnav() {
             cn(
               'whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition',
               isActive
-                ? 'bg-navy text-paper'
+                ? 'bg-brand text-white'
                 : 'text-ink-soft hover:bg-paper hover:text-ink'
             )
           }

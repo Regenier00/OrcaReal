@@ -70,7 +70,7 @@ export function OperationalPrioritiesEditor({
 
   if (!model) {
     return (
-      <div className="rounded-2xl border border-paper-muted bg-paper px-4 py-4">
+      <div className="rounded-2xl border border-paper-muted bg-white px-4 py-4">
         <h3 className="font-display text-lg font-semibold text-navy">
           Indicadores operacionais
         </h3>
@@ -82,7 +82,7 @@ export function OperationalPrioritiesEditor({
   }
 
   return (
-    <div className="space-y-3 rounded-2xl border border-paper-muted bg-paper px-4 py-4">
+    <div className="space-y-3 rounded-2xl border border-paper-muted bg-white px-4 py-4">
       <div>
         <h3 className="font-display text-lg font-semibold text-navy">
           Indicadores operacionais
@@ -108,8 +108,8 @@ export function OperationalPrioritiesEditor({
                 className={cn(
                   'rounded-xl border px-3 py-3 text-left text-sm leading-snug transition',
                   active
-                    ? 'border-navy bg-navy text-paper'
-                    : 'border-paper-muted bg-white text-ink-soft hover:border-navy-bright',
+                    ? 'border-brand bg-brand text-white'
+                    : 'border-paper-muted bg-white text-ink-soft hover:border-brand',
                   !canEdit && 'cursor-default opacity-80'
                 )}
               >

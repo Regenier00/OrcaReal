@@ -36,21 +36,21 @@ function AppShellFrame({ children }: { children?: ReactNode }) {
 
   return (
     <div className="min-h-svh bg-paper">
-      <header className="border-b border-navy-mid bg-navy text-paper">
-        <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-5 py-4">
-          <div className="min-w-0">
-            <Link to="/app" className="font-display text-xl font-bold tracking-tight">
-              <span className="text-white">Orca</span>
-              <span className="text-sky">Real</span>
+      <header className="border-b border-paper-muted bg-white">
+        <div className="mx-auto flex max-w-[90rem] items-center justify-between gap-4 px-5 py-2.5">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link to="/app" className="font-display text-lg font-bold tracking-tight">
+              <span className="text-ink">Orca</span>
+              <span className="text-brand">Real</span>
             </Link>
             {activeCompany ? (
-              <div className="mt-1 flex items-center gap-2">
+              <div className="hidden min-w-0 items-center gap-2 sm:flex">
                 <CompanyLogoAvatar
                   name={activeCompany.trade_name || activeCompany.name}
                   logoUrl={activeCompany.logo_url}
                   size="sm"
                 />
-                <p className="truncate text-xs text-white/55">
+                <p className="truncate text-xs text-mist">
                   {activeCompany.trade_name || activeCompany.name}
                 </p>
               </div>
@@ -65,10 +65,10 @@ function AppShellFrame({ children }: { children?: ReactNode }) {
 
           <div className="flex items-center gap-3">
             <CompanySwitcher />
-            <span className="hidden max-w-40 truncate text-xs text-white/55 xl:inline">
+            <span className="hidden max-w-40 truncate text-xs text-mist xl:inline">
               {user?.email}
             </span>
-            <Button variant="ghost" className="!py-2 !text-xs" onClick={() => void signOut()}>
+            <Button variant="quiet" className="!py-2 !text-xs" onClick={() => void signOut()}>
               Sair
             </Button>
           </div>
@@ -76,7 +76,7 @@ function AppShellFrame({ children }: { children?: ReactNode }) {
 
         <nav
           data-tour="nav"
-          className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-5 pb-3 sm:hidden"
+          className="mx-auto flex max-w-[90rem] gap-1 overflow-x-auto px-5 pb-2 sm:hidden"
         >
           {links.map((link) => (
             <NavItem key={link.to} {...link} />
@@ -110,10 +110,10 @@ function NavItem({
       end={end}
       className={({ isActive }) =>
         cn(
-          'whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition',
+          'whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition',
           isActive
-            ? 'bg-white/10 text-white'
-            : 'text-white/65 hover:bg-white/5 hover:text-white'
+            ? 'bg-brand-soft text-brand'
+            : 'text-mist hover:bg-paper hover:text-ink'
         )
       }
     >

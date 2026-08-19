@@ -8,18 +8,18 @@ export function OnboardingShell({ children }: { children?: ReactNode }) {
 
   return (
     <div className="min-h-svh bg-paper">
-      <header className="border-b border-paper-muted bg-ink text-paper">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-5 py-4">
-          <Link to="/app" className="font-display text-xl font-bold tracking-tight">
-            <span className="text-white">Orca</span>
-            <span className="text-sky">Real</span>
+      <header className="border-b border-paper-muted bg-white">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-5 py-2.5">
+          <Link to="/app" className="font-display text-lg font-bold tracking-tight">
+            <span className="text-ink">Orca</span>
+            <span className="text-brand">Real</span>
           </Link>
 
           <div className="flex items-center gap-3">
-            <span className="hidden max-w-48 truncate text-xs text-white/55 sm:inline">
+            <span className="hidden max-w-48 truncate text-xs text-mist sm:inline">
               {user?.email}
             </span>
-            <Button variant="ghost" className="!py-2 !text-xs" onClick={() => void signOut()}>
+            <Button variant="quiet" className="!py-2 !text-xs" onClick={() => void signOut()}>
               Sair
             </Button>
           </div>

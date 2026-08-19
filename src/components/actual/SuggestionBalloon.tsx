@@ -54,12 +54,12 @@ export function FloatingNotice({
     <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4">
       <p
         role="status"
-        className="pointer-events-auto max-w-lg rounded-2xl border border-navy-bright/15 bg-navy px-4 py-3 text-sm font-medium text-paper shadow-soft"
+        className="pointer-events-auto max-w-lg rounded-2xl border border-brand/20 bg-brand px-4 py-3 text-sm font-medium text-white shadow-soft"
       >
         <span>{message}</span>
         <button
           type="button"
-          className="ml-3 text-xs text-paper/70 underline-offset-2 hover:text-paper hover:underline"
+          className="ml-3 text-xs text-white/80 underline-offset-2 hover:text-white hover:underline"
           onClick={onDismiss}
         >
           Fechar

@@ -19,40 +19,38 @@ export function HomePage() {
 
   return (
     <div className="min-h-svh bg-paper text-ink">
-      <div className="relative overflow-hidden bg-ink bg-hero-atmosphere text-paper">
+      <div className="relative overflow-hidden border-b border-paper-muted bg-white">
         <div
           aria-hidden
-          className="animate-glow-pulse pointer-events-none absolute -left-28 top-16 h-80 w-80 rounded-full bg-white/[0.035] blur-3xl"
+          className="animate-glow-pulse pointer-events-none absolute -left-28 top-8 h-56 w-56 rounded-full bg-brand/[0.08] blur-3xl"
         />
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-24 bottom-0 h-96 w-96 rounded-full bg-white/[0.025] blur-3xl"
+          className="pointer-events-none absolute -right-24 bottom-0 h-64 w-64 rounded-full bg-brand/[0.05] blur-3xl"
         />
 
         <PublicHeader />
 
-        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20 pt-10 sm:px-10 sm:pb-24 sm:pt-16">
-          <p className="animate-fade-up font-display text-4xl font-extrabold tracking-tight text-white sm:text-6xl md:text-7xl">
-            Orca<span className="text-sky">Real</span>
+        <section className="relative z-10 mx-auto max-w-6xl px-6 pb-10 pt-6 sm:px-10 sm:pb-12 sm:pt-8">
+          <p className="animate-fade-up font-display text-4xl font-extrabold tracking-tight text-ink sm:text-5xl md:text-6xl">
+            Orca<span className="text-brand">Real</span>
           </p>
 
-          <h1 className="animate-fade-up-delayed mt-5 max-w-3xl text-balance font-display text-2xl font-semibold leading-tight text-white/92 sm:text-4xl">
+          <h1 className="animate-fade-up-delayed mt-4 max-w-3xl text-balance font-display text-2xl font-semibold leading-tight text-navy sm:text-3xl">
             Transforme custos e orçamento em decisões claras.
           </h1>
 
-          <p className="animate-fade-up-late mt-5 max-w-xl text-base leading-relaxed text-white/60 sm:text-lg">
+          <p className="animate-fade-up-late mt-4 max-w-xl text-base leading-relaxed text-mist sm:text-lg">
             Plataforma de análise financeira focada em Orçado × Realizado —
             experimente antes de criar conta.
           </p>
 
-          <div className="animate-fade-up-late mt-10 flex flex-wrap items-center gap-3">
+          <div className="animate-fade-up-late mt-7 flex flex-wrap items-center gap-3">
             <Link to="/demo">
-              <Button size="lg" variant="inverse">
-                Experimentar sem conta
-              </Button>
+              <Button size="lg">Experimentar sem conta</Button>
             </Link>
             <Link to="/cadastro">
-              <Button size="lg" variant="ghost">
+              <Button size="lg" variant="secondary">
                 Criar conta
               </Button>
             </Link>
