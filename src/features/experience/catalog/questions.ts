@@ -130,7 +130,6 @@ const livestock: ExperienceQuestion[] = [
   q({ code: 'pec_type', segmentCode: 'livestock', prompt: 'Qual é o tipo de pecuária?', options: opts('Bovinocultura', 'Avicultura', 'Suinocultura', 'Ovinocultura', 'Outra'), mapsTo: 'fact.livestock_type' }, 110),
   q({ code: 'pec_kind', segmentCode: 'livestock', prompt: 'A atividade é de corte, leite ou outra?', options: opts('Corte', 'Leite', 'Outro'), mapsTo: 'fact.livestock_kind' }, 120),
   q({ code: 'pec_system', segmentCode: 'livestock', prompt: 'Qual é o sistema de criação?', options: opts('Pasto', 'Confinamento', 'Semi-confinamento'), mapsTo: 'fact.breeding_system' }, 130),
-  q({ code: 'pec_buy_sell', segmentCode: 'livestock', prompt: 'A empresa compra e vende animais com frequência?', options: YES_NO, mapsTo: 'fact.animal_buy_sell' }, 140),
   q({ code: 'pec_tracks_lot', segmentCode: 'livestock', prompt: 'Você controla o custo por lote?', options: YES_NO, mapsTo: 'fact.tracks_cost_lot' }, 150),
   q({ code: 'pec_tracks_animal', segmentCode: 'livestock', prompt: 'Você controla o custo por animal?', options: YES_NO, mapsTo: 'fact.tracks_cost_animal' }, 160),
   q({ code: 'pec_wants_arroba', segmentCode: 'livestock', prompt: 'Você deseja acompanhar o custo por arroba?', options: YES_NO, continuous: true, optional: true, mapsTo: 'fact.wants_cost_per_arroba' }, 910),
