@@ -516,6 +516,265 @@ async function testFrozenPanesMergedHeaderAndDatetime() {
   assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.amount === 80, 'pagamento')
 }
 
+function latinBytes(text: string) {
+  return Uint8Array.from(text, (char) => char.charCodeAt(0) & 0xff)
+}
+
+function escapePdfText(text: string) {
+  return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+}
+
+async function deflateZlib(data: Uint8Array) {
+  const stream = new Blob([data]).stream().pipeThrough(
+    new CompressionStream('deflate'),
+  )
+  return new Uint8Array(await new Response(stream).arrayBuffer())
+}
+
+function assemblePdf(objectBodies: Array<string | Uint8Array>) {
+  const parts: Uint8Array[] = [latinBytes('%PDF-1.4\n')]
+  for (let i = 0; i < objectBodies.length; i += 1) {
+    const body = objectBodies[i]
+    parts.push(latinBytes(`${i + 1} 0 obj\n`))
+    parts.push(typeof body === 'string' ? latinBytes(body) : body)
+    parts.push(latinBytes('\nendobj\n'))
+  }
+  parts.push(
+    latinBytes(
+      `trailer\n<< /Root 1 0 R /Size ${objectBodies.length + 1} >>\n%%EOF\n`,
+    ),
+  )
+  return concatBytes(parts)
+}
+
+async function makeStatementPdf(
+  content: string,
+  options?: { compress?: boolean; type0?: boolean },
+) {
+  const catalog = '<< /Type /Catalog /Pages 2 0 R >>'
+  const pages = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>'
+  const font = options?.type0
+    ? '<< /Type /Font /Subtype /Type0 /BaseFont /Sans /Encoding /Identity-H /ToUnicode 6 0 R >>'
+    : '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'
+  const page =
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>'
+  const raw = latinBytes(content)
+  let contents: string | Uint8Array
+  if (options?.compress) {
+    const deflated = await deflateZlib(raw)
+    contents = concatBytes([
+      latinBytes(`<< /Length ${deflated.byteLength} /Filter /FlateDecode >>\nstream\n`),
+      deflated,
+      latinBytes('endstream'),
+    ])
+  } else {
+    contents = `<< /Length ${raw.byteLength} >>\nstream\n${content}endstream`
+  }
+  const objects: Array<string | Uint8Array> = [catalog, pages, page, contents, font]
+  if (options?.type0) {
+    const cmap = `%!PS-Adobe-3.0 Resource-CMap
+begincmap
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+1 beginbfrange
+<0000> <00FF> <0000>
+endbfrange
+endcmap`
+    objects.push(`<< /Length ${cmap.length} >>\nstream\n${cmap}endstream`)
+  }
+  return assemblePdf(objects)
+}
+
+function pdfTable(lines: Array<{ y: number; cells: Array<{ x: number; text: string }> }>) {
+  const ops = ['BT', '/F1 12 Tf']
+  for (const line of lines) {
+    for (const cell of line.cells) {
+      ops.push(`1 0 0 1 ${cell.x} ${line.y} Tm`)
+      ops.push(`(${escapePdfText(cell.text)}) Tj`)
+    }
+  }
+  ops.push('ET')
+  return ops.join('\n')
+}
+
+function pdfGlyphs(y: number, cells: Array<{ x: number; text: string }>) {
+  const ops = ['BT', '/F1 10 Tf']
+  for (const cell of cells) {
+    ;[...cell.text].forEach((char, index) => {
+      ops.push(`1 0 0 1 ${cell.x + index * 6} ${y} Tm`)
+      ops.push(`(${escapePdfText(char)}) Tj`)
+    })
+  }
+  ops.push('ET')
+  return ops.join('\n')
+}
+
+function pdfColumns(rows: string[][], xs: number[], startY = 700) {
+  const ops = ['BT', '/F1 12 Tf']
+  for (let col = 0; col < xs.length; col += 1) {
+    for (let row = 0; row < rows.length; row += 1) {
+      const text = rows[row]?.[col] ?? ''
+      if (!text) continue
+      ops.push(`1 0 0 1 ${xs[col]} ${startY - row * 18} Tm`)
+      ops.push(`(${escapePdfText(text)}) Tj`)
+    }
+  }
+  ops.push('ET')
+  return ops.join('\n')
+}
+
+async function testPdfStructuredTable() {
+  const content = pdfTable([
+    {
+      y: 720,
+      cells: [
+        { x: 50, text: 'ITAU EXTRATO CONTA CORRENTE' },
+      ],
+    },
+    {
+      y: 700,
+      cells: [
+        { x: 50, text: 'Data' },
+        { x: 130, text: 'Histórico' },
+        { x: 360, text: 'Valor' },
+        { x: 450, text: 'Saldo' },
+      ],
+    },
+    {
+      y: 682,
+      cells: [
+        { x: 50, text: '01/08/2026' },
+        { x: 130, text: 'PIX RECEBIDO CLIENTE' },
+        { x: 360, text: '350,00' },
+        { x: 450, text: '1.600,00' },
+      ],
+    },
+    {
+      y: 664,
+      cells: [
+        { x: 50, text: '02/08/2026' },
+        { x: 130, text: 'TARIFA MANUTENCAO' },
+        { x: 360, text: '-12,90' },
+        { x: 450, text: '1.587,10' },
+      ],
+    },
+  ])
+  const result = await parseStatement('extrato-itau.pdf', await makeStatementPdf(content))
+  assert(result.format === 'pdf', `formato ${result.format}`)
+  assert(result.bankName === 'Itaú', `banco ${result.bankName}`)
+  assert(
+    result.movements.length === 2,
+    `pdf tabela: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix pdf')
+  assert(byDescription(result, 'PIX RECEBIDO')?.type === 'income', 'pix entrada')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa pdf')
+  assert(byDescription(result, 'TARIFA')?.amount === 12.9, 'tarifa valor')
+}
+
+async function testPdfGlyphByGlyphAndDottedDates() {
+  const content = [
+    pdfGlyphs(700, [
+      { x: 50, text: '01.08.2026' },
+      { x: 140, text: 'PIX RECEBIDO CLIENTE' },
+      { x: 380, text: '350,00' },
+    ]),
+    pdfGlyphs(680, [
+      { x: 50, text: '02.08.2026' },
+      { x: 140, text: 'PAGAMENTO FORNECEDOR' },
+      { x: 380, text: '-80,00' },
+    ]),
+  ].join('\n')
+  const result = await parseStatement('extrato-glifos.pdf', await makeStatementPdf(content))
+  assert(
+    result.movements.length === 2,
+    `glifos: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO')?.postedAt === '2026-08-01', 'data com ponto')
+  assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.type === 'expense', 'pagamento glifo')
+}
+
+async function testPdfColumnMajorDrawing() {
+  const content = pdfColumns(
+    [
+      ['Data', 'Histórico', 'Valor', 'Saldo'],
+      ['10/08/2026', 'PIX RECEBIDO CLIENTE', '200,50', '1.200,50'],
+      ['11/08/2026', 'PAGAMENTO FORNECEDOR', '-80,00', '1.120,50'],
+    ],
+    [50, 140, 380, 470],
+  )
+  const result = await parseStatement('extrato-colunas.pdf', await makeStatementPdf(content))
+  assert(
+    result.movements.length === 2,
+    `colunas: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO CLIENTE')?.amount === 200.5, 'valor não é o saldo')
+  assert(byDescription(result, 'PAGAMENTO FORNECEDOR')?.type === 'expense', 'saída em colunas')
+}
+
+async function testPdfFlateAndTjArray() {
+  const content = `BT
+/F1 12 Tf
+1 0 0 1 50 700 Tm
+(01/08/2026) Tj
+1 0 0 1 140 700 Tm
+[(PIX ) -20 (RECEBIDO CLIENTE)] TJ
+1 0 0 1 380 700 Tm
+(350,00) Tj
+1 0 0 1 50 682 Tm
+(02/08/2026) Tj
+1 0 0 1 140 682 Tm
+(TARIFA MANUTENCAO) Tj
+1 0 0 1 380 682 Tm
+(12,90 D) Tj
+ET`
+  const result = await parseStatement(
+    'extrato-compactado.pdf',
+    await makeStatementPdf(content, { compress: true }),
+  )
+  assert(
+    result.movements.length === 2,
+    `flate: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX')?.amount === 350, 'tj array')
+  assert(byDescription(result, 'TARIFA')?.type === 'expense', 'valor com D')
+}
+
+async function testPdfToUnicode() {
+  const hex = (text: string) =>
+    `<${[...text].map((char) => char.charCodeAt(0).toString(16).padStart(4, '0')).join('')}>`
+  const content = `BT
+/F1 12 Tf
+1 0 0 1 50 700 Tm
+${hex('01/08/2026')} Tj
+1 0 0 1 140 700 Tm
+${hex('PIX RECEBIDO CLIENTE')} Tj
+1 0 0 1 380 700 Tm
+${hex('350,00')} Tj
+ET`
+  const result = await parseStatement(
+    'extrato-unicode.pdf',
+    await makeStatementPdf(content, { type0: true }),
+  )
+  assert(
+    result.movements.length === 1,
+    `tounicode: ${result.movements.length} avisos=${result.warnings.map((item) => item.message).join(' | ')}`,
+  )
+  assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'cid font')
+}
+
+async function testPdfNeedsOcr() {
+  const content = `BT
+/F1 12 Tf
+1 0 0 1 50 700 Tm
+(Hi) Tj
+ET`
+  const result = await parseStatement('scan.pdf', await makeStatementPdf(content))
+  assert(result.ocrRequired, 'pdf curto deveria pedir OCR')
+  assert(result.movements.length === 0, 'scan sem lançamentos')
+}
+
 await testOfx()
 await testCsv()
 testHeaderWithCurrencyAndSlash()
@@ -536,4 +795,10 @@ testDefaultBankFilter()
 await testSparseXlsxDoesNotCrash()
 await testNamespacedXlsxAndSecondSheet()
 await testFrozenPanesMergedHeaderAndDatetime()
+await testPdfStructuredTable()
+await testPdfGlyphByGlyphAndDottedDates()
+await testPdfColumnMajorDrawing()
+await testPdfFlateAndTjArray()
+await testPdfToUnicode()
+await testPdfNeedsOcr()
 console.log('statement parse tests ok')
