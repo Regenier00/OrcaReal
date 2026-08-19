@@ -43,6 +43,64 @@ const mixed = QUESTIONS.filter(
 )
 const mixedCodes = new Set(mixed.map((question) => question.code))
 
+assert(
+  RETIRED_QUESTION_CODES.has('control_method'),
+  'control_method deve estar aposentada: não personaliza a experiência'
+)
+assert(
+  !mixedCodes.has('control_method'),
+  'cadastro não deve perguntar como a empresa controla as finanças hoje'
+)
+assert(
+  isRetiredQuestion({
+    code: 'control_method',
+    prompt: 'Como a empresa controla as finanças hoje?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 30,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar control_method mesmo se vier do banco'
+)
+assert(
+  RETIRED_QUESTION_CODES.has('main_objective'),
+  'main_objective deve estar aposentada: não personaliza a experiência'
+)
+assert(
+  !mixedCodes.has('main_objective'),
+  'cadastro não deve perguntar o objetivo ao usar a plataforma'
+)
+assert(
+  isRetiredQuestion({
+    code: 'main_objective',
+    prompt: 'Qual é o objetivo principal ao usar a plataforma?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 40,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar main_objective mesmo se vier do banco'
+)
+assert(
+  RETIRED_QUESTION_CODES.has('primary_activity'),
+  'primary_activity deve estar aposentada: indicadores já vêm do ramo'
+)
+assert(
+  !mixedCodes.has('primary_activity'),
+  'cadastro não deve pedir a atividade principal em texto livre'
+)
+assert(
+  isRetiredQuestion({
+    code: 'primary_activity',
+    prompt: 'Qual é a atividade principal da empresa?',
+    answerType: 'text',
+    options: [],
+    sortOrder: 50,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar primary_activity mesmo se vier do banco'
+)
+
 for (const code of [
   'com_type',
   'com_products',

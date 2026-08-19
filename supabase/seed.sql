@@ -46,22 +46,6 @@ insert into public.onboarding_questions (code, question, help_text, answer_type,
     'single',
     '["Serviços","Comércio","Indústria","Agronegócio","Tecnologia","Outros"]'::jsonb,
     10
-  ),
-  (
-    'control_method',
-    'Como a empresa controla as finanças hoje?',
-    'Não há resposta certa — queremos entender o ponto de partida.',
-    'single',
-    '["Excel","Sistema contábil","ERP","Anotações manuais","Quase não controla"]'::jsonb,
-    30
-  ),
-  (
-    'main_objective',
-    'Qual é o objetivo principal ao usar a plataforma?',
-    null,
-    'single',
-    '["Comparar orçado e realizado","Entender custos","Organizar o orçamento","Gerar indicadores e relatórios"]'::jsonb,
-    40
   );
 
 insert into public.import_templates (code, name, version, kind, schema_definition) values
