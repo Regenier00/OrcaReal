@@ -38,6 +38,12 @@ function formatDate(value: string) {
   return `${day}/${month}/${year}`
 }
 
+function canApplySuggestion(item: ActualTransaction) {
+  return (
+    (item.status === 'pending' || item.status === 'ignored') && hasSuggestion(item)
+  )
+}
+
 function suggestionLabel(
   item: ActualTransaction,
   catalog: ActualCatalog | null,
@@ -117,9 +123,7 @@ export function ClassifyTransactionsPage() {
 
   const loading = Boolean(loadKey) && fetchedFor !== loadKey
   const selectedItems = items.filter((item) => selected.includes(item.id))
-  const selectedWithSuggestion = selectedItems.filter(
-    (item) => item.status === 'pending' && hasSuggestion(item),
-  )
+  const selectedWithSuggestion = selectedItems.filter(canApplySuggestion)
   const costCenters = catalog
     ? costCentersForDepartment(catalog, departmentId)
     : []
@@ -132,10 +136,7 @@ export function ClassifyTransactionsPage() {
 
   useEffect(() => {
     const suggested = items.filter(
-      (item) =>
-        selected.includes(item.id) &&
-        item.status === 'pending' &&
-        hasSuggestion(item),
+      (item) => selected.includes(item.id) && canApplySuggestion(item),
     )
     if (suggested.length === 0) return
     const nextDepartmentId = suggested[0]?.suggested_department_id ?? ''
