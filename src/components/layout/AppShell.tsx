@@ -84,11 +84,11 @@ function AppShellFrame({ children }: { children?: ReactNode }) {
       </header>
 
       <main
-        className={cn('mx-auto max-w-[90rem] px-5 py-8', tourActive && 'pb-32')}
+        className={cn('mx-auto max-w-[90rem] px-5 py-8', tourActive && 'pb-56')}
       >
         {children ?? <Outlet />}
       </main>
-      <PlatformTour key={tourActive ? 'tour-on' : 'tour-off'} />
+      <PlatformTour />
     </div>
   )
 }

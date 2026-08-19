@@ -739,8 +739,8 @@ function SettingsTab({
           Tutorial da plataforma
         </h3>
         <p className="mt-1 text-sm text-mist">
-          Um passeio curto pelo dashboard, pelos indicadores e pelo menu. Você
-          pode pular a qualquer momento em “{SKIP_TOUR_LABEL}”.
+          Um passeio curto pelo dashboard, pelos orçamentos e pelo realizado.
+          Você pode pular a qualquer momento em “{SKIP_TOUR_LABEL}”.
         </p>
         <Button type="button" variant="secondary" className="mt-3 w-fit" onClick={start}>
           Rever o mapa da plataforma

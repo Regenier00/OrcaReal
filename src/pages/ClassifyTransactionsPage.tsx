@@ -310,6 +310,7 @@ export function ClassifyTransactionsPage() {
   return (
     <ActualPageShell
       title="Realizados não apropriados"
+      tourId="actual-classify"
       description="Classifique departamento e centro de custo. Se o tipo estiver errado, corrija entrada ou saída. As saídas entram no Orçado × Realizado; as entradas vão para os cards de receita e para os indicadores."
       actions={
         <div className="flex flex-wrap gap-2">

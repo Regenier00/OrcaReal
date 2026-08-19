@@ -1,4 +1,3 @@
-import { appModules } from '../../content/appModules.ts'
 import { KPI_FORMULAS } from '../home/kpiFormulas.ts'
 import { SKIP_TOUR_LABEL } from './storage.ts'
 
@@ -11,15 +10,14 @@ export interface TourFormula {
 
 export interface TourStep {
   id: string
+  path: string
   target?: string
-  placement: 'center' | 'auto'
   kicker: string
   title: string
   body: string
   hook?: string
   collectFormulasFrom?: string
   formulas?: TourFormula[]
-  highlights?: string[]
   nextLabel: string
   finish?: boolean
 }
@@ -27,22 +25,22 @@ export interface TourStep {
 export const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
+    path: '/app',
     target: 'hero',
-    placement: 'auto',
-    kicker: 'Começando',
-    title: 'Sua operação já está no ar',
-    body: 'Em poucos toques você vê o pulso do mês, o plano, o extrato e os indicadores — no lugar certo, sem procurar.',
+    kicker: 'Dashboard',
+    title: 'Sua operação já tem um lugar para viver',
+    body: 'Aqui é onde você enxerga o mês inteiro sem montar planilha. Receita, saídas e o que sobrou — o pulso da empresa, no mesmo lugar.',
     hook: 'Sem aula. Só o mapa da OrcaReal.',
-    nextLabel: 'Mostrar o dashboard',
+    nextLabel: 'Ver o placar do mês',
   },
   {
     id: 'scoreboard',
+    path: '/app',
     target: 'financial-summary',
-    placement: 'auto',
     kicker: 'Dashboard',
-    title: 'O placar do mês',
-    body: 'Receita, saídas, o que sobrou e o desvio do plano. Cada card já traz a conta, para você não depender de outra planilha.',
-    hook: 'Quanto entrou, quanto saiu, o que sobrou.',
+    title: 'O placar que a planilha não entrega',
+    body: 'Aqui é onde você lê o resultado de relance: o que entrou, o que saiu, o que sobrou e o desvio do plano. Cada card já traz a conta.',
+    hook: 'Decida com o número na mão, não no feeling.',
     collectFormulasFrom: 'financial-summary',
     formulas: [
       { name: 'Entradas do período', formula: KPI_FORMULAS.revenue },
@@ -54,54 +52,65 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'indicators',
+    path: '/app',
     target: 'indicators',
-    placement: 'auto',
     kicker: 'Indicadores',
-    title: 'As contas do seu modelo',
-    body: 'Aqui entram os indicadores da operação. A fórmula fica à vista em cada card — clique para informar o que falta e ver o cálculo.',
-    hook: 'Nada de caixa-preta: a conta aparece junto do número.',
+    title: 'Os números do seu modelo, sem caixa-preta',
+    body: 'Aqui é onde você acompanha os indicadores da operação. A fórmula fica à vista em cada card — o cálculo deixa de ser mistério e vira ferramenta.',
+    hook: 'O número e a conta, lado a lado.',
     collectFormulasFrom: 'indicators',
     formulas: [{ name: 'Total realizado', formula: KPI_FORMULAS.totalCost }],
-    nextLabel: 'Ver os atalhos',
+    nextLabel: 'Ver os orçamentos',
   },
   {
-    id: 'shortcuts',
-    target: 'quick-access',
-    placement: 'auto',
-    kicker: 'Acesso rápido',
-    title: 'Os quatro caminhos do dia a dia',
-    body: 'Planejar, importar o extrato, comparar o desvio e medir o modelo — cada um com atalho próprio no dashboard.',
-    hook: 'Toque no card quando quiser ir direto.',
-    highlights: appModules.map((module) => `${module.title} — ${module.summary}`),
-    nextLabel: 'Ver o menu',
+    id: 'budgets',
+    path: '/app/orcamentos',
+    target: 'budgets',
+    kicker: 'Orçamentos',
+    title: 'O plano do exercício',
+    body: 'Aqui é onde você vai definir seu orçamento e decidir para onde seu dinheiro vai. Departamento, centro de custo e categoria no mesmo recorte — o plano deixa de ser uma aba esquecida.',
+    hook: 'O dinheiro precisa de destino antes de sair.',
+    nextLabel: 'Ver o realizado',
   },
   {
-    id: 'menu',
-    target: 'nav',
-    placement: 'auto',
-    kicker: 'Menu',
-    title: 'Tudo isso mora aqui em cima',
-    body: 'Dashboard, Orçamentos, Realizado, Orçado × Realizado, Indicadores, Empresa e Perfil. O mesmo destino dos atalhos, sempre à mão.',
-    hook: 'Quando quiser voltar, é um clique no topo.',
-    highlights: [
-      'Dashboard — o placar do mês',
-      'Orçamentos — o plano do exercício',
-      'Realizado — o extrato importado',
-      'Orçado × Realizado — o desvio no mesmo recorte',
-      'Indicadores — as contas, com a fórmula à vista',
-      'Empresa e Perfil — estrutura e sua conta',
-    ],
-    nextLabel: 'Escolher o primeiro passo',
+    id: 'actual-import',
+    path: '/app/realizado/importar',
+    target: 'actual-import',
+    kicker: 'Realizado',
+    title: 'O extrato vira realizado',
+    body: 'Aqui é onde você importa os extratos bancários. OFX, CSV, planilha ou PDF estruturado — os lançamentos entram sozinhos, prontos para o próximo passo.',
+    hook: 'O banco fala. A OrcaReal traduz.',
+    nextLabel: 'Ver a apropriação',
   },
   {
-    id: 'first-move',
-    target: 'quick-access',
-    placement: 'center',
-    kicker: 'Sua vez',
-    title: 'Agora o jogo começa',
-    body: 'Importe o extrato ou monte o primeiro orçamento. O dashboard ganha vida no instante em que os dados entram.',
-    hook: 'Dois minutos e o placar deixa de ser zero.',
-    nextLabel: 'Começar pelo orçamento',
+    id: 'actual-classify',
+    path: '/app/realizado/nao-apropriados',
+    target: 'actual-classify',
+    kicker: 'Realizado',
+    title: 'Cada real precisa de um endereço',
+    body: 'Aqui é onde você apropria as movimentações existentes: departamento e centro de custo. Sem isso o dinheiro só entra; com isso, ele conta a história da operação.',
+    hook: 'Classificar é o que transforma extrato em gestão.',
+    nextLabel: 'Ver o Orçado × Realizado',
+  },
+  {
+    id: 'comparison',
+    path: '/app/orcado-realizado',
+    target: 'comparison',
+    kicker: 'Orçado × Realizado',
+    title: 'O desvio, sem cruzar planilha',
+    body: 'Aqui é onde você compara o plano com o que de fato aconteceu, no mesmo recorte. O desvio aparece sozinho — e você vê o que saiu da rota antes de virar surpresa.',
+    hook: 'Plano de um lado. Vida real do outro.',
+    nextLabel: 'Encerrar o mapa',
+  },
+  {
+    id: 'wrap-up',
+    path: '/app',
+    target: 'hero',
+    kicker: 'Pronto',
+    title: 'O mapa é seu. O ritmo também.',
+    body: 'Nada precisa ser preenchido agora. Quando quiser, o orçamento e o extrato entram — e o dashboard ganha vida no instante em que os dados chegam.',
+    hook: 'A plataforma já está no lugar. Você escolhe a hora de usar.',
+    nextLabel: 'Explorar a plataforma',
     finish: true,
   },
 ]

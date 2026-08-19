@@ -75,14 +75,34 @@ assert(
   SKIP_TOUR_LABEL === 'Já sei usar a plataforma',
   'rótulo de pular fica visível e literal'
 )
-assert(TOUR_STEPS.length >= 5, 'tour cobre as funcionalidades principais')
+assert(TOUR_STEPS.length >= 7, 'tour cobre dashboard, orçamento e realizado')
 assert(
   TOUR_STEPS.some((step) => step.id === 'indicators' && (step.formulas?.length ?? 0) > 0),
   'passo dos indicadores traz fórmula'
 )
 assert(
-  TOUR_STEPS.some((step) => (step.highlights?.length ?? 0) >= 4),
-  'atalhos e menu listam as funcionalidades'
+  TOUR_STEPS.every((step) => step.path && step.title && step.body && step.nextLabel),
+  'cada passo tem rota, título, texto e CTA'
+)
+assert(
+  TOUR_STEPS.some((step) => step.id === 'budgets' && step.path === '/app/orcamentos'),
+  'visita a tela de orçamentos'
+)
+assert(
+  TOUR_STEPS.some((step) => step.id === 'actual-import' && step.path.includes('importar')),
+  'visita a tela de importar extrato'
+)
+assert(
+  TOUR_STEPS.some((step) => step.id === 'actual-classify' && step.path.includes('nao-apropriados')),
+  'visita a tela de apropriar movimentações'
+)
+assert(
+  TOUR_STEPS.some((step) => /definir seu orçamento/i.test(step.body)),
+  'orçamento vende o destino do dinheiro'
+)
+assert(
+  !TOUR_STEPS.some((step) => step.finish && /orçamentos\/novo|importar/.test(step.nextLabel)),
+  'o fim não obriga a criar orçamento nem importar extrato'
 )
 
 const merged = mergeCollectedFormulas(
