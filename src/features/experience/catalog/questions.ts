@@ -100,39 +100,22 @@ const common: ExperienceQuestion[] = [
     },
     80
   ),
-  q(
-    {
-      code: 'tracks_unit_costs',
-      prompt: 'Você acompanha seus custos por unidade?',
-      helpText: 'O indicador de custo por unidade do ramo aparece no dashboard. Informe a quantidade do mês ao clicar no card.',
-      options: YES_NO,
-      mapsTo: 'fact.tracks_unit_costs',
-    },
-    100
-  ),
 ]
 
 const agro: ExperienceQuestion[] = [
   q({ code: 'agro_crops', segmentCode: 'agro', prompt: 'Quais culturas sua empresa produz?', options: opts('Soja', 'Milho', 'Algodão', 'Café', 'Cana-de-açúcar', 'Trigo', 'Arroz', 'Hortaliças', 'Outra'), mapsTo: 'fact.crops' }, 110),
   q({ code: 'agro_land_tenure', segmentCode: 'agro', prompt: 'A propriedade é própria ou arrendada?', options: opts('Própria', 'Arrendada'), mapsTo: 'fact.land_tenure' }, 120),
   q({ code: 'agro_production_unit', segmentCode: 'agro', prompt: 'Qual é a unidade utilizada para acompanhar sua produção?', options: opts('Hectare', 'Saca', 'Tonelada', 'Outra'), mapsTo: 'fact.production_unit' }, 130),
-  q({ code: 'agro_tracks_cost_hectare', segmentCode: 'agro', prompt: 'A empresa acompanha custo por hectare?', options: YES_NO, mapsTo: 'fact.tracks_cost_hectare' }, 140),
-  q({ code: 'agro_tracks_cost_crop', segmentCode: 'agro', prompt: 'Você acompanha o custo individual por cultura?', options: YES_NO, mapsTo: 'fact.tracks_cost_crop' }, 150),
-  q({ code: 'agro_tracks_productivity_hectare', segmentCode: 'agro', prompt: 'Você acompanha produtividade por hectare?', options: YES_NO, mapsTo: 'fact.tracks_productivity_hectare' }, 160),
   q({ code: 'agro_inputs', segmentCode: 'agro', prompt: 'Quais são os principais insumos?', options: opts('Sementes', 'Fertilizantes', 'Defensivos', 'Combustível', 'Mão de obra', 'Outros'), mapsTo: 'fact.main_inputs' }, 170),
   q({ code: 'agro_own_machinery', segmentCode: 'agro', prompt: 'Existe maquinário próprio?', options: YES_NO, mapsTo: 'fact.own_machinery' }, 180),
   q({ code: 'agro_third_party', segmentCode: 'agro', prompt: 'Existe contratação de serviços de terceiros?', options: YES_NO, mapsTo: 'fact.third_party_services' }, 190),
   q({ code: 'agro_financing', segmentCode: 'agro', prompt: 'Existe financiamento agrícola?', options: YES_NO, mapsTo: 'fact.agricultural_financing' }, 200),
-  q({ code: 'agro_track_arroba_like', segmentCode: 'agro', prompt: 'Você deseja acompanhar o custo por saca?', options: YES_NO, continuous: true, optional: true, mapsTo: 'fact.wants_cost_per_bag' }, 900),
 ]
 
 const livestock: ExperienceQuestion[] = [
   q({ code: 'pec_type', segmentCode: 'livestock', prompt: 'Qual é o tipo de pecuária?', options: opts('Bovinocultura', 'Avicultura', 'Suinocultura', 'Ovinocultura', 'Outra'), mapsTo: 'fact.livestock_type' }, 110),
   q({ code: 'pec_kind', segmentCode: 'livestock', prompt: 'A atividade é de corte, leite ou outra?', options: opts('Corte', 'Leite', 'Outro'), mapsTo: 'fact.livestock_kind' }, 120),
   q({ code: 'pec_system', segmentCode: 'livestock', prompt: 'Qual é o sistema de criação?', options: opts('Pasto', 'Confinamento', 'Semi-confinamento'), mapsTo: 'fact.breeding_system' }, 130),
-  q({ code: 'pec_tracks_lot', segmentCode: 'livestock', prompt: 'Você controla o custo por lote?', options: YES_NO, mapsTo: 'fact.tracks_cost_lot' }, 150),
-  q({ code: 'pec_tracks_animal', segmentCode: 'livestock', prompt: 'Você controla o custo por animal?', options: YES_NO, mapsTo: 'fact.tracks_cost_animal' }, 160),
-  q({ code: 'pec_wants_arroba', segmentCode: 'livestock', prompt: 'Você deseja acompanhar o custo por arroba?', options: YES_NO, continuous: true, optional: true, mapsTo: 'fact.wants_cost_per_arroba' }, 910),
 ]
 
 const fishing: ExperienceQuestion[] = [
@@ -154,20 +137,15 @@ const commerce: ExperienceQuestion[] = [
     },
     110
   ),
-  q({ code: 'com_stock', segmentCode: 'commerce', prompt: 'A empresa controla estoque?', options: YES_NO, mapsTo: 'fact.stock_control' }, 120),
 ]
 
 const industry: ExperienceQuestion[] = [
   q({ code: 'ind_type', segmentCode: 'industry', prompt: 'Qual é o tipo de indústria?', options: opts('Alimentos', 'Metalúrgica', 'Química', 'Têxtil', 'Móveis', 'Outra'), mapsTo: 'fact.industry_type' }, 110),
   q({ code: 'ind_products', segmentCode: 'industry', prompt: 'Quais produtos são fabricados?', answerType: 'text', mapsTo: 'fact.manufactured_products' }, 120),
-  q({ code: 'ind_costs', segmentCode: 'industry', prompt: 'Quais custos de produção você acompanha?', options: opts('Matéria-prima', 'Mão de obra direta', 'Custos indiretos', 'Máquinas', 'Horas de produção', 'Perdas e desperdícios'), mapsTo: 'fact.production_costs' }, 130),
-  q({ code: 'ind_stock_rm', segmentCode: 'industry', prompt: 'A empresa controla estoque de matéria-prima?', options: YES_NO, mapsTo: 'fact.raw_material_stock' }, 140),
-  q({ code: 'ind_stock_fg', segmentCode: 'industry', prompt: 'A empresa controla estoque de produtos acabados?', options: YES_NO, mapsTo: 'fact.finished_goods_stock' }, 150),
 ]
 
 const construction: ExperienceQuestion[] = [
   q({ code: 'con_type', segmentCode: 'construction', prompt: 'Qual é o tipo de obras?', options: opts('Residencial', 'Comercial', 'Infraestrutura', 'Reforma'), mapsTo: 'fact.work_type' }, 110),
-  q({ code: 'con_costs', segmentCode: 'construction', prompt: 'Quais custos você acompanha por obra?', options: opts('Materiais', 'Mão de obra', 'Terceirizados', 'Equipamentos', 'Custos indiretos', 'Etapas da obra'), mapsTo: 'fact.work_costs' }, 120),
 ]
 
 const transport: ExperienceQuestion[] = [
@@ -176,13 +154,11 @@ const transport: ExperienceQuestion[] = [
 
 const food: ExperienceQuestion[] = [
   q({ code: 'food_type', segmentCode: 'food', prompt: 'Qual é o tipo de estabelecimento?', options: opts('Restaurante', 'Lanchonete', 'Padaria', 'Dark kitchen', 'Buffet', 'Outro'), mapsTo: 'fact.food_type' }, 110),
-  q({ code: 'food_costs', segmentCode: 'food', prompt: 'Quais custos você quer acompanhar?', options: opts('Ingredientes', 'Desperdícios', 'Funcionários', 'Delivery', 'Taxas de aplicativos', 'Embalagem'), mapsTo: 'fact.main_costs' }, 120),
   q({ code: 'food_delivery', segmentCode: 'food', prompt: 'A empresa trabalha com delivery?', options: YES_NO, mapsTo: 'fact.has_delivery' }, 130),
 ]
 
 const services: ExperienceQuestion[] = [
   q({ code: 'srv_type', segmentCode: 'services', prompt: 'Qual é o tipo de serviço?', answerType: 'text', mapsTo: 'fact.service_type' }, 110),
-  q({ code: 'srv_costs', segmentCode: 'services', prompt: 'Quais custos por projeto são acompanhados?', options: opts('Pessoal', 'Terceirizados', 'Deslocamento', 'Ferramentas', 'Outros'), mapsTo: 'fact.project_costs' }, 120),
 ]
 
 const tech: ExperienceQuestion[] = [
@@ -194,7 +170,6 @@ const tech: ExperienceQuestion[] = [
 
 const health: ExperienceQuestion[] = [
   q({ code: 'hlt_type', segmentCode: 'health', prompt: 'Qual é o tipo de estabelecimento?', options: opts('Clínica', 'Consultório', 'Hospital', 'Laboratório', 'Outro'), mapsTo: 'fact.health_type' }, 110),
-  q({ code: 'hlt_volume', segmentCode: 'health', prompt: 'O que a empresa acompanha no atendimento?', options: opts('Consultas', 'Procedimentos', 'Pacientes', 'Convênios'), mapsTo: 'fact.health_volume' }, 120),
 ]
 
 const education: ExperienceQuestion[] = [
@@ -203,18 +178,15 @@ const education: ExperienceQuestion[] = [
 
 const realEstate: ExperienceQuestion[] = [
   q({ code: 're_model', segmentCode: 'real_estate', prompt: 'A operação é de compra e venda ou aluguel?', options: opts('Compra e venda', 'Aluguel', 'Administração predial'), mapsTo: 'fact.real_estate_model' }, 110),
-  q({ code: 're_costs', segmentCode: 'real_estate', prompt: 'Quais custos você acompanha por imóvel?', options: opts('Manutenção', 'Condomínio', 'Impostos', 'Vacância', 'Comissões'), mapsTo: 'fact.property_costs' }, 120),
 ]
 
 const automotive: ExperienceQuestion[] = [
   q({ code: 'auto_type', segmentCode: 'automotive', prompt: 'Qual é o tipo de operação?', options: opts('Oficina', 'Concessionária', 'Peças', 'Estética automotiva'), mapsTo: 'fact.auto_type' }, 110),
   q({ code: 'auto_services', segmentCode: 'automotive', prompt: 'Quais serviços são realizados?', options: opts('Manutenção', 'Funilaria', 'Estética', 'Venda de peças', 'Venda de veículos'), mapsTo: 'fact.auto_services' }, 120),
-  q({ code: 'auto_stock', segmentCode: 'automotive', prompt: 'A empresa controla estoque de peças?', options: YES_NO, mapsTo: 'fact.parts_stock' }, 130),
 ]
 
 const energy: ExperienceQuestion[] = [
   q({ code: 'eng_type', segmentCode: 'energy', prompt: 'Qual é o tipo de geração ou operação?', options: opts('Solar', 'Eólica', 'Hidrelétrica', 'Distribuição', 'Eficiência energética', 'Outra'), mapsTo: 'fact.energy_type' }, 110),
-  q({ code: 'eng_costs', segmentCode: 'energy', prompt: 'Quais custos operacionais são acompanhados?', options: opts('Manutenção', 'Equipamentos', 'Pessoal', 'Transmissão'), mapsTo: 'fact.main_costs' }, 120),
 ]
 
 const mining: ExperienceQuestion[] = [
@@ -229,14 +201,12 @@ const hospitality: ExperienceQuestion[] = [
 
 const beauty: ExperienceQuestion[] = [
   q({ code: 'beau_services', segmentCode: 'beauty', prompt: 'Quais serviços são oferecidos?', options: opts('Cabelo', 'Estética', 'Unhas', 'Barbearia', 'Outros'), mapsTo: 'fact.beauty_services' }, 110),
-  q({ code: 'beau_costs', segmentCode: 'beauty', prompt: 'Quais custos você acompanha?', options: opts('Produtos', 'Comissões', 'Aluguel', 'Horas disponíveis'), mapsTo: 'fact.main_costs' }, 120),
 ]
 
 const media: ExperienceQuestion[] = []
 
 const marketing: ExperienceQuestion[] = [
   q({ code: 'mkt_recurring', segmentCode: 'marketing', prompt: 'Há contratos recorrentes?', options: YES_NO, mapsTo: 'fact.has_recurring_contracts' }, 110),
-  q({ code: 'mkt_costs', segmentCode: 'marketing', prompt: 'Quais custos você quer acompanhar?', options: opts('Pessoal', 'Horas', 'Terceirizados', 'Mídia'), mapsTo: 'fact.main_costs' }, 120),
 ]
 
 const entertainment: ExperienceQuestion[] = [
@@ -250,7 +220,6 @@ const sports: ExperienceQuestion[] = [
 
 const environment: ExperienceQuestion[] = [
   q({ code: 'env_type', segmentCode: 'environment', prompt: 'Qual é o tipo de serviço ambiental?', options: opts('Gestão de resíduos', 'Consultoria', 'Licenciamento', 'Reciclagem', 'Outro'), mapsTo: 'fact.environment_type' }, 110),
-  q({ code: 'env_costs', segmentCode: 'environment', prompt: 'Quais custos operacionais são acompanhados?', options: opts('Equipes', 'Equipamentos', 'Transporte', 'Destinação'), mapsTo: 'fact.main_costs' }, 120),
 ]
 
 const financial: ExperienceQuestion[] = [
@@ -259,7 +228,6 @@ const financial: ExperienceQuestion[] = [
 
 const professional: ExperienceQuestion[] = [
   q({ code: 'pro_type', segmentCode: 'professional', prompt: 'Qual é o tipo de serviço profissional?', options: opts('Consultoria', 'Advocacia', 'Contabilidade', 'Engenharia', 'Outro'), mapsTo: 'fact.professional_type' }, 110),
-  q({ code: 'pro_hours', segmentCode: 'professional', prompt: 'As horas trabalhadas são controladas?', options: YES_NO, mapsTo: 'fact.tracks_hours' }, 120),
 ]
 
 const publicAdmin: ExperienceQuestion[] = [

@@ -120,7 +120,62 @@ for (const code of [
   assert(!mixedCodes.has(code), `pergunta redundante ainda aparece: ${code}`)
 }
 
+assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
+assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 assert(mixedCodes.has('com_channel'), 'comércio ainda deve perguntar o canal de venda')
+
+const alreadyTracks = [
+  'tracks_unit_costs',
+  'agro_tracks_cost_hectare',
+  'agro_tracks_cost_crop',
+  'agro_tracks_productivity_hectare',
+  'agro_track_arroba_like',
+  'pec_tracks_lot',
+  'pec_tracks_animal',
+  'pec_wants_arroba',
+  'com_stock',
+  'ind_stock_rm',
+  'ind_stock_fg',
+  'auto_stock',
+  'pro_hours',
+  'ind_costs',
+  'con_costs',
+  'food_costs',
+  'srv_costs',
+  'hlt_volume',
+  're_costs',
+  'eng_costs',
+  'beau_costs',
+  'mkt_costs',
+  'env_costs',
+]
+for (const code of alreadyTracks) {
+  assert(RETIRED_QUESTION_CODES.has(code), `${code} deve estar aposentada: a plataforma é que faz acompanhar`)
+  assert(!QUESTIONS.some((question) => question.code === code), `cadastro ainda pergunta ${code}`)
+}
+assert(
+  isRetiredQuestion({
+    code: 'agro_tracks_cost_crop',
+    prompt: 'Você acompanha o custo individual por cultura?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 150,
+    segmentCode: 'agro',
+  }),
+  'wizard deve ignorar agro_tracks_cost_crop mesmo se vier do banco'
+)
+assert(
+  isRetiredQuestion({
+    code: 'tracks_unit_costs',
+    prompt: 'Você acompanha seus custos por unidade?',
+    answerType: 'single',
+    options: [],
+    sortOrder: 100,
+    segmentCode: null,
+  }),
+  'wizard deve ignorar tracks_unit_costs mesmo se vier do banco'
+)
+
 const channelQuestion = QUESTIONS.find((question) => question.code === 'com_channel')
 assert(
   channelQuestion?.options?.map((item) => item.label).join() ===
@@ -146,8 +201,6 @@ assert(
   }),
   'wizard deve ignorar pec_buy_sell mesmo se vier do banco'
 )
-assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
-assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 
 const pecType = QUESTIONS.find((question) => question.code === 'pec_type')
 assert(pecType?.answerType === 'multiple', 'tipo de pecuária deve aceitar várias opções')

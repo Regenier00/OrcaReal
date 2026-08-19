@@ -88,18 +88,18 @@ const strategic: IndicatorDef[] = [
   indicator({ code: 'cost_share', name: 'Participação dos custos', description: 'Peso dos custos sobre a receita.', category: 'strategic', unit: '%', formula: 'custos / receita', segments: ALL, dashboardSection: 'profitability' }, 240),
   indicator({ code: 'cost_evolution', name: 'Evolução dos custos', description: 'Variação dos custos no tempo.', category: 'strategic', unit: '%', formula: '(custo atual - anterior) / anterior', segments: ALL, dashboardSection: 'budget_vs_actual' }, 250),
   indicator({ code: 'budget_deviation', name: 'Desvio do orçamento', description: 'Aderência ao plano orçamentário.', category: 'strategic', unit: '%', formula: '(realizado - orçado) / orçado', segments: ALL, dashboardSection: 'budget_vs_actual' }, 260),
-  indicator({ code: 'unit_profitability', name: 'Rentabilidade por unidade de negócio', description: 'Resultado por unidade de análise da empresa.', category: 'strategic', unit: 'R$', formula: 'resultado / unidade de análise', segments: ALL, dashboardSection: 'profitability', activation: { eq: { answer: 'tracks_unit_costs', value: 'yes' } } }, 270),
+  indicator({ code: 'unit_profitability', name: 'Rentabilidade por unidade de negócio', description: 'Resultado por unidade de análise da empresa.', category: 'strategic', unit: 'R$', formula: 'resultado / unidade de análise', segments: ALL, dashboardSection: 'profitability' }, 270),
 ]
 
 const agro = operational(['agro'], [
   { code: 'cost_per_hectare', name: 'Custo por hectare', unit: 'R$/hectare', formula: 'custos / hectares' },
-  { code: 'cost_per_crop', name: 'Custo por cultura', unit: 'R$', formula: 'custos da cultura / culturas', needUnits: ['crop'], needAnswer: ['agro_tracks_cost_crop', 'yes'] },
+  { code: 'cost_per_crop', name: 'Custo por cultura', unit: 'R$', formula: 'custos da cultura / culturas' },
   { code: 'cost_per_bag', name: 'Custo por saca', unit: 'R$/sc', formula: 'custos / sacas', needUnits: ['bag'] },
   { code: 'cost_per_ton_agro', name: 'Custo por tonelada', unit: 'R$/t', formula: 'custos / toneladas', needUnits: ['ton'] },
   { code: 'revenue_per_hectare', name: 'Receita por hectare', unit: 'R$/ha', formula: 'receita / hectares', needUnits: ['hectare'], section: 'profitability' },
   { code: 'margin_per_hectare', name: 'Margem por hectare', unit: 'R$/ha', formula: '(receita - custos) / hectares', needUnits: ['hectare'], section: 'profitability' },
   { code: 'margin_per_crop', name: 'Margem por cultura', unit: 'R$', formula: 'receita da cultura - custo da cultura', needUnits: ['crop'], section: 'profitability' },
-  { code: 'productivity_per_hectare', name: 'Produtividade por hectare', unit: 'un/ha', formula: 'produção / hectares', needUnits: ['hectare'], needAnswer: ['agro_tracks_productivity_hectare', 'yes'] },
+  { code: 'productivity_per_hectare', name: 'Produtividade por hectare', unit: 'un/ha', formula: 'produção / hectares', needUnits: ['hectare'] },
   { code: 'revenue_per_bag', name: 'Receita por saca', unit: 'R$/sc', formula: 'receita / sacas', needUnits: ['bag'], section: 'profitability' },
   { code: 'input_cost', name: 'Custo dos insumos', unit: 'R$', formula: 'soma dos insumos' },
   { code: 'input_cost_share', name: 'Participação dos insumos no custo', unit: '%', formula: 'insumos / custo total', section: 'profitability' },
@@ -108,9 +108,9 @@ const agro = operational(['agro'], [
 ], 300)
 
 const livestock = operational(['livestock'], [
-  { code: 'cost_per_animal', name: 'Custo por animal', unit: 'R$', formula: 'custos / animais', needUnits: ['animal'], needAnswer: ['pec_tracks_animal', 'yes'] },
+  { code: 'cost_per_animal', name: 'Custo por animal', unit: 'R$', formula: 'custos / animais' },
   { code: 'cost_per_head', name: 'Custo por cabeça', unit: 'R$/cabeça', formula: 'custos / cabeças' },
-  { code: 'cost_per_lot', name: 'Custo por lote', unit: 'R$', formula: 'custos / lotes', needUnits: ['lot'], needAnswer: ['pec_tracks_lot', 'yes'] },
+  { code: 'cost_per_lot', name: 'Custo por lote', unit: 'R$', formula: 'custos / lotes' },
   { code: 'cost_per_arroba', name: 'Custo por arroba', unit: 'R$/@', formula: 'custos / arrobas', needUnits: ['arroba'] },
   { code: 'cost_per_hectare_pec', name: 'Custo por hectare', unit: 'R$/ha', formula: 'custos / hectares', needUnits: ['hectare'] },
   { code: 'revenue_per_animal', name: 'Receita por animal', unit: 'R$', formula: 'receita / animais', needUnits: ['animal'], section: 'profitability' },
@@ -132,8 +132,8 @@ const commerce = operational(['commerce'], [
   { code: 'cost_per_product', name: 'Custo por produto', unit: 'R$', formula: 'custo de aquisição + custos diretos', needUnits: ['product'] },
   { code: 'cost_per_sold_unit', name: 'Custo por produto vendido', unit: 'R$/produto vendido', formula: 'custos / produtos vendidos' },
   { code: 'avg_ticket', name: 'Ticket médio', unit: 'R$', formula: 'receita / quantidade de vendas', needUnits: ['sold_unit', 'order'] },
-  { code: 'inventory_turnover', name: 'Giro de estoque', unit: 'x', formula: 'CMV / estoque médio', needAnswer: ['com_stock', 'yes'] },
-  { code: 'inventory_coverage', name: 'Cobertura de estoque', unit: 'dias', formula: 'estoque / venda média diária', needAnswer: ['com_stock', 'yes'] },
+  { code: 'inventory_turnover', name: 'Giro de estoque', unit: 'x', formula: 'CMV / estoque médio' },
+  { code: 'inventory_coverage', name: 'Cobertura de estoque', unit: 'dias', formula: 'estoque / venda média diária' },
   { code: 'product_profitability', name: 'Rentabilidade por produto', unit: '%', formula: 'margem do produto / receita do produto', needUnits: ['product'], section: 'profitability' },
   { code: 'product_revenue_share', name: 'Participação de cada produto na receita', unit: '%', formula: 'receita do produto / receita total', needUnits: ['product'] },
   { code: 'oxr_per_category', name: 'Orçado × Realizado por categoria', unit: 'R$', formula: 'orçado e realizado por categoria', needUnits: ['category'], section: 'budget_vs_actual' },
@@ -262,7 +262,7 @@ const automotive = operational(['automotive'], [
   { code: 'auto_avg_ticket', name: 'Ticket médio', unit: 'R$', formula: 'receita / atendimentos' },
   { code: 'productivity_per_employee', name: 'Produtividade por funcionário', unit: 'un', formula: 'serviços / funcionários', needUnits: ['employee'] },
   { code: 'revenue_per_hour_auto', name: 'Receita por hora', unit: 'R$/h', formula: 'receita / horas', needUnits: ['worked_hour'], section: 'profitability' },
-  { code: 'parts_turnover', name: 'Giro de estoque', unit: 'x', formula: 'saídas / estoque médio', needAnswer: ['auto_stock', 'yes'] },
+  { code: 'parts_turnover', name: 'Giro de estoque', unit: 'x', formula: 'saídas / estoque médio' },
 ], 1500)
 
 const energy = operational(['energy'], [
