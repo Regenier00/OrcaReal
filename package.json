@@ -19,6 +19,8 @@
     "test:questionnaire": "node --experimental-strip-types src/features/experience/questionnaire.test.ts",
     "test:sales-channels": "node --experimental-strip-types src/features/experience/salesChannels.test.ts",
     "test:tour": "node --experimental-strip-types src/features/tour/storage.test.ts",
+    "test:supabase-env": "node --experimental-strip-types src/lib/supabaseEnv.test.ts",
+    "test:auth-errors": "node --experimental-strip-types src/features/auth/authErrors.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

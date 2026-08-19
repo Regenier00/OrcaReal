@@ -1,5 +1,24 @@
+export const MISSING_API_KEY_REQUEST_MESSAGE =
+  'O servidor de autenticação não recebeu a chave da API. Confira VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY) no .env, salve e reinicie o npm run dev.'
+
+function extractAuthMessage(message: string): string {
+  const trimmed = message.trim()
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { message?: unknown }
+      if (typeof parsed.message === 'string' && parsed.message.trim()) {
+        return parsed.message
+      }
+    } catch {
+      return message
+    }
+  }
+  return message
+}
+
 export function mapAuthError(message: string): string {
-  const normalized = message.toLowerCase()
+  const extracted = extractAuthMessage(message)
+  const normalized = extracted.toLowerCase()
 
   if (
     normalized.includes('already registered') ||
@@ -60,5 +79,14 @@ export function mapAuthError(message: string): string {
     return 'Não foi possível conectar ao servidor de autenticação. Verifique a configuração.'
   }
 
-  return message
+  if (
+    normalized.includes('no api key found') ||
+    (normalized.includes('apikey') && normalized.includes('not found')) ||
+    normalized.includes('invalid api key') ||
+    normalized.includes('invalid authentication credentials')
+  ) {
+    return MISSING_API_KEY_REQUEST_MESSAGE
+  }
+
+  return extracted
 }
