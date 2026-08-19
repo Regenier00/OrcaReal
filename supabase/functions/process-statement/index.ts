@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
         status: 'ocr_required',
         error_message:
           parsed.warnings[0]?.message ??
-          'Este PDF precisa de OCR, que ainda não está disponível.',
+          'Não foi possível ler este PDF digitalizado. Envie OFX, CSV ou XLSX.',
         warnings: parsed.warnings,
         processed_at: new Date().toISOString(),
       })

@@ -1,5 +1,7 @@
 import { isDefaultBankAccount } from './defaultBanks.ts'
+import { completedStatementMessage } from './importMessages.ts'
 import type { RawMovement } from '../../../supabase/functions/_shared/statement/types.ts'
+import { setPdfOcrProvider } from '../../../supabase/functions/_shared/statement/ocr.ts'
 import { parseStatement } from '../../../supabase/functions/_shared/statement/parse.ts'
 import { parseTabularRows } from '../../../supabase/functions/_shared/statement/csv.ts'
 import { detectTabularLayout } from '../../../supabase/functions/_shared/statement/columns.ts'
@@ -775,6 +777,55 @@ ET`
   assert(result.movements.length === 0, 'scan sem lançamentos')
 }
 
+async function testPdfOcrReadsMovements() {
+  const content = `BT
+/F1 12 Tf
+1 0 0 1 50 700 Tm
+(Hi) Tj
+ET`
+  setPdfOcrProvider(async () => ({
+    text: `01/08/2026  PIX RECEBIDO CLIENTE  350,00
+02/08/2026  TARIFA MANUTENCAO  -12,90`,
+    usedOcr: true,
+  }))
+  try {
+    const result = await parseStatement('scan-ocr.pdf', await makeStatementPdf(content))
+    assert(!result.ocrRequired, 'OCR não deve deixar o extrato pendente')
+    assert(result.movements.length === 2, `ocr: ${result.movements.length}`)
+    assert(byDescription(result, 'PIX RECEBIDO')?.amount === 350, 'pix ocr')
+    assert(byDescription(result, 'TARIFA')?.type === 'expense', 'tarifa ocr')
+    assert(
+      result.warnings.some((item) => item.message.includes('OCR')),
+      'aviso de OCR',
+    )
+  } finally {
+    setPdfOcrProvider(null)
+  }
+}
+
+function testCompletedStatementMessage() {
+  assert(
+    completedStatementMessage({ transaction_count: 12, duplicate_count: 0 }) ===
+      'Extrato importado com sucesso. 12 lançamentos lidos.',
+    'sucesso com vários lançamentos',
+  )
+  assert(
+    completedStatementMessage({ transaction_count: 1, duplicate_count: 0 }) ===
+      'Extrato importado com sucesso. 1 lançamento lido.',
+    'sucesso com um lançamento',
+  )
+  assert(
+    completedStatementMessage({ transaction_count: 0, duplicate_count: 3 }) ===
+      'Extrato importado com sucesso. Nenhum lançamento novo — as duplicidades foram ignoradas.',
+    'sucesso só com duplicidades',
+  )
+  assert(
+    completedStatementMessage({ transaction_count: 0, duplicate_count: 0 }) ===
+      'Extrato importado com sucesso.',
+    'sucesso simples',
+  )
+}
+
 await testOfx()
 await testCsv()
 testHeaderWithCurrencyAndSlash()
@@ -801,4 +852,6 @@ await testPdfColumnMajorDrawing()
 await testPdfFlateAndTjArray()
 await testPdfToUnicode()
 await testPdfNeedsOcr()
+await testPdfOcrReadsMovements()
+testCompletedStatementMessage()
 console.log('statement parse tests ok')
