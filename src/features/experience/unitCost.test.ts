@@ -17,37 +17,10 @@ import {
   revenueUnitCostsFor,
   selectedRevenueModels,
 } from './catalog/revenueModels.ts'
+import { realizedCostForMonth, unitCostForMonth } from './unitCost.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100
-}
-
-function unitCostForMonth(totalCost: number, quantity: number | null | undefined) {
-  if (quantity == null || !Number.isFinite(quantity) || quantity <= 0) return null
-  if (!Number.isFinite(totalCost)) return null
-  return roundMoney(totalCost / quantity)
-}
-
-function realizedCostForMonth(
-  actual: { items: Array<{ categoryType: string | null; amounts: Record<string, number> }> } | null,
-  classified: Array<{ monthKey: string; amount: number; type: string }>,
-  month: string
-) {
-  const fromItems = roundMoney(
-    (actual?.items ?? [])
-      .filter((item) => item.categoryType !== 'revenue')
-      .reduce((total, item) => total + (item.amounts[month] ?? 0), 0)
-  )
-  const fromClassified = roundMoney(
-    classified
-      .filter((slice) => slice.monthKey === month && slice.type === 'expense')
-      .reduce((total, slice) => total + slice.amount, 0)
-  )
-  return roundMoney(fromItems + fromClassified)
 }
 
 function testSegmentCoverage() {
@@ -107,10 +80,11 @@ function testCalculation() {
   const classified = [
     { monthKey: '2026-08', amount: 50, type: 'expense' },
     { monthKey: '2026-08', amount: 30, type: 'income' },
+    { monthKey: '2026-08', amount: 15, type: 'expense', moneyGroup: 'cost' },
   ]
 
   const total = realizedCostForMonth(actual, classified, '2026-08')
-  assert(total === 150, `custo realizado ignora receita e soma custos: ${total}`)
+  assert(total === 95, `custo realizado usa só o grupo custo: ${total}`)
 }
 
 function testEmployeeCount() {

@@ -1,5 +1,6 @@
 import {
   actualCostForMonth,
+  actualExpenseForMonth,
   actualRevenueForMonth,
   buildActualTotals,
   consolidatedQuantity,
@@ -43,23 +44,28 @@ const actual = {
 const classified = [
   { monthKey: '2026-08', amount: 50, type: 'expense' },
   { monthKey: '2026-08', amount: 200, type: 'income' },
+  { monthKey: '2026-08', amount: 20, type: 'expense', moneyGroup: 'cost' },
 ]
 
 assert(actualRevenueForMonth(actual, classified, '2026-08') === 1400, 'receitas não misturam custo')
-assert(actualCostForMonth(actual, classified, '2026-08') === 630, 'custos não misturam receita')
+assert(actualCostForMonth(actual, classified, '2026-08') === 520, 'custo é só o grupo custo')
+assert(actualExpenseForMonth(actual, classified, '2026-08') === 130, 'despesa é só o grupo despesa')
 assert(actualRevenueForMonth(actual, classified, '2026-07') === 1000, 'receita do mês anterior')
-assert(actualCostForMonth(actual, classified, '2026-07') === 500, 'custo do mês anterior')
+assert(actualCostForMonth(actual, classified, '2026-07') === 400, 'custo do mês anterior')
+assert(actualExpenseForMonth(actual, classified, '2026-07') === 100, 'despesa do mês anterior')
 
 const totals = buildActualTotals([month('2026-07'), month('2026-08')], actual, classified)
 assert(totals.consolidated.revenue === 2400, 'receita consolidada soma os meses')
-assert(totals.consolidated.cost === 1130, 'custo consolidado soma os meses')
+assert(totals.consolidated.cost === 920, 'custo consolidado soma os meses')
+assert(totals.consolidated.expense === 230, 'despesa consolidada soma os meses')
 assert(totals.byMonth['2026-08'].revenue === 1400, 'receita do período')
-assert(totals.byMonth['2026-08'].cost === 630, 'custo do período')
+assert(totals.byMonth['2026-08'].cost === 520, 'custo do período')
+assert(totals.byMonth['2026-08'].expense === 130, 'despesa do período')
 
 const formula = defaultCustomFormula()
 assert(formulaUsesQuantity(formula), 'fórmula padrão usa quantidade')
 assert(
-  formulaHint(formula) === 'Custos realizados (período) ÷ Quantidade da unidade (período)',
+  formulaHint(formula) === 'Custo (período) ÷ Quantidade da unidade (período)',
   `hint da fórmula padrão: ${formulaHint(formula)}`
 )
 assert(suggestedDisplayUnit(formula, 'Caminhão') === 'R$/caminhão', 'unidade sugerida')
@@ -70,7 +76,7 @@ const costPerUnit = evaluateFormula(formula, {
   periodQuantity: 10,
   consolidatedQuantity: 25,
 })
-assert(costPerUnit === 63, `custo por unidade do período: ${costPerUnit}`)
+assert(costPerUnit === 52, `custo por unidade do período: ${costPerUnit}`)
 
 const revenuePerUnit = evaluateFormula(
   {
@@ -104,7 +110,7 @@ const consolidatedCost = evaluateFormula(
     consolidatedQuantity: 25,
   }
 )
-assert(consolidatedCost === 45.2, `custo consolidado por unidade: ${consolidatedCost}`)
+assert(consolidatedCost === 36.8, `custo consolidado por unidade: ${consolidatedCost}`)
 
 assert(
   evaluateFormula(formula, {

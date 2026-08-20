@@ -26,6 +26,7 @@ export interface CustomFormula {
 export interface ActualSideTotals {
   revenue: number
   cost: number
+  expense: number
 }
 
 export interface FormulaContext {
@@ -40,8 +41,8 @@ export const FORMULA_METRICS: Array<{
   label: string
   money: boolean
 }> = [
-  { id: 'actual_revenue', label: 'Receitas realizadas', money: true },
-  { id: 'actual_cost', label: 'Custos realizados', money: true },
+  { id: 'actual_revenue', label: 'Receita', money: true },
+  { id: 'actual_cost', label: 'Custo', money: true },
   { id: 'quantity', label: 'Quantidade da unidade', money: false },
 ]
 
@@ -204,19 +205,32 @@ export function actualRevenueForMonth(
   month: string
 ) {
   return roundMoney(
-    sumItemsForMonth(actual?.items, month, ['revenue']) +
-      sumClassifiedForMonth(classified, month, ['income'])
+    sumItemsForMonth(actual?.items, month, 'revenue') +
+      sumClassifiedForMonth(classified, month, 'revenue')
   )
 }
 
+/** Soma apenas o grupo Custo (não inclui Despesa nem Investimento). */
 export function actualCostForMonth(
   actual: { items: AmountItem[] } | null,
   classified: ClassifiedSlice[],
   month: string
 ) {
   return roundMoney(
-    sumItemsForMonth(actual?.items, month, 'non-revenue') +
-      sumClassifiedForMonth(classified, month, ['expense'])
+    sumItemsForMonth(actual?.items, month, 'cost') +
+      sumClassifiedForMonth(classified, month, 'cost')
+  )
+}
+
+/** Soma apenas o grupo Despesa. */
+export function actualExpenseForMonth(
+  actual: { items: AmountItem[] } | null,
+  classified: ClassifiedSlice[],
+  month: string
+) {
+  return roundMoney(
+    sumItemsForMonth(actual?.items, month, 'expense') +
+      sumClassifiedForMonth(classified, month, 'expense')
   )
 }
 
@@ -230,11 +244,13 @@ export function buildActualTotals(
     byMonth[month.key] = {
       revenue: actualRevenueForMonth(actual, classified, month.key),
       cost: actualCostForMonth(actual, classified, month.key),
+      expense: actualExpenseForMonth(actual, classified, month.key),
     }
   }
   const consolidated: ActualSideTotals = {
     revenue: roundMoney(sum(Object.values(byMonth).map((item) => item.revenue))),
     cost: roundMoney(sum(Object.values(byMonth).map((item) => item.cost))),
+    expense: roundMoney(sum(Object.values(byMonth).map((item) => item.expense))),
   }
   return { byMonth, consolidated }
 }

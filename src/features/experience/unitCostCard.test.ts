@@ -24,10 +24,10 @@ const def = {
 
 const totals = {
   byMonth: {
-    '2026-07': { revenue: 1000, cost: 400 },
-    '2026-08': { revenue: 1400, cost: 730 },
+    '2026-07': { revenue: 1000, cost: 400, expense: 0 },
+    '2026-08': { revenue: 1400, cost: 730, expense: 0 },
   },
-  consolidated: { revenue: 2400, cost: 1130 },
+  consolidated: { revenue: 2400, cost: 1130, expense: 0 },
 }
 
 const volumes = {
