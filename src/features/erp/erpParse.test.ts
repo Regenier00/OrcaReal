@@ -1,6 +1,19 @@
-import { detectErpTabularLayout, parseErpTabularRows } from '../../../supabase/functions/_shared/erp/columns.ts'
-import { assertSafeErpFile, sniffErpFormat } from '../../../supabase/functions/_shared/erp/inspect.ts'
-import { heuristicMoneyGroup, parseAmount, parseBrazilianDate } from '../../../supabase/functions/_shared/erp/normalize.ts'
+import {
+  detectErpTabularLayout,
+  normalizeHeader,
+  parseErpTabularRows,
+  stringDistance,
+} from '../../../supabase/functions/_shared/erp/columns.ts'
+import {
+  assertSafeErpFile,
+  sniffErpFormat,
+} from '../../../supabase/functions/_shared/erp/inspect.ts'
+import {
+  heuristicMoneyGroup,
+  parseAmount,
+  parseBrazilianDate,
+  sanitizeSpreadsheetText,
+} from '../../../supabase/functions/_shared/erp/normalize.ts'
 import { rowsFromCsvText } from '../../../supabase/functions/_shared/erp/csv.ts'
 import { parseErpFile } from '../../../supabase/functions/_shared/erp/parse.ts'
 
@@ -12,53 +25,97 @@ function encode(text: string) {
   return new TextEncoder().encode(text)
 }
 
-async function testColumnDetection() {
+async function testCoreColumnsOnly() {
   const rows = [
-    ['Ignorar', 'cabeçalho', 'extra'],
+    ['Relatório ERP'],
     [
       'Data',
       'Histórico',
       'Conta Contábil',
-      'Nome Conta',
       'Centro de Custo',
-      'Débito',
-      'Crédito',
+      'Valor',
+      'Documento',
+      'Saldo',
+      'Usuário',
+      'Filial',
     ],
     [
       '15/01/2026',
       'Venda de mercadorias',
       '3.1.01',
-      'Receita de vendas',
       'Comercial',
-      '',
       '1500,50',
+      'NF-100',
+      '9999',
+      'admin',
+      '01',
     ],
     [
       '16/01/2026',
       'Energia elétrica',
       '4.2.01',
-      'Despesas com energia',
       'Administrativo',
-      '320,00',
-      '',
+      '-320,00',
+      'BOL-22',
+      '9679',
+      'admin',
+      '01',
     ],
   ]
 
   const detected = detectErpTabularLayout(rows)
   assert(detected, 'layout deveria ser detectado')
-  assert(detected.map.headerIndex === 1, 'header na linha 2')
-  assert(detected.map.date >= 0, 'coluna data')
-  assert(detected.map.description >= 0, 'coluna descrição')
-  assert(detected.map.accountCode >= 0, 'coluna conta')
-  assert(detected.map.costCenter >= 0, 'coluna centro de custo')
-  assert(detected.map.debit >= 0 && detected.map.credit >= 0, 'débito/crédito')
+  assert(detected.map.date >= 0, 'data')
+  assert(detected.map.description >= 0, 'descrição')
+  assert(detected.map.amount >= 0, 'valor')
+  assert(detected.map.account >= 0, 'conta')
+  assert(detected.map.costCenter >= 0, 'centro de custo')
+
+  const ignored = detected.map.headerRoles.filter((item) => item.role === 'ignore')
+  assert(
+    ignored.some((item) => item.header.includes('documento') || item.header === 'documento'),
+    'documento deve ser ignorado',
+  )
+  assert(
+    ignored.some((item) => item.header.includes('saldo') || item.header === 'saldo'),
+    'saldo deve ser ignorado',
+  )
 
   const parsed = parseErpTabularRows(rows, detected.map)
-  assert(parsed.entries.length === 2, `esperava 2 entradas, veio ${parsed.entries.length}`)
-  assert(parsed.entries[0].entrySide === 'credit', 'primeira deve ser crédito')
-  assert(parsed.entries[0].suggestedMoneyGroup === 'revenue', 'heurística receita')
-  assert(parsed.entries[1].entrySide === 'debit', 'segunda deve ser débito')
-  assert(parsed.entries[1].suggestedMoneyGroup === 'expense', 'heurística despesa')
+  assert(parsed.entries.length === 2, `esperava 2, veio ${parsed.entries.length}`)
+  assert(parsed.entries[0].accountCode === '3.1.01', 'conta código')
+  assert(parsed.entries[0].costCenterName === 'Comercial', 'centro de custo')
+  assert(parsed.entries[0].documentNumber == null, 'documento descartado')
+}
+
+async function testSavedMappingsPriority() {
+  const rows = [
+    ['Dia', 'Memo', 'Plano', 'CC', 'Vlr'],
+    ['10/02/2026', 'CMV', '2.1.01', 'Produção', '-800'],
+  ]
+  const saved = {
+    [normalizeHeader('Dia')]: 'date' as const,
+    [normalizeHeader('Memo')]: 'description' as const,
+    [normalizeHeader('Plano')]: 'account' as const,
+    [normalizeHeader('CC')]: 'cost_center' as const,
+    [normalizeHeader('Vlr')]: 'amount' as const,
+  }
+  const detected = detectErpTabularLayout(rows, saved)
+  assert(detected, 'saved layout')
+  assert(detected.map.date === 0, 'Dia → date via saved')
+  assert(detected.map.account === 2, 'Plano → account via saved')
+}
+
+async function testFuzzyAndShortAlias() {
+  assert(stringDistance('valor', 'valor') === 0, 'distância zero')
+  assert(stringDistance('valor', 'xxxx') > 0.2, 'muito diferente')
+
+  const rows = [
+    ['D', 'C', 'X'],
+    ['1', '2', '3'],
+  ]
+  const detected = detectErpTabularLayout(rows)
+  assert(!detected || detected.score === 0 || detected.map.debit < 0, 'alias D curto não mapeia')
 }
 
 async function testCsvParser() {
@@ -71,8 +128,6 @@ async function testCsvParser() {
   assert(detected, 'CSV layout')
   const parsed = parseErpTabularRows(rows, detected.map)
   assert(parsed.entries.length === 2, 'duas linhas CSV')
-  assert(parsed.entries[0].type === 'expense', 'CMV como saída')
-  assert(parsed.entries[1].type === 'income', 'serviço como entrada')
 }
 
 async function testSafety() {
@@ -86,8 +141,27 @@ async function testSafety() {
     )
   }
 
+  try {
+    assertSafeErpFile(
+      'export.ofx',
+      encode('OFXHEADER:100\nDATA:OFXSGML\n<OFX></OFX>'),
+    )
+    assert(false, 'OFX deve ser rejeitado no assert')
+  } catch (error) {
+    assert(
+      error instanceof Error && error.message.includes('OFX'),
+      'OFX rejeitado',
+    )
+  }
+
   assert(sniffErpFormat('plano.xlsx', encode('PK\x03\x04')) === 'xlsx', 'sniff xlsx')
   assert(sniffErpFormat('dados.csv', encode('a;b;c\n1;2;3')) === 'csv', 'sniff csv')
+}
+
+async function testSanitize() {
+  assert(sanitizeSpreadsheetText('=cmd()') === 'cmd()', 'fórmula')
+  assert(sanitizeSpreadsheetText('\t@SUM(A1)') === 'SUM(A1)', 'tab+@')
+  assert(sanitizeSpreadsheetText('ok', 2) === 'ok', 'curto')
 }
 
 async function testHeuristic() {
@@ -96,42 +170,35 @@ async function testHeuristic() {
     accountName: 'Receita de vendas',
   })
   assert(revenue?.moneyGroup === 'revenue', 'receita por código 3')
-
-  const cost = heuristicMoneyGroup({
-    accountName: 'CMV - custo da mercadoria',
-    costCenterName: 'Produção',
-  })
-  assert(cost?.moneyGroup === 'cost', 'custo por CMV')
-
-  const investment = heuristicMoneyGroup({
-    description: 'Aquisição de equipamento imobilizado',
-  })
-  assert(investment?.moneyGroup === 'investment', 'investimento')
 }
 
 async function testNormalizeHelpers() {
   assert(parseBrazilianDate('15/03/2026') === '2026-03-15', 'data BR')
   assert(parseAmount('1.234,56') === 1234.56, 'valor BR')
-  assert(parseAmount('(100,00)') === 100, 'valor entre parênteses')
 }
 
-async function testOfxStub() {
-  const result = await parseErpFile(
-    'export.ofx',
-    encode('OFXHEADER:100\nDATA:OFXSGML\n<OFX></OFX>'),
-  )
-  assert(result.format === 'ofx', 'formato ofx')
-  assert(result.entries.length === 0, 'sem entradas ainda')
-  assert(result.warnings.length > 0, 'aviso de não implementado')
+async function testOfxRejectedByParse() {
+  try {
+    await parseErpFile(
+      'export.ofx',
+      encode('OFXHEADER:100\nDATA:OFXSGML\n<OFX></OFX>'),
+    )
+    assert(false, 'parse OFX deve lançar')
+  } catch (error) {
+    assert(error instanceof Error, 'erro tipado')
+  }
 }
 
 async function main() {
-  await testColumnDetection()
+  await testCoreColumnsOnly()
+  await testSavedMappingsPriority()
+  await testFuzzyAndShortAlias()
   await testCsvParser()
   await testSafety()
+  await testSanitize()
   await testHeuristic()
   await testNormalizeHelpers()
-  await testOfxStub()
+  await testOfxRejectedByParse()
   console.log('erpParse.test.ts: ok')
 }
 

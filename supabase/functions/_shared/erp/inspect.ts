@@ -4,18 +4,13 @@ import {
 } from './limits.ts'
 import type { ErpFileFormat } from './types.ts'
 
+/** MIME → formatos permitidos. Nunca confiar só na extensão. */
 const ALLOWED_MIME: Record<string, ErpFileFormat[]> = {
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['xlsx'],
-  'application/vnd.ms-excel': ['xlsx', 'csv'],
   'text/csv': ['csv'],
-  'text/plain': ['csv', 'ofx'],
+  'text/plain': ['csv'],
   'application/csv': ['csv'],
-  'application/x-ofx': ['ofx'],
-  'application/ofx': ['ofx'],
-  'application/xml': ['ofx'],
-  'text/xml': ['ofx'],
-  'application/pdf': ['pdf'],
-  'application/octet-stream': ['xlsx', 'csv', 'ofx', 'pdf'],
+  'application/octet-stream': ['xlsx', 'csv'],
 }
 
 function startsWith(bytes: Uint8Array, ascii: string) {
@@ -62,10 +57,11 @@ export function sniffErpFormat(
 ): ErpFileFormat {
   const name = String(fileName ?? '').toLowerCase()
   const sample = decodeText(bytes.subarray(0, Math.min(bytes.length, MAX_TEXT_SAMPLE)))
-  const head = sample.slice(0, 4000).toUpperCase()
 
+  // Conteúdo manda — extensão é só fallback.
   if (startsWith(bytes, '%PDF')) return 'pdf'
   if (startsWith(bytes, 'PK')) return 'xlsx'
+  const head = sample.slice(0, 4000).toUpperCase()
   if (head.includes('OFXHEADER') || head.includes('<OFX')) return 'ofx'
   if (
     name.endsWith('.csv') ||
@@ -74,12 +70,16 @@ export function sniffErpFormat(
   ) {
     return 'csv'
   }
-  if (name.endsWith('.ofx') || name.endsWith('.qfx')) return 'ofx'
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return 'xlsx'
+  if (name.endsWith('.xlsx')) return 'xlsx'
   if (name.endsWith('.pdf')) return 'pdf'
+  if (name.endsWith('.ofx') || name.endsWith('.qfx')) return 'ofx'
   return 'unknown'
 }
 
+/**
+ * Validação rigorosa antes de qualquer parse.
+ * Primário: XLSX/CSV. OFX/PDF rejeitados até parsers estarem prontos.
+ */
 export function assertSafeErpFile(
   fileName: string,
   bytes: Uint8Array,
@@ -89,7 +89,7 @@ export function assertSafeErpFile(
     throw new Error('O arquivo enviado está vazio.')
   }
   if (bytes.byteLength > MAX_ERP_FILE_BYTES) {
-    throw new Error('O arquivo excede o limite de 30 MB.')
+    throw new Error('O arquivo excede o limite de 20 MB.')
   }
   if (isExecutable(bytes)) {
     throw new Error('Este arquivo não é um export válido de ERP.')
@@ -98,7 +98,12 @@ export function assertSafeErpFile(
   const format = sniffErpFormat(fileName, bytes)
   if (format === 'unknown') {
     throw new Error(
-      'Formato não reconhecido. Envie um arquivo XLSX, CSV, OFX ou PDF.',
+      'Formato não reconhecido. Envie um arquivo XLSX ou CSV.',
+    )
+  }
+  if (format === 'ofx' || format === 'pdf') {
+    throw new Error(
+      'OFX e PDF ainda não estão disponíveis neste importador. Use XLSX ou CSV.',
     )
   }
 
@@ -115,24 +120,30 @@ export function assertSafeErpFile(
     }
   }
 
-  if (format === 'pdf' && !startsWith(bytes, '%PDF')) {
-    throw new Error('O conteúdo não corresponde a um PDF.')
-  }
   if (format === 'xlsx' && !startsWith(bytes, 'PK')) {
     throw new Error('O conteúdo não corresponde a uma planilha XLSX.')
   }
-  if ((format === 'csv' || format === 'ofx') && looksBinary(bytes)) {
+  if (format === 'csv' && looksBinary(bytes)) {
     throw new Error(
-      'O arquivo contém dados binários e não pode ser lido como texto.',
+      'O arquivo contém dados binários e não pode ser lido como CSV.',
     )
   }
 }
 
 export function extensionFromName(fileName: string): ErpFileFormat {
   const name = fileName.toLowerCase()
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return 'xlsx'
+  if (name.endsWith('.xlsx')) return 'xlsx'
   if (name.endsWith('.csv') || name.endsWith('.txt')) return 'csv'
   if (name.endsWith('.ofx') || name.endsWith('.qfx')) return 'ofx'
   if (name.endsWith('.pdf')) return 'pdf'
   return 'unknown'
+}
+
+/** MIME seguro derivado do conteúdo (não do browser). */
+export function sniffedMimeType(format: ErpFileFormat): string {
+  if (format === 'xlsx') {
+    return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  }
+  if (format === 'csv') return 'text/csv'
+  return 'application/octet-stream'
 }

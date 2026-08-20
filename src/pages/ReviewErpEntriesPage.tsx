@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
+import { canClassifyErp } from '@/features/actual/permissions'
 import { listCompanyBudgetDestinations } from '@/features/actual/actualService'
 import { classifyErpEntries, listErpEntries } from '@/features/erp/erpService'
 import {
@@ -34,7 +35,8 @@ function hasSuggestion(item: ErpEntry) {
 export function ReviewErpEntriesPage() {
   const [params] = useSearchParams()
   const importId = params.get('importacao') ?? ''
-  const { company } = useCompany()
+  const { company, activeMembership } = useCompany()
+  const canClassify = canClassifyErp(activeMembership?.role)
   const [items, setItems] = useState<ErpEntry[]>([])
   const [destinations, setDestinations] = useState<BudgetDestination[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -276,7 +278,7 @@ export function ReviewErpEntriesPage() {
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
-          disabled={busy || selected.length === 0 || !moneyGroup}
+          disabled={busy || !canClassify || selected.length === 0 || !moneyGroup}
           onClick={() => void handleClassify(true)}
         >
           Classificar e salvar regras
@@ -284,7 +286,7 @@ export function ReviewErpEntriesPage() {
         <Button
           type="button"
           variant="secondary"
-          disabled={busy || selected.length === 0}
+          disabled={busy || !canClassify || selected.length === 0}
           onClick={() => void handleApplySuggestions()}
         >
           Aplicar sugestões
@@ -292,11 +294,16 @@ export function ReviewErpEntriesPage() {
         <Button
           type="button"
           variant="secondary"
-          disabled={busy || selected.length === 0}
+          disabled={busy || !canClassify || selected.length === 0}
           onClick={() => void handleIgnore()}
         >
           Ignorar
         </Button>
+        {!canClassify ? (
+          <p className="w-full text-xs text-mist">
+            Visualizadores não podem classificar lançamentos.
+          </p>
+        ) : null}
       </div>
 
       {error ? (

@@ -177,10 +177,10 @@ export async function uploadAndProcessErpImport(input: {
   userId: string
 }): Promise<ErpImport> {
   if (!isAcceptedErpFile(input.file.name)) {
-    throw new Error('Envie um arquivo XLSX, CSV, OFX ou PDF.')
+    throw new Error('Envie um arquivo XLSX ou CSV.')
   }
   if (input.file.size > MAX_ERP_FILE_BYTES) {
-    throw new Error('O arquivo excede o limite de 30 MB.')
+    throw new Error('O arquivo excede o limite de 20 MB.')
   }
   if (input.file.size === 0) {
     throw new Error('O arquivo enviado está vazio.')

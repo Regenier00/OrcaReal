@@ -1,4 +1,4 @@
-import { canDeleteImportedStatements } from './permissions.ts'
+import { canDeleteImportedStatements, canImportErp } from './permissions.ts'
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
@@ -24,5 +24,10 @@ assert(
   canDeleteImportedStatements(null) === false,
   'sem perfil não exclui extrato importado'
 )
+
+assert(canImportErp('owner') === true, 'owner importa ERP')
+assert(canImportErp('admin') === true, 'admin importa ERP')
+assert(canImportErp('member') === true, 'member importa ERP')
+assert(canImportErp('viewer') === false, 'viewer não importa ERP')
 
 console.log('permissions tests ok')

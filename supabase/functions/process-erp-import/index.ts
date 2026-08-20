@@ -72,12 +72,15 @@ Deno.serve(async (req) => {
 
   const { data: membership } = await client
     .from('company_users')
-    .select('id')
+    .select('id, role')
     .eq('company_id', companyId)
     .eq('user_id', user.id)
     .maybeSingle()
 
   if (!membership) return json(403, { error: 'Sem acesso a esta empresa' })
+  if (!['owner', 'admin', 'member'].includes(String(membership.role))) {
+    return json(403, { error: 'Sem permissão para importar nesta empresa' })
+  }
 
   const { data: erpImport, error: importError } = await client
     .from('erp_imports')
@@ -107,7 +110,7 @@ Deno.serve(async (req) => {
 
     const buffer = new Uint8Array(await file.arrayBuffer())
     if (buffer.byteLength > MAX_ERP_FILE_BYTES) {
-      throw new Error('O arquivo excede o limite de 30 MB.')
+      throw new Error('O arquivo excede o limite de 20 MB.')
     }
 
     await updateImport(client, importId, companyId, { status: 'parsing' })
