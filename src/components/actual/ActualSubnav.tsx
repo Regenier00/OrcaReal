@@ -5,7 +5,9 @@ import { ACTUAL_PATHS } from '@/features/actual/model'
 const items = [
   { to: ACTUAL_PATHS.root, label: 'Visão geral', end: true },
   { to: ACTUAL_PATHS.import, label: 'Importar extrato' },
+  { to: ACTUAL_PATHS.importErp, label: 'Importar ERP' },
   { to: ACTUAL_PATHS.unappropriated, label: 'Não apropriados' },
+  { to: ACTUAL_PATHS.reviewErp, label: 'Revisar ERP' },
   { to: ACTUAL_PATHS.byBudget, label: 'Por orçamento' },
 ]
 

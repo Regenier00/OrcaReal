@@ -1,0 +1,13 @@
+export const MAX_ERP_FILE_BYTES = 30 * 1024 * 1024
+export const MAX_ERP_ENTRIES = 50_000
+export const MAX_ERP_BATCH = 2_000
+export const MAX_CSV_ROWS = 55_000
+export const MAX_CSV_LINE_CHARS = 8_000
+export const MAX_DESCRIPTION_CHARS = 500
+export const MAX_WARNINGS = 40
+export const MAX_ZIP_ENTRIES = 120
+export const MAX_UNCOMPRESSED_ENTRY = 12 * 1024 * 1024
+export const MAX_UNCOMPRESSED_TOTAL = 24 * 1024 * 1024
+export const MAX_TEXT_SAMPLE = 256_000
+export const HEADER_SCAN_ROWS = 100
+export const MIN_HEADER_SCORE = 70

@@ -3,6 +3,7 @@ import {
   getCompanyActualByBudget,
   listClassifiedActualSlices,
 } from '@/features/actual/actualService'
+import { listClassifiedErpSlices } from '@/features/erp/erpService'
 import { getCompanyBudget, listCompanyBudgets } from '@/features/budget/budgetService'
 import type { LoadedBudget } from '@/features/budget/model'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
@@ -26,11 +27,16 @@ export async function loadComparisonPair(
 ): Promise<ComparisonPair | null> {
   const budget = await getCompanyBudget(companyId, budgetId)
   if (!budget) return null
-  const [actual, classifiedActuals] = await Promise.all([
+  const [actual, statementSlices, erpSlices] = await Promise.all([
     getCompanyActualByBudget(companyId, budgetId),
     listClassifiedActualSlices(companyId, budget.startDate, budget.endDate),
+    listClassifiedErpSlices(companyId, budget.startDate, budget.endDate),
   ])
-  return { budget, actual, classifiedActuals }
+  return {
+    budget,
+    actual,
+    classifiedActuals: [...statementSlices, ...erpSlices],
+  }
 }
 
 export async function listSystemIndicators(): Promise<SystemIndicator[]> {

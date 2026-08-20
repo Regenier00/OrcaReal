@@ -89,6 +89,8 @@ export const TRANSACTION_STATUS_LABEL: Record<ActualTransactionStatus, string> =
 export const ACTUAL_PATHS = {
   root: '/app/realizado',
   import: '/app/realizado/importar',
+  importErp: '/app/realizado/importar-erp',
+  reviewErp: '/app/realizado/revisar-erp',
   unappropriated: '/app/realizado/nao-apropriados',
   byBudget: '/app/realizado/por-orcamento',
 } as const

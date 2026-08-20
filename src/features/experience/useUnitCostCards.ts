@@ -26,6 +26,7 @@ import type { LoadedBudget } from '@/features/budget/model'
 import type { BudgetMonth } from '@/features/budget/period'
 import { calendarYearBounds, currentFiscalYear, monthsBetween } from '@/features/budget/period'
 import { listClassifiedActualSlices } from '@/features/actual/actualService'
+import { listClassifiedErpSlices } from '@/features/erp/erpService'
 import {
   buildFinancialSeries,
   changeRatio,
@@ -155,11 +156,18 @@ export function useUnitCostCards(input?: {
           const year = currentFiscalYear()
           const bounds = calendarYearBounds(year)
           const yearMonths = monthsBetween(bounds.startDate, bounds.endDate)
-          const slices = await listClassifiedActualSlices(
-            activeCompany.id,
-            bounds.startDate,
-            bounds.endDate
-          ).catch(() => [])
+          const slices = await Promise.all([
+            listClassifiedActualSlices(
+              activeCompany.id,
+              bounds.startDate,
+              bounds.endDate,
+            ).catch(() => []),
+            listClassifiedErpSlices(
+              activeCompany.id,
+              bounds.startDate,
+              bounds.endDate,
+            ).catch(() => []),
+          ]).then(([a, b]) => [...a, ...b])
           if (!mounted) return
           setFetchedMonths(yearMonths)
           setFetchedBudget(null)

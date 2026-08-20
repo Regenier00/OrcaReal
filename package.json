@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test:statement": "node --experimental-strip-types src/features/actual/statementParse.test.ts",
+    "test:erp": "node --experimental-strip-types src/features/erp/erpParse.test.ts",
     "test:actual-permissions": "node --experimental-strip-types src/features/actual/permissions.test.ts",
     "test:suggestions": "node --experimental-strip-types src/features/actual/suggestions.test.ts",
     "test:destination-suggestions": "node --experimental-strip-types src/features/actual/destinationSuggestions.test.ts",

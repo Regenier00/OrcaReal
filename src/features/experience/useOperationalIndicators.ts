@@ -20,6 +20,7 @@ import { parseEmployeeCount } from '@/features/experience/employeeCount'
 import { defaultUnitCostMonth } from '@/features/experience/unitCost'
 import { listCompanyComparisonOptions, loadComparisonPair } from '@/features/comparison/comparisonService'
 import { listClassifiedActualSlices } from '@/features/actual/actualService'
+import { listClassifiedErpSlices } from '@/features/erp/erpService'
 import { calendarYearBounds, currentFiscalYear, monthsBetween } from '@/features/budget/period'
 import type { BudgetMonth } from '@/features/budget/period'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
@@ -118,11 +119,18 @@ export function useOperationalIndicators(input?: {
         } else {
           const year = currentFiscalYear()
           const bounds = calendarYearBounds(year)
-          const slices = await listClassifiedActualSlices(
-            activeCompany.id,
-            bounds.startDate,
-            bounds.endDate
-          ).catch(() => [])
+          const slices = await Promise.all([
+            listClassifiedActualSlices(
+              activeCompany.id,
+              bounds.startDate,
+              bounds.endDate,
+            ).catch(() => []),
+            listClassifiedErpSlices(
+              activeCompany.id,
+              bounds.startDate,
+              bounds.endDate,
+            ).catch(() => []),
+          ]).then(([a, b]) => [...a, ...b])
           if (!mounted) return
           setFetchedMonths(monthsBetween(bounds.startDate, bounds.endDate))
           setFetchedActual(null)
