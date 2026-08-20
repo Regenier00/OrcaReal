@@ -35,14 +35,7 @@ import {
 import type { ComparisonMonthKey } from '@/features/comparison/model'
 import {
   buildActualTotals,
-  consolidatedQuantity,
-  evaluateFormula,
-  formulaHint,
-  formulaUsesQuantity,
-  quantityOperand,
-  secondOperandIsPeriod,
-  type ActualSideTotals,
-  type CustomFormula,
+  CONSOLIDATED_VOLUME_KEY,
 } from '@/features/indicators/formula'
 import {
   customIndicatorVolumeCode,
@@ -53,37 +46,13 @@ import {
 } from '@/features/indicators/customIndicatorService'
 import { customIndicatorDefFromUnit } from '@/features/indicators/units'
 import type { CompanyCustomIndicator, CompanyCustomUnit } from '@/types/database'
+import {
+  buildUnitCostCard,
+  type UnitCostCardModel,
+} from '@/features/experience/unitCostCard'
 
-export interface IndicatorCardDef {
-  indicatorCode: string
-  indicatorName: string
-  displayUnit: string
-  quantityPrompt: string
-  quantityHelp: string
-  quantityNoun: string
-  quantityNounSingular: string
-}
-
-export interface UnitCostCardModel {
-  def: IndicatorCardDef
-  kind: 'catalog' | 'custom'
-  customId?: string
-  segmentLabel: string
-  volumes: MonthlyVolumes
-  monthKey: string
-  monthLabel: string
-  quantity: number | null
-  unitCost: number | null
-  previousUnitCost: number | null
-  unitCostChange: number | null
-  formula: CustomFormula
-  formulaHint: string
-  usesQuantity: boolean
-  canChangePeriod: boolean
-  quantityIsConsolidated: boolean
-  totalsByMonth: Record<string, ActualSideTotals>
-  consolidated: ActualSideTotals
-}
+export type { IndicatorCardDef, UnitCostCardModel } from '@/features/experience/unitCostCard'
+export { buildUnitCostCard } from '@/features/experience/unitCostCard'
 
 export function useUnitCostCards(input?: {
   months?: BudgetMonth[]
@@ -236,12 +205,16 @@ export function useUnitCostCards(input?: {
   const cards = useMemo<UnitCostCardModel[]>(() => {
     const month = months.find((item) => item.key === monthKey)
     const monthKeys = months.map((item) => item.key)
+    const cardMonthKey = isConsolidated ? CONSOLIDATED_VOLUME_KEY : monthKey
+    const cardMonthLabel = isConsolidated
+      ? 'Período completo'
+      : (month?.fullLabel ?? monthKey)
     const catalogCards = defs.map((def) => {
       const stored = volumes[def.indicatorCode] ?? {}
       const nextVolumes = isEmployeeHeadcountIndicator(def.indicatorCode)
         ? mergeEmployeeVolumes(stored, employeeCount, monthKeys)
         : stored
-      return buildCard({
+      return buildUnitCostCard({
         def: {
           indicatorCode: def.indicatorCode,
           indicatorName: def.indicatorName,
@@ -259,17 +232,18 @@ export function useUnitCostCards(input?: {
             : segmentLabel(def.segmentCode as SegmentCode)),
         formula: formulaForUnitCost(def.indicatorCode),
         volumes: nextVolumes,
-        monthKey,
-        monthLabel: month?.fullLabel ?? monthKey,
-        previousKey: previous?.key ?? null,
+        monthKey: cardMonthKey,
+        monthLabel: cardMonthLabel,
+        previousKey: isConsolidated ? null : (previous?.key ?? null),
         totals,
+        isConsolidated,
       })
     })
 
     const customCards = customIndicators.map((item) => {
       const code = customIndicatorVolumeCode(item.id)
       const formula = parseIndicatorFormula(item.formula)
-      return buildCard({
+      return buildUnitCostCard({
         def: customIndicatorDefFromUnit({
           code: item.unit_code,
           name: item.unit_name,
@@ -284,15 +258,26 @@ export function useUnitCostCards(input?: {
         segmentLabel: 'Personalizado',
         formula,
         volumes: volumes[code] ?? {},
-        monthKey,
-        monthLabel: month?.fullLabel ?? monthKey,
-        previousKey: previous?.key ?? null,
+        monthKey: cardMonthKey,
+        monthLabel: cardMonthLabel,
+        previousKey: isConsolidated ? null : (previous?.key ?? null),
         totals,
+        isConsolidated,
       })
     })
 
     return [...catalogCards, ...customCards]
-  }, [defs, customIndicators, volumes, months, monthKey, totals, previous, employeeCount])
+  }, [
+    defs,
+    customIndicators,
+    volumes,
+    months,
+    monthKey,
+    isConsolidated,
+    totals,
+    previous,
+    employeeCount,
+  ])
 
   const saveQuantity = async (indicatorCode: string, quantity: number, month: string) => {
     if (!activeCompany) return { ok: false as const, message: 'Empresa não encontrada.' }
@@ -386,61 +371,6 @@ export function useUnitCostCards(input?: {
     error,
     savingCode,
     saveQuantity,
-  }
-}
-
-function buildCard(input: {
-  def: IndicatorCardDef
-  kind: 'catalog' | 'custom'
-  customId?: string
-  segmentLabel: string
-  formula: CustomFormula
-  volumes: MonthlyVolumes
-  monthKey: string
-  monthLabel: string
-  previousKey: string | null
-  totals: ReturnType<typeof buildActualTotals>
-}): UnitCostCardModel {
-  const periodQty = input.volumes[input.monthKey] ?? null
-  const previousQty = input.previousKey ? (input.volumes[input.previousKey] ?? null) : null
-  const qtyAll = consolidatedQuantity(input.volumes)
-  const quantityIsConsolidated = quantityOperand(input.formula)?.scope === 'consolidated'
-  const canChangePeriod = secondOperandIsPeriod(input.formula)
-  const unitCost = evaluateFormula(input.formula, {
-    period: input.totals.byMonth[input.monthKey] ?? { revenue: 0, cost: 0 },
-    consolidated: input.totals.consolidated,
-    periodQuantity: periodQty,
-    consolidatedQuantity: qtyAll,
-  })
-  const previousUnitCost =
-    canChangePeriod && input.previousKey
-      ? evaluateFormula(input.formula, {
-          period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0 },
-          consolidated: input.totals.consolidated,
-          periodQuantity: previousQty,
-          consolidatedQuantity: qtyAll,
-        })
-      : null
-
-  return {
-    def: input.def,
-    kind: input.kind,
-    customId: input.customId,
-    segmentLabel: input.segmentLabel,
-    volumes: input.volumes,
-    monthKey: input.monthKey,
-    monthLabel: input.monthLabel,
-    quantity: quantityIsConsolidated ? qtyAll : periodQty,
-    unitCost,
-    previousUnitCost,
-    unitCostChange: changeRatio(unitCost ?? Number.NaN, previousUnitCost),
-    formula: input.formula,
-    formulaHint: formulaHint(input.formula),
-    usesQuantity: formulaUsesQuantity(input.formula),
-    canChangePeriod,
-    quantityIsConsolidated,
-    totalsByMonth: input.totals.byMonth,
-    consolidated: input.totals.consolidated,
   }
 }
 
