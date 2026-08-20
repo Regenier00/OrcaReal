@@ -19,6 +19,7 @@
     "test:dashboard": "node --experimental-strip-types src/features/home/dashboardModel.test.ts",
     "test:comparison": "node --experimental-strip-types src/features/comparison/model.test.ts",
     "test:budget-destinations": "node --experimental-strip-types src/features/budget/destinationModel.test.ts",
+    "test:budget-suggestions": "node --experimental-strip-types src/features/budget/defaultDestinations.test.ts",
     "test:questionnaire": "node --experimental-strip-types src/features/experience/questionnaire.test.ts",
     "test:sales-channels": "node --experimental-strip-types src/features/experience/salesChannels.test.ts",
     "test:tour": "node --experimental-strip-types src/features/tour/storage.test.ts",

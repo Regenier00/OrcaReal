@@ -6,13 +6,20 @@ import {
   saveCompanyBudget,
   toDraft,
 } from '@/features/budget/budgetService'
-import type { DraftBudget, MoneyGroup } from '@/features/budget/model'
+import type { DraftBudget, DraftBudgetItem, MoneyGroup } from '@/features/budget/model'
 import {
+  createDestinationItem,
   emptyGroupTotals,
+  groupItems,
   groupRemaining,
   MONEY_GROUP_LABEL,
+  MONEY_GROUPS,
   remapAmounts,
 } from '@/features/budget/model'
+import {
+  suggestBudgetDestinations,
+  type BudgetDestinationContext,
+} from '@/features/budget/defaultDestinations'
 import {
   calendarYearBounds,
   currentFiscalYear,
@@ -39,6 +46,7 @@ import {
   GroupTotalsStep,
 } from '@/components/budget/DestinationWizard'
 import { formatMoney } from '@/features/budget/money'
+import { listCompanyOperations } from '@/features/experience/experienceService'
 
 const WIZARD_STEPS = [
   { id: 1, label: 'Período' },
@@ -46,6 +54,18 @@ const WIZARD_STEPS = [
   { id: 3, label: 'Destinos' },
   { id: 4, label: 'Revisar' },
 ] as const
+
+function uniqueCodes(values: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const value of values) {
+    const key = value.trim()
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    result.push(key)
+  }
+  return result
+}
 
 function createDraft(year = currentFiscalYear()): DraftBudget {
   const bounds = calendarYearBounds(year)
@@ -64,11 +84,47 @@ function createDraft(year = currentFiscalYear()): DraftBudget {
   }
 }
 
+function buildSuggestedItems(
+  context: BudgetDestinationContext,
+  months: ReturnType<typeof monthsBetween>
+): DraftBudgetItem[] {
+  const suggestions = suggestBudgetDestinations(context)
+  return MONEY_GROUPS.flatMap((group) =>
+    suggestions[group.id].map((name) =>
+      createDestinationItem(months, group.id, name, 0)
+    )
+  )
+}
+
+function withSuggestedDestinations(
+  draft: DraftBudget,
+  context: BudgetDestinationContext,
+  onlyEmptyGroups = false
+): DraftBudget {
+  const months = monthsBetween(draft.startDate, draft.endDate)
+  const suggested = buildSuggestedItems(context, months)
+  if (!onlyEmptyGroups && draft.items.length === 0) {
+    return { ...draft, items: suggested }
+  }
+
+  const nextItems = [...draft.items]
+  for (const group of MONEY_GROUPS) {
+    if (groupItems(draft.items, group.id).length > 0) continue
+    nextItems.push(...suggested.filter((item) => item.moneyGroup === group.id))
+  }
+  return { ...draft, items: nextItems }
+}
+
 export function BudgetWizardPage() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { company, loading: companyLoading } = useCompany()
+  const {
+    company,
+    companyProfile,
+    segments,
+    loading: companyLoading,
+  } = useCompany()
 
   const [step, setStep] = useState(1)
   const [draft, setDraft] = useState<DraftBudget>(createDraft)
@@ -81,10 +137,29 @@ export function BudgetWizardPage() {
   const [groupErrors, setGroupErrors] = useState<string[]>([])
   const [destinationErrors, setDestinationErrors] = useState<string[]>([])
   const [activeGroupIndex, setActiveGroupIndex] = useState(0)
+  const [suggestionsSeeded, setSuggestionsSeeded] = useState(false)
   const fetchKey = company ? `${company.id}:${id ?? 'new'}` : null
 
+  const destinationContext = useMemo<BudgetDestinationContext>(() => {
+    const segment = segments.find((item) => item.id === companyProfile?.segment_id)
+    const facts = companyProfile?.profile_facts ?? {}
+    const operations = Array.isArray(facts.operations)
+      ? facts.operations.map(String)
+      : []
+    return {
+      segmentCode: segment?.code ?? null,
+      extraSegmentCodes: operations,
+      revenueModel: companyProfile?.revenue_model ?? null,
+      operationModel: companyProfile?.operation_model ?? null,
+      primaryActivity: companyProfile?.primary_activity ?? null,
+      customSegment: companyProfile?.custom_segment ?? null,
+      employeeCount: companyProfile?.employee_count ?? null,
+      profileFacts: facts,
+    }
+  }, [companyProfile, segments])
+
   useEffect(() => {
-    if (!company) return
+    if (!company || companyLoading) return
     const companyId = company.id
     const key = `${companyId}:${id ?? 'new'}`
     let mounted = true
@@ -107,11 +182,38 @@ export function BudgetWizardPage() {
           ),
         }))
         setDraft(nextDraft)
+        setSuggestionsSeeded(true)
         setError('')
-      } else {
-        setDraft(createDraft())
-        setError('')
+        setFetchedFor(key)
+        return
       }
+
+      if (suggestionsSeeded && fetchedFor === key) return
+
+      const operationsResult = await listCompanyOperations(companyId)
+      if (!mounted) return
+      const extraCodes =
+        operationsResult.ok
+          ? operationsResult.data
+              .filter((row) => row.is_primary !== true)
+              .map((row) => {
+                const segmentId = typeof row.segment_id === 'string' ? row.segment_id : null
+                return segments.find((item) => item.id === segmentId)?.code
+              })
+              .filter((code): code is string => Boolean(code))
+          : []
+
+      const context: BudgetDestinationContext = {
+        ...destinationContext,
+        extraSegmentCodes: uniqueCodes([
+          ...(destinationContext.extraSegmentCodes ?? []),
+          ...extraCodes,
+        ]),
+      }
+
+      setDraft(withSuggestedDestinations(createDraft(), context))
+      setSuggestionsSeeded(true)
+      setError('')
       setFetchedFor(key)
     }
 
@@ -124,7 +226,15 @@ export function BudgetWizardPage() {
     return () => {
       mounted = false
     }
-  }, [company, id])
+  }, [
+    company,
+    companyLoading,
+    id,
+    destinationContext,
+    segments,
+    suggestionsSeeded,
+    fetchedFor,
+  ])
 
   const loading = Boolean(fetchKey) && fetchedFor !== fetchKey
 
@@ -189,6 +299,9 @@ export function BudgetWizardPage() {
     const errors = validateGroupTotals(draft)
     setGroupErrors(errors)
     if (errors.length > 0) return
+    setDraft((current) =>
+      withSuggestedDestinations(current, destinationContext, true)
+    )
     setActiveGroupIndex(0)
     setDestinationErrors([])
     setStep(3)
@@ -257,7 +370,7 @@ export function BudgetWizardPage() {
     )
   }
 
-  if (loading) {
+  if (loading || (!isEdit && !suggestionsSeeded)) {
     return <p className="text-sm text-mist">Carregando orçamento...</p>
   }
 
@@ -388,16 +501,30 @@ export function BudgetWizardPage() {
           <GroupTotalsStep
             draft={draft}
             onChangeTotal={(moneyGroup, total) =>
-              setDraft((current) => ({
-                ...current,
-                groupTotals: current.groupTotals.map((group) =>
+              setDraft((current) => {
+                const nextTotals = current.groupTotals.map((group) =>
                   group.moneyGroup === moneyGroup ? { ...group, total } : group
-                ),
-                items:
-                  total <= 0
-                    ? current.items.filter((item) => item.moneyGroup !== moneyGroup)
-                    : current.items,
-              }))
+                )
+                if (total <= 0) {
+                  return {
+                    ...current,
+                    groupTotals: nextTotals,
+                    items: current.items.filter(
+                      (item) => item.moneyGroup !== moneyGroup
+                    ),
+                  }
+                }
+                const hasGroupItems =
+                  groupItems(current.items, moneyGroup).length > 0
+                if (hasGroupItems) {
+                  return { ...current, groupTotals: nextTotals }
+                }
+                return withSuggestedDestinations(
+                  { ...current, groupTotals: nextTotals },
+                  destinationContext,
+                  true
+                )
+              })
             }
           />
 

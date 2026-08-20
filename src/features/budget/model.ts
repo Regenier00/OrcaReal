@@ -280,7 +280,7 @@ export function createDestinationItem(
   return {
     localId: newLocalId(),
     moneyGroup,
-    destinationName: name.trim(),
+    destinationName: name.trim().toLocaleUpperCase('pt-BR'),
     businessUnitId: '',
     departmentId: '',
     costCenterId: '',

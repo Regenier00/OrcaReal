@@ -1,0 +1,599 @@
+import type { MoneyGroup } from './model.ts'
+import { parseRevenueModelValues } from '../experience/catalog/revenueModels.ts'
+
+export interface BudgetDestinationContext {
+  segmentCode: string | null | undefined
+  extraSegmentCodes?: string[]
+  revenueModel?: string | null
+  operationModel?: string | null
+  primaryActivity?: string | null
+  customSegment?: string | null
+  employeeCount?: number | null
+  profileFacts?: Record<string, unknown>
+}
+
+const BASE_EXPENSES = [
+  'Administrativo',
+  'Aluguel',
+  'Energia',
+  'Internet',
+  'Contabilidade',
+  'Marketing',
+  'Serviços',
+] as const
+
+const BASE_INVESTMENTS = [
+  'Máquinas e equipamentos',
+  'Veículos',
+  'Tecnologia e sistemas',
+  'Estrutura e reformas',
+  'Imóveis',
+] as const
+
+type FactBag = string | string[] | boolean | number | null | undefined
+
+function asList(value: FactBag): string[] {
+  if (value == null || value === false) return []
+  if (value === true) return []
+  if (Array.isArray(value)) {
+    return value.map(String).map((item) => item.trim()).filter(Boolean)
+  }
+  if (typeof value === 'number') return []
+  return String(value)
+    .split(/[,;/|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function fact(facts: Record<string, unknown>, key: string): FactBag {
+  return facts[key] as FactBag
+}
+
+function yes(facts: Record<string, unknown>, key: string): boolean {
+  const value = facts[key]
+  if (value === true) return true
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase()
+    return normalized === 'sim' || normalized === 'yes' || normalized === 'true'
+  }
+  if (Array.isArray(value)) {
+    return value.some((item) => {
+      const normalized = String(item).trim().toLowerCase()
+      return normalized === 'sim' || normalized === 'yes' || normalized === 'true'
+    })
+  }
+  return false
+}
+
+function uniqueNames(names: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const raw of names) {
+    const name = raw.trim()
+    if (!name) continue
+    const key = name.toLocaleLowerCase('pt-BR')
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(name)
+  }
+  return result
+}
+
+function humanizeFactLabel(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return trimmed
+  if (/[A-ZÀ-Ú ]/.test(trimmed) && !trimmed.includes('_')) {
+    return trimmed.charAt(0).toLocaleUpperCase('pt-BR') + trimmed.slice(1)
+  }
+  const known: Record<string, string> = {
+    soja: 'Soja',
+    milho: 'Milho',
+    algodao: 'Algodão',
+    cafe: 'Café',
+    cana_de_acucar: 'Cana-de-açúcar',
+    trigo: 'Trigo',
+    arroz: 'Arroz',
+    hortalicas: 'Hortaliças',
+    sementes: 'Sementes',
+    fertilizantes: 'Fertilizantes',
+    defensivos: 'Defensivos',
+    combustivel: 'Combustível',
+    mao_de_obra: 'Mão de obra',
+    propria: 'Própria',
+    arrendada: 'Arrendada',
+    corte: 'Corte',
+    leite: 'Leite',
+    tilapia: 'Tilápia',
+    tambaqui: 'Tambaqui',
+    camarao: 'Camarão',
+    peixes_nativos: 'Peixes nativos',
+    fisica: 'Loja física',
+    ecommerce: 'E-commerce',
+    marketplace: 'Marketplace',
+    saas: 'SaaS',
+    software_sob_demanda: 'Software sob demanda',
+    consultoria_de_ti: 'Consultoria de TI',
+    produto_digital: 'Produto digital',
+    produtos: 'Produtos',
+    servicos: 'Serviços',
+    projetos: 'Projetos',
+    hibrido: 'Híbrido',
+    compra_e_venda: 'Compra e venda',
+    aluguel: 'Aluguel',
+    administracao_predial: 'Administração predial',
+    manutencao: 'Manutenção',
+    funilaria: 'Funilaria',
+    estetica: 'Estética',
+    venda_de_pecas: 'Venda de peças',
+    venda_de_veiculos: 'Venda de veículos',
+    caminhao: 'Caminhão',
+    van: 'Van',
+    carreta: 'Carreta',
+    utilitario: 'Utilitário',
+    restaurante: 'Restaurante',
+    eventos: 'Eventos',
+    spa: 'Spa',
+    transfers: 'Transfers',
+    nenhum: 'Nenhum',
+    cabelo: 'Cabelo',
+    unhas: 'Unhas',
+    barbearia: 'Barbearia',
+  }
+  const key = trimmed
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+  if (known[key]) return known[key]
+  return trimmed
+    .split(/[_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toLocaleUpperCase('pt-BR') + part.slice(1))
+    .join(' ')
+}
+
+function factIncludes(values: string[], ...needles: string[]): boolean {
+  const normalized = values.map((value) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+  )
+  return needles.some((needle) => normalized.includes(needle))
+}
+
+function revenueFromModels(models: string[]): string[] {
+  const names: string[] = []
+  for (const model of models) {
+    switch (model) {
+      case 'venda_de_produtos':
+        names.push('Venda de produtos')
+        break
+      case 'prestacao_de_servicos':
+        names.push('Prestação de serviços')
+        break
+      case 'receita_recorrente':
+        names.push('Receita recorrente / assinaturas')
+        break
+      case 'contratos':
+        names.push('Receita de contratos')
+        break
+      case 'producao_e_comercializacao':
+        names.push('Venda de produção')
+        break
+      case 'ecommerce_e_marketplace':
+        names.push('Vendas online / marketplace')
+        break
+      case 'locacao_e_aluguel':
+        names.push('Locação e aluguel')
+        break
+      case 'comissao_e_intermediacao':
+        names.push('Comissões e intermediação')
+        break
+      case 'licenciamento_e_royalties':
+        names.push('Licenciamento e royalties')
+        break
+      case 'publicidade_e_midia':
+        names.push('Publicidade e mídia')
+        break
+      case 'eventos_e_ingressos':
+        names.push('Eventos e ingressos')
+        break
+      case 'franquias':
+        names.push('Receita de franquias')
+        break
+      case 'revenda_e_distribuicao':
+        names.push('Revenda e distribuição')
+        break
+      case 'mista':
+        names.push('Receitas operacionais')
+        break
+      default:
+        break
+    }
+  }
+  return names
+}
+
+function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): string[] {
+  switch (segmentCode) {
+    case 'agro': {
+      const crops = asList(fact(facts, 'crops'))
+      if (crops.length > 0) {
+        return crops.map((crop) => `Venda de ${humanizeFactLabel(crop)}`)
+      }
+      return ['Venda de produção agrícola']
+    }
+    case 'livestock': {
+      const kinds = asList(fact(facts, 'livestock_kind'))
+      if (factIncludes(kinds, 'leite')) return ['Venda de leite', 'Venda de animais']
+      if (factIncludes(kinds, 'corte')) return ['Venda de animais']
+      return ['Venda de animais', 'Venda de produção pecuária']
+    }
+    case 'fishing': {
+      const species = asList(fact(facts, 'species'))
+      if (species.length > 0) {
+        return species.map((item) => `Venda de ${humanizeFactLabel(item)}`)
+      }
+      return ['Venda de produção aquícola']
+    }
+    case 'commerce':
+      return ['Vendas de mercadorias']
+    case 'industry': {
+      const products = asList(fact(facts, 'manufactured_products'))
+      if (products.length > 0) {
+        return products.map((item) => `Venda de ${humanizeFactLabel(item)}`)
+      }
+      return ['Venda de produtos fabricados']
+    }
+    case 'construction':
+      return ['Receita de contratos de obra']
+    case 'transport_logistics':
+      return ['Fretes prestados']
+    case 'food': {
+      const names = ['Vendas de alimentos']
+      if (yes(facts, 'has_delivery')) names.push('Delivery')
+      return names
+    }
+    case 'services': {
+      const serviceType = asList(fact(facts, 'service_type'))[0]
+      return [serviceType ? `Serviços · ${humanizeFactLabel(serviceType)}` : 'Receita de serviços']
+    }
+    case 'tech': {
+      const names: string[] = []
+      const delivery = asList(fact(facts, 'delivery_model'))
+      if (factIncludes(delivery, 'saas') || yes(facts, 'has_recurring_revenue')) {
+        names.push('Receita recorrente')
+      }
+      if (factIncludes(delivery, 'projetos', 'hibrido')) {
+        names.push('Receita de projetos')
+      }
+      const offer = asList(fact(facts, 'offer_type'))
+      if (factIncludes(offer, 'produtos')) names.push('Venda de produtos digitais')
+      if (factIncludes(offer, 'servicos')) names.push('Prestação de serviços de TI')
+      return names.length > 0 ? names : ['Receita de software e serviços']
+    }
+    case 'health':
+      return ['Receita de consultas', 'Receita de procedimentos']
+    case 'education':
+      return ['Mensalidades']
+    case 'real_estate': {
+      const model = asList(fact(facts, 'real_estate_model'))
+      if (factIncludes(model, 'aluguel')) return ['Receita de aluguel']
+      if (factIncludes(model, 'compra_e_venda')) return ['Receita de venda de imóveis']
+      if (factIncludes(model, 'administracao_predial')) return ['Administração predial']
+      return ['Receita de aluguel', 'Receita de venda']
+    }
+    case 'automotive': {
+      const services = asList(fact(facts, 'auto_services'))
+      const names: string[] = []
+      for (const service of services) {
+        if (factIncludes([service], 'venda_de_veiculos')) {
+          names.push('Venda de veículos')
+        } else if (factIncludes([service], 'venda_de_pecas')) {
+          names.push('Venda de peças')
+        } else {
+          names.push(`Serviços · ${humanizeFactLabel(service)}`)
+        }
+      }
+      return names.length > 0 ? names : ['Receita de serviços automotivos', 'Venda de peças']
+    }
+    case 'energy':
+      return ['Receita de geração / operação']
+    case 'mining': {
+      const mineral = asList(fact(facts, 'mineral_type'))[0]
+      return [mineral ? `Receita de ${humanizeFactLabel(mineral)}` : 'Receita de minério']
+    }
+    case 'hospitality': {
+      const names = ['Diárias']
+      const extras = asList(fact(facts, 'extra_services'))
+      for (const extra of extras) {
+        if (factIncludes([extra], 'nenhum')) continue
+        names.push(humanizeFactLabel(extra))
+      }
+      return names
+    }
+    case 'beauty': {
+      const services = asList(fact(facts, 'beauty_services'))
+      if (services.length > 0) {
+        return services.map((item) => `Serviços · ${humanizeFactLabel(item)}`)
+      }
+      return ['Receita de serviços de beleza']
+    }
+    case 'media':
+      return ['Receita de projetos de mídia']
+    case 'marketing':
+      return yes(facts, 'has_recurring_contracts')
+        ? ['Honorários recorrentes', 'Projetos pontuais']
+        : ['Receita de honorários']
+    case 'entertainment':
+      return ['Bilheteria', 'Eventos']
+    case 'sports': {
+      const names = ['Mensalidades e tickets']
+      if (yes(facts, 'has_events')) names.push('Eventos')
+      return names
+    }
+    case 'environment':
+      return ['Receita de projetos ambientais']
+    case 'financial': {
+      const type = asList(fact(facts, 'financial_type'))[0]
+      return [
+        type
+          ? `Serviços financeiros · ${humanizeFactLabel(type)}`
+          : 'Receita de serviços financeiros',
+      ]
+    }
+    case 'professional': {
+      const type = asList(fact(facts, 'professional_type'))[0]
+      return [
+        type ? `Honorários · ${humanizeFactLabel(type)}` : 'Receita de honorários',
+      ]
+    }
+    case 'public_admin':
+      return ['Receitas orçamentárias']
+    case 'other': {
+      const activity = asList(fact(facts, 'other_activity'))[0]
+      return [activity ? humanizeFactLabel(activity) : 'Receitas operacionais']
+    }
+    default:
+      return []
+  }
+}
+
+function segmentCosts(segmentCode: string, facts: Record<string, unknown>): string[] {
+  switch (segmentCode) {
+    case 'agro': {
+      const names = ['Mão de obra da produção', 'Fretes', 'Manutenção']
+      const inputs = asList(fact(facts, 'main_inputs'))
+      if (inputs.length > 0) {
+        names.unshift(...inputs.map((item) => humanizeFactLabel(item)))
+      } else {
+        names.unshift('Insumos agrícolas')
+      }
+      if (factIncludes(asList(fact(facts, 'land_tenure')), 'arrendada')) {
+        names.push('Arrendamento')
+      }
+      if (yes(facts, 'third_party_services')) names.push('Serviços de terceiros')
+      if (yes(facts, 'own_machinery')) names.push('Maquinário e manutenção')
+      return names
+    }
+    case 'livestock':
+      return [
+        'Alimentação animal',
+        'Medicamentos',
+        'Pastagem',
+        'Mão de obra da produção',
+        'Compra de animais',
+        'Manutenção',
+      ]
+    case 'fishing': {
+      const names = ['Alevinos', 'Mão de obra', 'Energia da produção', 'Manutenção']
+      if (yes(facts, 'feed_is_relevant')) names.unshift('Ração')
+      else names.unshift('Insumos da produção')
+      return names
+    }
+    case 'commerce': {
+      const names = ['CMV / mercadorias', 'Fretes', 'Mão de obra operacional', 'Manutenção']
+      const channel = asList(fact(facts, 'sales_channel'))
+      if (factIncludes(channel, 'ecommerce', 'marketplace', 'e_commerce', 'online')) {
+        names.push('Taxas de marketplace / e-commerce')
+      }
+      return names
+    }
+    case 'industry':
+      return [
+        'Matéria-prima',
+        'Mão de obra direta',
+        'Custos indiretos de fabricação',
+        'Manutenção',
+        'Fretes',
+      ]
+    case 'construction':
+      return ['Materiais de obra', 'Mão de obra da obra', 'Terceirizados', 'Equipamentos', 'Fretes']
+    case 'transport_logistics': {
+      const vehicle = asList(fact(facts, 'vehicle_type'))[0]
+      return [
+        'Combustível',
+        'Manutenção da frota',
+        'Pedágios',
+        'Motoristas',
+        vehicle ? `Operação · ${humanizeFactLabel(vehicle)}` : 'Operação da frota',
+      ]
+    }
+    case 'food': {
+      const names = [
+        'CMV alimentos',
+        'Embalagem',
+        'Mão de obra da cozinha',
+        'Desperdício',
+      ]
+      if (yes(facts, 'has_delivery')) names.push('Custos de delivery')
+      return names
+    }
+    case 'services':
+      return ['Custo de projetos', 'Mão de obra operacional', 'Terceirizados']
+    case 'tech':
+      return ['Infraestrutura de TI', 'Pessoal técnico', 'Ferramentas e licenças']
+    case 'health':
+      return ['Materiais e medicamentos', 'Profissionais clínicos', 'Manutenção']
+    case 'education':
+      return ['Material didático', 'Pessoal docente', 'Estrutura de salas']
+    case 'real_estate':
+      return ['Manutenção de imóveis', 'Condomínio', 'Impostos sobre imóveis']
+    case 'automotive':
+      return ['Peças', 'Mão de obra da oficina', 'Insumos de serviços']
+    case 'energy':
+      return ['Custos operacionais de energia', 'Manutenção', 'Equipamentos']
+    case 'mining':
+      return ['Custo de extração', 'Beneficiamento', 'Transporte mineral', 'Combustível']
+    case 'hospitality':
+      return ['Custos de hospedagem', 'Alimentos e bebidas', 'Mão de obra operacional']
+    case 'beauty':
+      return ['Produtos de beleza', 'Profissionais', 'Insumos de estética']
+    case 'media':
+      return ['Produção de mídia', 'Terceirizados', 'Mão de obra operacional']
+    case 'marketing':
+      return ['Mídia e produção', 'Atendimento', 'Terceirizados']
+    case 'entertainment':
+      return ['Custo de eventos', 'Produção', 'Estrutura']
+    case 'sports':
+      return ['Custo da estrutura', 'Professores / instrutores', 'Manutenção']
+    case 'environment':
+      return ['Custos operacionais ambientais', 'Equipamentos', 'Destinação']
+    case 'financial':
+      return ['Operação', 'Comissões pagas', 'Mão de obra operacional']
+    case 'professional':
+      return ['Custo de projetos', 'Horas técnicas', 'Terceirizados']
+    case 'public_admin':
+      return ['Pessoal', 'Custeio', 'Operação das unidades']
+    case 'other':
+      return ['Mão de obra operacional', 'Insumos', 'Fretes', 'Manutenção']
+    default:
+      return ['Mão de obra operacional', 'Insumos', 'Fretes', 'Manutenção']
+  }
+}
+
+function segmentInvestments(
+  segmentCode: string,
+  facts: Record<string, unknown>
+): string[] {
+  const extra: string[] = []
+  switch (segmentCode) {
+    case 'agro':
+      if (yes(facts, 'own_machinery')) extra.push('Maquinário agrícola')
+      extra.push('Implementos e estrutura rural')
+      break
+    case 'livestock':
+      extra.push('Instalações pecuárias', 'Rebanho / genética')
+      break
+    case 'fishing':
+      extra.push('Tanques e equipamentos aquículas')
+      break
+    case 'transport_logistics':
+      extra.push('Aquisição de frota')
+      break
+    case 'construction':
+      extra.push('Equipamentos de obra')
+      break
+    case 'tech':
+      extra.push('Infraestrutura e cloud', 'Desenvolvimento de produto')
+      break
+    case 'energy':
+      extra.push('Usinas e equipamentos de geração')
+      break
+    case 'mining':
+      extra.push('Equipamentos de extração')
+      break
+    case 'hospitality':
+      extra.push('Reforma de unidades', 'Mobiliário')
+      break
+    case 'real_estate':
+      extra.push('Aquisição de imóveis')
+      break
+    case 'industry':
+      extra.push('Linha de produção')
+      break
+    default:
+      break
+  }
+  return extra
+}
+
+function operationCostExtras(operationModel: string | null | undefined): string[] {
+  if (!operationModel) return []
+  const value = operationModel.toLowerCase()
+  if (value.includes('arrend')) return ['Arrendamento / aluguel operacional']
+  if (value.includes('terceir')) return ['Serviços de terceiros']
+  if (value.includes('franquia')) return ['Taxas e royalties de franquia']
+  if (value.includes('mista')) {
+    return ['Arrendamento / aluguel operacional', 'Serviços de terceiros']
+  }
+  return []
+}
+
+/**
+ * Gera destinos sugeridos (editáveis) para os 4 grupos do orçamento,
+ * com base no segmento, modelos de receita/operação e respostas do cadastro.
+ */
+export function suggestBudgetDestinations(
+  context: BudgetDestinationContext
+): Record<MoneyGroup, string[]> {
+  const facts = context.profileFacts ?? {}
+  const segmentCode = (context.segmentCode || 'other').trim() || 'other'
+  const extraSegments = (context.extraSegmentCodes ?? []).filter(
+    (code) => code && code !== segmentCode
+  )
+  const revenueModels = parseRevenueModelValues(context.revenueModel)
+
+  const revenue = uniqueNames([
+    ...revenueFromModels(revenueModels),
+    ...segmentRevenue(segmentCode, facts),
+    ...extraSegments.flatMap((code) => segmentRevenue(code, facts)),
+    context.primaryActivity?.trim()
+      ? `Receita · ${humanizeFactLabel(context.primaryActivity)}`
+      : '',
+  ])
+
+  const cost = uniqueNames([
+    ...segmentCosts(segmentCode, facts),
+    ...operationCostExtras(context.operationModel),
+    ...extraSegments.flatMap((code) => segmentCosts(code, facts)),
+    context.employeeCount && context.employeeCount > 0 ? 'Folha da operação' : '',
+  ])
+
+  const expense = uniqueNames([
+    ...BASE_EXPENSES,
+    ...extraSegments.flatMap((code) => {
+      if (code === 'hospitality') return ['Comissões de plataformas']
+      if (code === 'food') return ['Taxas de delivery']
+      if (code === 'beauty') return ['Comissões de profissionais']
+      if (code === 'education') return ['Pessoal docente']
+      return []
+    }),
+    yes(facts, 'platform_commissions') ? 'Comissões de plataformas' : '',
+    yes(facts, 'has_delivery') && segmentCode !== 'food' ? 'Taxas de delivery' : '',
+    context.employeeCount && context.employeeCount > 0 ? 'Folha administrativa' : '',
+    context.customSegment?.trim()
+      ? `Despesas · ${humanizeFactLabel(context.customSegment)}`
+      : '',
+  ])
+
+  const investment = uniqueNames([
+    ...BASE_INVESTMENTS,
+    ...segmentInvestments(segmentCode, facts),
+    ...extraSegments.flatMap((code) => segmentInvestments(code, facts)),
+  ])
+
+  return {
+    revenue: revenue.length > 0 ? revenue : ['Receitas operacionais'],
+    cost: cost.length > 0 ? cost : ['Custos operacionais'],
+    expense,
+    investment,
+  }
+}
+
+export function normalizeDestinationName(value: string): string {
+  return value.trim().toLocaleUpperCase('pt-BR')
+}

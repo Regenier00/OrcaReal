@@ -10,6 +10,12 @@ import {
   MONEY_GROUP_LABEL,
   MONEY_GROUPS,
 } from '@/features/budget/model'
+import { normalizeDestinationName } from '@/features/budget/defaultDestinations'
+import {
+  moneyGroupCardClass,
+  moneyGroupMutedClass,
+  moneyGroupTitleClass,
+} from '@/features/budget/moneyGroupStyle'
 import type { BudgetMonth } from '@/features/budget/period'
 import { formatMoney, roundMoney } from '@/features/budget/money'
 import { MoneyInput } from '@/components/ui/MoneyInput'
@@ -41,17 +47,12 @@ export function GroupTotalsStep({ draft, onChangeTotal }: GroupTotalsStepProps) 
           return (
             <article
               key={group.id}
-              className={cn(
-                'rounded-2xl border p-4 transition',
-                current > 0
-                  ? 'border-navy-bright/40 bg-navy-soft/40'
-                  : 'border-paper-muted bg-paper/40'
-              )}
+              className={moneyGroupCardClass(group.id, { active: current > 0 })}
             >
-              <h3 className="font-display text-lg font-semibold text-ink">
-                {group.label}
-              </h3>
-              <p className="mt-1 text-sm text-mist">{group.description}</p>
+              <h3 className={moneyGroupTitleClass(group.id)}>{group.label}</h3>
+              <p className={cn('mt-1', moneyGroupMutedClass(group.id))}>
+                {group.description}
+              </p>
               <div className="mt-4">
                 <MoneyInput
                   label={group.question}
@@ -98,7 +99,7 @@ export function DestinationEditor({
   }
 
   const addDestination = () => {
-    const trimmed = name.trim()
+    const trimmed = normalizeDestinationName(name)
     if (!trimmed) {
       setError('Informe o nome do destino.')
       return
@@ -109,7 +110,8 @@ export function DestinationEditor({
     }
     if (
       items.some(
-        (item) => item.destinationName.trim().toLowerCase() === trimmed.toLowerCase()
+        (item) =>
+          normalizeDestinationName(item.destinationName) === trimmed
       )
     ) {
       setError('Já existe um destino com este nome neste grupo.')
@@ -145,7 +147,10 @@ export function DestinationEditor({
     replaceGroupItems(
       items.map((item) =>
         item.localId === localId
-          ? { ...item, destinationName: nextName }
+          ? {
+              ...item,
+              destinationName: nextName.toLocaleUpperCase('pt-BR'),
+            }
           : item
       )
     )
@@ -157,8 +162,6 @@ export function DestinationEditor({
 
   const distributeRemainingEqually = () => {
     if (items.length === 0 || remaining <= 0) return
-    const parts = distributeAmounts(remaining, months)
-    // Better: distribute remaining total across destinations equally
     const equalParts = (() => {
       const cents = Math.round(remaining * 100)
       const base = Math.floor(cents / items.length)
@@ -175,11 +178,18 @@ export function DestinationEditor({
         }
       })
     )
-    void parts
   }
 
   return (
-    <section className="rounded-2xl border border-paper-muted bg-white p-6">
+    <section
+      className={cn(
+        'rounded-2xl border p-6',
+        moneyGroup === 'revenue' && 'border-revenue/50 bg-revenue/20',
+        moneyGroup === 'cost' && 'border-cost/50 bg-cost/20',
+        moneyGroup === 'expense' && 'border-expense/50 bg-expense/20',
+        moneyGroup === 'investment' && 'border-investment/40 bg-investment-soft'
+      )}
+    >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-mist">
@@ -189,11 +199,11 @@ export function DestinationEditor({
             Quanto vai para cada destino?
           </h2>
           <p className="mt-1 max-w-xl text-sm text-mist">
-            Crie destinos simples, como times ou finalidades. Ex.: Insumos, Fretes,
-            Manutenção, Mão de obra.
+            Sugestões com base no cadastro da empresa. Você pode excluir, renomear
+            ou adicionar novos destinos.
           </p>
         </div>
-        <div className="rounded-xl bg-paper px-4 py-3 text-sm">
+        <div className="rounded-xl bg-white/80 px-4 py-3 text-sm shadow-sm">
           <p className="text-mist">Grupo {label}</p>
           <p className="font-numeric font-semibold text-ink">
             {formatMoney(allocated)} / {formatMoney(planned)}
@@ -217,8 +227,11 @@ export function DestinationEditor({
         <Input
           label="Nome do destino"
           value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Ex.: Insumos"
+          onChange={(event) =>
+            setName(event.target.value.toLocaleUpperCase('pt-BR'))
+          }
+          placeholder="Ex.: INSUMOS"
+          className="text-sm tracking-wide"
         />
         <MoneyInput
           label="Valor no período"
@@ -247,7 +260,7 @@ export function DestinationEditor({
 
       <div className="mt-6 flex flex-col gap-3">
         {items.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-paper-muted px-4 py-8 text-center text-sm text-mist">
+          <p className="rounded-xl border border-dashed border-paper-muted bg-white/70 px-4 py-8 text-center text-sm text-mist">
             Nenhum destino ainda. Adicione o primeiro para começar a distribuir os{' '}
             {formatMoney(planned)} de {label}.
           </p>
@@ -255,7 +268,7 @@ export function DestinationEditor({
           items.map((item) => (
             <div
               key={item.localId}
-              className="grid gap-3 rounded-xl border border-paper-muted bg-paper/30 p-3 md:grid-cols-[1fr_160px_auto]"
+              className="grid gap-3 rounded-xl border border-paper-muted bg-white/80 p-3 md:grid-cols-[1fr_160px_auto]"
             >
               <Input
                 label="Destino"
@@ -263,6 +276,7 @@ export function DestinationEditor({
                 onChange={(event) =>
                   updateDestinationName(item.localId, event.target.value)
                 }
+                className="text-sm tracking-wide"
               />
               <MoneyInput
                 label="Valor"
@@ -310,23 +324,31 @@ export function DestinationReview({ draft, months }: DestinationReviewProps) {
       {groups.map((group) => (
         <article
           key={group.id}
-          className="rounded-2xl border border-paper-muted bg-white p-5"
+          className={moneyGroupCardClass(group.id, {
+            active: group.planned > 0,
+            className: 'p-5',
+          })}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-display text-lg font-semibold text-ink">
-              {group.label}
-            </h3>
-            <p className="font-numeric text-sm font-semibold text-navy">
+            <h3 className={moneyGroupTitleClass(group.id)}>{group.label}</h3>
+            <p
+              className={cn(
+                'font-numeric text-sm font-semibold',
+                group.id === 'investment' ? 'text-investment' : 'text-navy'
+              )}
+            >
               {formatMoney(group.planned)}
             </p>
           </div>
-          <ul className="mt-3 divide-y divide-paper-muted">
+          <ul className="mt-3 divide-y divide-black/10">
             {group.items.map((item) => (
               <li
                 key={item.localId}
                 className="flex items-center justify-between gap-3 py-2 text-sm"
               >
-                <span className="text-ink">{item.destinationName}</span>
+                <span className="text-sm tracking-wide text-ink">
+                  {item.destinationName}
+                </span>
                 <span className="font-numeric tabular-nums text-ink-soft">
                   {formatMoney(lineTotal(item, months))}
                 </span>
