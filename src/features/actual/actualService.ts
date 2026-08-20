@@ -322,6 +322,8 @@ export async function deleteStatementImport(
     throw new Error(mapActualError(error, 'Não foi possível excluir o extrato.'))
   }
 
+  // Fallback sem RPC: remove todos os status (pending, classified, ignored).
+  // A policy RLS exige admin da empresa — alinhada à RPC.
   const { error: transactionError } = await supabase
     .from('actual_transactions')
     .delete()
@@ -332,6 +334,25 @@ export async function deleteStatementImport(
     console.error('Erro ao excluir lançamentos do extrato:', transactionError)
     throw new Error(
       mapActualError(transactionError, 'Não foi possível excluir o extrato.'),
+    )
+  }
+
+  const { count: remaining, error: remainingError } = await supabase
+    .from('actual_transactions')
+    .select('id', { count: 'exact', head: true })
+    .eq('company_id', companyId)
+    .eq('import_id', importId)
+
+  if (remainingError) {
+    console.error('Erro ao verificar lançamentos restantes do extrato:', remainingError)
+    throw new Error(
+      mapActualError(remainingError, 'Não foi possível excluir o extrato.'),
+    )
+  }
+
+  if ((remaining ?? 0) > 0) {
+    throw new Error(
+      'Não foi possível excluir todos os lançamentos deste extrato (incluindo apropriados).',
     )
   }
 

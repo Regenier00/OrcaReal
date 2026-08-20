@@ -182,6 +182,8 @@ export async function getCompanyActualByBudget(
     .eq('company_id', companyId)
     .eq('budget_id', budgetId)
     .neq('status', 'archived')
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error) {
