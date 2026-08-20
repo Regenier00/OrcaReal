@@ -77,9 +77,8 @@ function mapImport(row: CostCenterImport): CostCenterImport {
 }
 
 /**
- * Importa centros de custo via XLSX.
- * Validação de tipo/tamanho/conteúdo usa o mesmo módulo da edge function;
- * persistência e regras de negócio ficam na RPC (admin + RLS).
+ * Lê o XLSX e envia as linhas à RPC.
+ * Regras de negócio (admin, empresa, dedupe, upsert, destinos) ficam só no backend.
  */
 export async function importCostCentersFromXlsx(input: {
   companyId: string

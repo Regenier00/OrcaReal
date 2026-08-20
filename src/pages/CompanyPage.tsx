@@ -692,7 +692,8 @@ function CostCentersTab({
               <p className="font-medium text-ink">Importar planilha XLSX</p>
               <p className="mt-1 text-sm text-mist">
                 Colunas: Nome (obrigatório), Código e Descrição (opcionais).
-                Aceita somente XLSX (máx. 5 MB).
+                Aceita somente XLSX (máx. 5 MB). Duplicatas são resolvidas no
+                servidor.
               </p>
             </div>
             <div>
