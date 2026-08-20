@@ -361,8 +361,8 @@ export function useUnitCostCards(input?: {
       period: isConsolidated
         ? totals.consolidated
         : monthKey
-          ? (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 })
-          : { revenue: 0, cost: 0 },
+          ? (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0, expense: 0 })
+          : { revenue: 0, cost: 0, expense: 0 },
       consolidated: totals.consolidated,
       periodQuantity: null,
       consolidatedQuantity: null,

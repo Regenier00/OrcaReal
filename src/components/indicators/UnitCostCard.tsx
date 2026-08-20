@@ -151,7 +151,7 @@ function IndicatorDialog({
   const context: FormulaContext = {
     period: isConsolidated
       ? card.consolidated
-      : (card.totalsByMonth[monthKey] ?? { revenue: 0, cost: 0 }),
+      : (card.totalsByMonth[monthKey] ?? { revenue: 0, cost: 0, expense: 0 }),
     consolidated: card.consolidated,
     periodQuantity: isConsolidated
       ? (quantity ?? consolidatedQty)

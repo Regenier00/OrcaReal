@@ -34,6 +34,7 @@ export function evaluateBreakdown(
 export function operationalContextFromTotals(input: {
   revenue: number
   cost: number
+  expense?: number
   previousRevenue: number | null
   employeeCount: number | null
   inputs: Record<string, number>
@@ -41,6 +42,7 @@ export function operationalContextFromTotals(input: {
   return {
     revenue: roundMoney(input.revenue),
     cost: roundMoney(input.cost),
+    expense: roundMoney(input.expense ?? 0),
     previousRevenue: input.previousRevenue,
     employeeCount: input.employeeCount,
     inputs: input.inputs,

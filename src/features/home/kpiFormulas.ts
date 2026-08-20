@@ -1,11 +1,13 @@
 export const KPI_FORMULAS = {
-  revenue: 'entradas apropriadas do mês',
-  realized: 'custos + despesas do mês',
-  profit: 'receita − saídas',
-  margin: '(receita − saídas) / receita',
-  variance: 'realizado − orçado',
-  variancePct: '(realizado − orçado) / orçado',
-  totalCost: 'custos + despesas do mês',
+  revenue: 'Receita',
+  costs: 'Custo',
+  expenses: 'Despesa',
+  realized: 'Custo + Despesa',
+  profit: 'Receita − Custo − Despesa',
+  margin: '(Receita − Custo − Despesa) / Receita',
+  variance: 'Realizado − Orçado',
+  variancePct: '(Realizado − Orçado) / Orçado',
+  totalCost: 'Custo + Despesa',
 } as const
 
 export type KpiFormulaId = keyof typeof KPI_FORMULAS

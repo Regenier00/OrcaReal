@@ -3,6 +3,7 @@ import { roundMoney } from '../budget/money.ts'
 export type FormulaNode =
   | { type: 'revenue' }
   | { type: 'cost' }
+  | { type: 'expense' }
   | { type: 'profit' }
   | { type: 'previousRevenue' }
   | { type: 'employeeCount' }
@@ -17,6 +18,7 @@ export type FormulaNode =
 export interface OperationalFormulaContext {
   revenue: number
   cost: number
+  expense: number
   previousRevenue: number | null
   employeeCount: number | null
   inputs: Record<string, number | null | undefined>
@@ -30,8 +32,18 @@ export function cost(): FormulaNode {
   return { type: 'cost' }
 }
 
+export function expense(): FormulaNode {
+  return { type: 'expense' }
+}
+
+/** Lucro = Receita − Custo − Despesa */
 export function profit(): FormulaNode {
   return { type: 'profit' }
+}
+
+/** Custo operacional total = Custo + Despesa */
+export function operatingCost(): FormulaNode {
+  return add(cost(), expense())
 }
 
 export function previousRevenue(): FormulaNode {
@@ -109,11 +121,14 @@ function evalNode(node: FormulaNode, ctx: OperationalFormulaContext): number | n
       return finiteOrNull(ctx.revenue)
     case 'cost':
       return finiteOrNull(ctx.cost)
+    case 'expense':
+      return finiteOrNull(ctx.expense)
     case 'profit': {
       const left = finiteOrNull(ctx.revenue)
-      const right = finiteOrNull(ctx.cost)
-      if (left == null || right == null) return null
-      return left - right
+      const costValue = finiteOrNull(ctx.cost)
+      const expenseValue = finiteOrNull(ctx.expense)
+      if (left == null || costValue == null || expenseValue == null) return null
+      return left - costValue - expenseValue
     }
     case 'previousRevenue':
       return finiteOrNull(ctx.previousRevenue)

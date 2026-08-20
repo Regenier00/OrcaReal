@@ -1,7 +1,7 @@
-import { roundMoney } from '../budget/money'
-import type { BudgetMonth } from '../budget/period'
-import { monthKey } from '../budget/period'
-import { sum } from '../../lib/money'
+import { roundMoney } from '../budget/money.ts'
+import type { BudgetMonth } from '../budget/period.ts'
+import { monthKey } from '../budget/period.ts'
+import { sum } from '../../lib/money.ts'
 
 export type MonthlyVolumes = Record<string, number>
 
@@ -10,6 +10,7 @@ export const UNIT_VOLUME_PREFIX = 'unit_volume:'
 interface CostActual {
   items: Array<{
     categoryType: string | null
+    moneyGroup?: string | null
     amounts: Record<string, number>
   }>
 }
@@ -18,6 +19,7 @@ interface CostSlice {
   monthKey: string
   amount: number
   type: string
+  moneyGroup?: string | null
 }
 
 export function unitVolumeQuestionCode(indicatorCode: string) {
@@ -46,7 +48,10 @@ export function realizedCostForMonth(
   const fromItems = roundMoney(
     sum(
       (actual?.items ?? [])
-        .filter((item) => item.categoryType !== 'revenue')
+        .filter((item) => {
+          const group = item.moneyGroup || item.categoryType
+          return group === 'cost'
+        })
         .map((item) => item.amounts[month] ?? 0)
     )
   )
@@ -54,7 +59,11 @@ export function realizedCostForMonth(
   const fromClassified = roundMoney(
     sum(
       classified
-        .filter((slice) => slice.monthKey === month && slice.type === 'expense')
+        .filter((slice) => {
+          if (slice.monthKey !== month) return false
+          if (slice.moneyGroup) return slice.moneyGroup === 'cost'
+          return false
+        })
         .map((slice) => slice.amount)
     )
   )

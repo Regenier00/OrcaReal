@@ -2,8 +2,11 @@ import { roundMoney } from '../budget/money.ts'
 import type { BudgetMonth } from '../budget/period.ts'
 import { sum } from '../../lib/money.ts'
 
+export type MoneySide = 'revenue' | 'cost' | 'expense' | 'investment'
+
 export interface AmountItem {
   categoryType: string | null
+  moneyGroup?: string | null
   amounts: Record<string, number>
 }
 
@@ -11,6 +14,7 @@ export interface ClassifiedSlice {
   monthKey: string
   amount: number
   type: string
+  moneyGroup?: string | null
 }
 
 export interface MonthFinancials {
@@ -28,17 +32,46 @@ export interface MonthFinancials {
   variancePct: number | null
 }
 
-type CategoryFilter = Array<string | null> | 'non-revenue' | 'all'
+type GroupFilter = MoneySide | MoneySide[] | 'operating' | 'all'
+
+export function resolveItemGroup(item: AmountItem): MoneySide | null {
+  const raw = item.moneyGroup || item.categoryType
+  if (raw === 'revenue' || raw === 'cost' || raw === 'expense' || raw === 'investment') {
+    return raw
+  }
+  return null
+}
+
+export function resolveSliceGroup(slice: ClassifiedSlice): MoneySide | null {
+  if (
+    slice.moneyGroup === 'revenue' ||
+    slice.moneyGroup === 'cost' ||
+    slice.moneyGroup === 'expense' ||
+    slice.moneyGroup === 'investment'
+  ) {
+    return slice.moneyGroup
+  }
+  if (slice.type === 'income') return 'revenue'
+  if (slice.type === 'expense') return 'expense'
+  return null
+}
+
+function matchesGroup(group: MoneySide | null, types: GroupFilter) {
+  if (types === 'all') return true
+  if (types === 'operating') return group === 'cost' || group === 'expense'
+  if (Array.isArray(types)) return group != null && types.includes(group)
+  return group === types
+}
 
 export function sumItemsForMonth(
   items: AmountItem[] | undefined,
   month: string,
-  types: CategoryFilter
+  types: GroupFilter
 ) {
   return roundMoney(
     sum(
       (items ?? [])
-        .filter((item) => matchesCategory(item.categoryType, types))
+        .filter((item) => matchesGroup(resolveItemGroup(item), types))
         .map((item) => item.amounts[month] ?? 0)
     )
   )
@@ -47,12 +80,14 @@ export function sumItemsForMonth(
 export function sumClassifiedForMonth(
   slices: ClassifiedSlice[],
   month: string,
-  types: string[]
+  types: GroupFilter
 ) {
   return roundMoney(
     sum(
       slices
-        .filter((slice) => slice.monthKey === month && types.includes(slice.type))
+        .filter(
+          (slice) => slice.monthKey === month && matchesGroup(resolveSliceGroup(slice), types)
+        )
         .map((slice) => slice.amount)
     )
   )
@@ -85,20 +120,20 @@ export function monthFinancials(
   budget: { items: AmountItem[] } | null
 ): MonthFinancials {
   const revenue = roundMoney(
-    sumItemsForMonth(actual?.items, month.key, ['revenue']) +
-      sumClassifiedForMonth(classified, month.key, ['income'])
+    sumItemsForMonth(actual?.items, month.key, 'revenue') +
+      sumClassifiedForMonth(classified, month.key, 'revenue')
   )
-  const costs = sumItemsForMonth(actual?.items, month.key, ['cost'])
+  const costs = roundMoney(
+    sumItemsForMonth(actual?.items, month.key, 'cost') +
+      sumClassifiedForMonth(classified, month.key, 'cost')
+  )
   const expenses = roundMoney(
-    sumItemsForMonth(actual?.items, month.key, ['expense']) +
-      sumClassifiedForMonth(classified, month.key, ['expense'])
+    sumItemsForMonth(actual?.items, month.key, 'expense') +
+      sumClassifiedForMonth(classified, month.key, 'expense')
   )
-  const realized = roundMoney(
-    sumItemsForMonth(actual?.items, month.key, 'non-revenue') +
-      sumClassifiedForMonth(classified, month.key, ['expense'])
-  )
-  const budgeted = sumItemsForMonth(budget?.items, month.key, 'non-revenue')
-  const profit = roundMoney(revenue - realized)
+  const realized = roundMoney(costs + expenses)
+  const budgeted = sumItemsForMonth(budget?.items, month.key, 'operating')
+  const profit = roundMoney(revenue - costs - expenses)
   const margin = revenue > 0 ? profit / revenue : null
   const variance = roundMoney(realized - budgeted)
   const variancePct =
@@ -143,7 +178,7 @@ export function periodFinancials(
   const expenses = roundMoney(sum(series.map((item) => item.expenses)))
   const realized = roundMoney(sum(series.map((item) => item.realized)))
   const budgeted = roundMoney(sum(series.map((item) => item.budgeted)))
-  const profit = roundMoney(revenue - realized)
+  const profit = roundMoney(revenue - costs - expenses)
   const margin = revenue > 0 ? profit / revenue : null
   const variance = roundMoney(realized - budgeted)
   const variancePct =
@@ -163,10 +198,4 @@ export function periodFinancials(
     variance,
     variancePct,
   }
-}
-
-function matchesCategory(categoryType: string | null, types: CategoryFilter) {
-  if (types === 'all') return true
-  if (types === 'non-revenue') return categoryType !== 'revenue'
-  return types.includes(categoryType)
 }

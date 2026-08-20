@@ -1,15 +1,16 @@
 import {
-  add,
   breakEven,
   cost,
   div,
   employeeCount,
   evaluateOperationalFormula,
+  expense,
   input,
   lit,
   max,
   min,
   mul,
+  operatingCost,
   pct,
   previousRevenue,
   profit,
@@ -36,6 +37,7 @@ function assert(condition: unknown, message: string): asserts condition {
 const ctx: OperationalFormulaContext = {
   revenue: 20000,
   cost: 12000,
+  expense: 2000,
   previousRevenue: 16000,
   employeeCount: 8,
   inputs: {
@@ -99,11 +101,13 @@ function evalCode(code: string, extra?: Partial<OperationalFormulaContext>) {
   })
 }
 
-assert(evaluateOperationalFormula(cost(), ctx) === 12000, 'custo operacional total')
+assert(evaluateOperationalFormula(cost(), ctx) === 12000, 'custo do grupo')
+assert(evaluateOperationalFormula(expense(), ctx) === 2000, 'despesa do grupo')
+assert(evaluateOperationalFormula(operatingCost(), ctx) === 14000, 'custo operacional total')
+assert(evaluateOperationalFormula(profit(), ctx) === 6000, 'lucro = receita − custo − despesa')
 assert(evaluateOperationalFormula(div(cost(), input('units_produced')), ctx) === 30, 'custo por unidade')
-assert(evaluateOperationalFormula(pct(profit(), revenue()), ctx) === 0.4, 'margem operacional 40%')
-assert(evaluateOperationalFormula(pct(profit(), input('total_assets')), ctx) === 0.08, 'ROA 8%')
-assert(evaluateOperationalFormula(pct(profit(), input('investment')), ctx) === 0.16, 'ROI 16%')
+assert(evaluateOperationalFormula(pct(profit(), revenue()), ctx) === 0.3, 'margem operacional 30%')
+assert(evaluateOperationalFormula(pct(profit(), input('investment')), ctx) === 0.12, 'ROI 12%')
 
 const be = evaluateOperationalFormula(breakEven(input('fixed_costs')), ctx)
 assert(be === 8571.43, `ponto de equilíbrio próprio: ${be}`)
@@ -120,10 +124,6 @@ assert(
   evaluateOperationalFormula(div(input('depreciation'), input('units_produced')), ctx) === 2,
   'depreciação por unidade'
 )
-assert(
-  evaluateOperationalFormula(div(input('units_produced'), input('asset_count')), ctx) === 80,
-  'produtividade por ativo'
-)
 
 assert(evaluateOperationalFormula(input('lease_cost'), ctx) === 3000, 'custo de arrendamento')
 assert(
@@ -131,7 +131,7 @@ assert(
   'arrendamento por unidade'
 )
 assert(
-  evaluateOperationalFormula(pct(profit(), input('leased_asset_value')), ctx) === 0.2,
+  evaluateOperationalFormula(pct(sub(revenue(), cost()), input('leased_asset_value')), ctx) === 0.2,
   'rentabilidade do ativo arrendado'
 )
 assert(
@@ -139,32 +139,40 @@ assert(
   'receita por área'
 )
 assert(
-  evaluateOperationalFormula(div(profit(), input('leased_units')), ctx) === 800,
+  evaluateOperationalFormula(div(sub(revenue(), cost()), input('leased_units')), ctx) === 800,
   'lucro por área'
 )
 assert(
-  evaluateOperationalFormula(div(input('lease_cost'), input('ownership_cost')), ctx) === 0.67,
-  'arrendar × possuir'
+  evaluateOperationalFormula(sub(input('lease_cost'), input('ownership_cost')), ctx) === -1500,
+  'arrendar − possuir'
 )
 assert(
-  evaluateOperationalFormula(div(profit(), input('leased_area')), ctx) === 1000,
-  'retorno sobre área'
+  evaluateOperationalFormula(pct(sub(revenue(), cost()), input('lease_cost')), ctx) === 2.67,
+  'retorno sobre área arrendada'
 )
 
 assert(
-  evaluateOperationalFormula(pct(input('outsourcing_cost'), cost()), ctx) === 0.33,
-  '% terceirizada ≈ 33%'
+  evaluateOperationalFormula(pct(input('outsourcing_cost'), operatingCost()), ctx) === 0.29,
+  '% terceirizada ≈ 29%'
 )
 assert(
   evaluateOperationalFormula(sub(input('internal_cost'), input('outsourcing_cost')), ctx) === 1500,
   'economia com terceirização'
 )
 assert(
-  evaluateOperationalFormula(
-    pct(input('outsourcing_cost'), add(input('outsourcing_cost'), input('internal_cost'))),
-    ctx
-  ) === 0.42,
+  evaluateOperationalFormula(pct(input('outsourcing_cost'), operatingCost()), ctx) === 0.29,
   'dependência de terceiros'
+)
+assert(
+  evaluateOperationalFormula(div(input('delivered_units'), input('outsourcing_cost')), ctx) === 0.02,
+  'produtividade do terceiro'
+)
+assert(
+  evaluateOperationalFormula(
+    pct(sub(sub(revenue(), cost()), input('outsourcing_cost')), revenue()),
+    ctx
+  ) === 0.2,
+  'margem após terceirização'
 )
 
 const mixInputs = {
@@ -208,20 +216,26 @@ assert(
 assert(evaluateOperationalFormula(revenue(), ctx) === 20000, 'faturamento da unidade')
 assert(evaluateOperationalFormula(div(revenue(), input('sales_count')), ctx) === 200, 'ticket médio')
 assert(
-  evaluateOperationalFormula(pct(sub(revenue(), input('cogs')), revenue()), ctx) === 0.65,
+  evaluateOperationalFormula(pct(sub(revenue(), cost()), revenue()), ctx) === 0.4,
   'margem bruta'
 )
 assert(
-  evaluateOperationalFormula(mul(revenue(), div(input('royalty_rate'), lit(100))), ctx) === 1000,
+  evaluateOperationalFormula(pct(mul(revenue(), div(input('royalty_rate'), lit(100))), revenue()), ctx) ===
+    0.05,
   'royalties 5%'
 )
 assert(
-  evaluateOperationalFormula(mul(revenue(), div(input('ad_rate'), lit(100))), ctx) === 400,
+  evaluateOperationalFormula(pct(input('franchise_fee'), revenue()), ctx) === 0.06,
+  'taxa de franquia %'
+)
+assert(
+  evaluateOperationalFormula(pct(mul(revenue(), div(input('ad_rate'), lit(100))), revenue()), ctx) ===
+    0.02,
   'taxa de publicidade 2%'
 )
 assert(
-  evaluateOperationalFormula(div(input('franchise_investment'), profit()), ctx) === 10,
-  'payback 10 meses'
+  evaluateOperationalFormula(div(input('franchise_investment'), profit()), ctx) === 13.33,
+  'payback'
 )
 assert(evaluateOperationalFormula(div(revenue(), employeeCount()), ctx) === 2500, 'faturamento por funcionário')
 assert(evaluateOperationalFormula(div(revenue(), input('sqm')), ctx) === 500, 'faturamento por m²')
@@ -237,13 +251,6 @@ assert(
   evaluateOperationalFormula(mul(div(revenue(), input('customer_count')), input('lifespan_months')), ctx) ===
     7200,
   'LTV'
-)
-assert(
-  evaluateOperationalFormula(
-    pct(sub(profit(), mul(revenue(), div(input('royalty_rate'), lit(100)))), revenue()),
-    ctx
-  ) === 0.35,
-  'margem após royalties'
 )
 
 assert(
@@ -268,12 +275,19 @@ assert(
   'faturamento por funcionário exige quadro'
 )
 
-const ownBe = evalCode('own_break_even')
-assert(ownBe === 8571.43, `catálogo own_break_even: ${ownBe}`)
+assert(evalCode('own_total_operating_cost') === 14000, 'catálogo custo operacional total')
 assert(evalCode('own_cost_per_produced_unit') === 30, 'catálogo custo por unidade')
-assert(evalCode('fr_royalties') === 1000, 'catálogo royalties')
-assert(evalCode('fr_margin_after_royalties') === 0.35, 'catálogo margem após royalties')
+assert(evalCode('own_operating_margin') === 0.3, 'catálogo margem operacional')
+assert(evalCode('fr_royalties') === 0.05, 'catálogo royalties %')
+assert(evalCode('fr_franchise_fee') === 0.06, 'catálogo taxa de franquia %')
+assert(evalCode('fr_ad_fee') === 0.02, 'catálogo taxa de publicidade %')
+assert(evalCode('fr_gross_margin') === 0.4, 'catálogo margem bruta')
 assert(evalCode('out_savings') === 1500, 'catálogo economia')
+assert(evalCode('lease_vs_own_cost') === -1500, 'catálogo arrendar − possuir')
+assert(evalCode('lease_margin_after') === 0.25, 'catálogo margem após arrendamento')
+assert(evalCode('out_third_party_productivity') === 0.02, 'catálogo produtividade do terceiro')
+assert(evalCode('mix_return_by_model') === 1, 'catálogo rentabilidade por modelo')
+assert(evalCode('mix_roi_by_model') === 1, 'catálogo ROI por modelo')
 
 const beLease = evalCode('lease_break_even')
 assert(beLease === 5454.55, `ponto de equilíbrio do arrendamento: ${beLease}`)

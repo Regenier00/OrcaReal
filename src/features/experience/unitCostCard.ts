@@ -71,7 +71,7 @@ export function buildUnitCostCard(input: {
   const canChangePeriod = !isConsolidated && secondOperandIsPeriod(input.formula)
   const periodTotals = isConsolidated
     ? input.totals.consolidated
-    : (input.totals.byMonth[input.monthKey] ?? { revenue: 0, cost: 0 })
+    : (input.totals.byMonth[input.monthKey] ?? { revenue: 0, cost: 0, expense: 0 })
   const periodQty = isConsolidated
     ? qtyAll
     : (input.volumes[input.monthKey] ?? null)
@@ -84,7 +84,7 @@ export function buildUnitCostCard(input: {
   const previousUnitCost =
     canChangePeriod && input.previousKey
       ? evaluateFormula(input.formula, {
-          period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0 },
+          period: input.totals.byMonth[input.previousKey] ?? { revenue: 0, cost: 0, expense: 0 },
           consolidated: input.totals.consolidated,
           periodQuantity: previousQty,
           consolidatedQuantity: qtyAll,

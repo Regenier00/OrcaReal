@@ -171,10 +171,10 @@ export function useOperationalIndicators(input?: {
     const month = months.find((item) => item.key === monthKey)
     const period = isConsolidated
       ? totals.consolidated
-      : (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0 })
+      : (totals.byMonth[monthKey] ?? { revenue: 0, cost: 0, expense: 0 })
     const previousPeriod =
       !isConsolidated && previous
-        ? (totals.byMonth[previous.key] ?? { revenue: 0, cost: 0 })
+        ? (totals.byMonth[previous.key] ?? { revenue: 0, cost: 0, expense: 0 })
         : null
     const monthInputs = namedInputs[monthKey] ?? {}
 
@@ -182,6 +182,7 @@ export function useOperationalIndicators(input?: {
       const context: OperationalFormulaContext = {
         revenue: period.revenue,
         cost: period.cost,
+        expense: period.expense,
         previousRevenue: previousPeriod?.revenue ?? null,
         employeeCount,
         inputs: monthInputs,
@@ -190,6 +191,7 @@ export function useOperationalIndicators(input?: {
         ? {
             revenue: previousPeriod.revenue,
             cost: previousPeriod.cost,
+            expense: previousPeriod.expense,
             previousRevenue: null,
             employeeCount,
             inputs: namedInputs[previous?.key ?? ''] ?? {},
