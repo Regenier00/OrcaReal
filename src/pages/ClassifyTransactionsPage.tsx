@@ -5,6 +5,8 @@ import {
   applyTransactionSuggestions,
   classifyActualTransactions,
   listActualTransactions,
+  listCompanyBudgetDestinations,
+  listDestinationMatchPatterns,
 } from '@/features/actual/actualService'
 import {
   ACTUAL_PATHS,
@@ -13,10 +15,15 @@ import {
   TRANSACTION_TYPE_LABEL,
   hasSuggestion,
 } from '@/features/actual/model'
+import {
+  enrichTransactionSuggestion,
+  type ClassificationSuggestionContext,
+} from '@/features/actual/destinationSuggestions'
 import type {
   ActualTransaction,
   ActualTransactionStatus,
   ActualTransactionType,
+  BudgetDestination,
   MoneyGroup,
 } from '@/types/database'
 import { MONEY_GROUP_LABEL, MONEY_GROUPS } from '@/features/budget/model'
@@ -44,6 +51,11 @@ function canApplySuggestion(item: ActualTransaction) {
 }
 
 function suggestionLabel(item: ActualTransaction) {
+  const enriched = enrichTransactionSuggestion(item, {
+    destinations: [],
+    patterns: [],
+  })
+  if (enriched.label) return enriched.label
   if (item.suggested_money_group) {
     return MONEY_GROUP_LABEL[item.suggested_money_group]
   }
@@ -51,19 +63,43 @@ function suggestionLabel(item: ActualTransaction) {
 }
 
 function appropriationLabel(item: ActualTransaction) {
+  if (item.money_group && item.destination_name) {
+    return `${MONEY_GROUP_LABEL[item.money_group]} › ${item.destination_name}`
+  }
   if (item.money_group) return MONEY_GROUP_LABEL[item.money_group]
   return '—'
+}
+
+function withClientSuggestions(
+  items: ActualTransaction[],
+  context: ClassificationSuggestionContext
+): ActualTransaction[] {
+  return items.map((item) => {
+    if (item.status !== 'pending' && item.status !== 'ignored') return item
+    if (item.suggested_money_group || item.suggested_destination_name) return item
+    const enriched = enrichTransactionSuggestion(item, context)
+    if (!enriched.moneyGroup && !enriched.destinationName) return item
+    return {
+      ...item,
+      suggested_money_group: enriched.moneyGroup,
+      suggested_destination_id: enriched.destinationId,
+      suggested_destination_name: enriched.destinationName,
+      suggestion_source: enriched.source === 'context' ? 'rule' : enriched.source,
+    }
+  })
 }
 
 export function ClassifyTransactionsPage() {
   const [params] = useSearchParams()
   const importId = params.get('importacao') ?? ''
-  const { company } = useCompany()
+  const { company, companyProfile, segments } = useCompany()
   const [items, setItems] = useState<ActualTransaction[]>([])
+  const [destinations, setDestinations] = useState<BudgetDestination[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [status, setStatus] = useState<ActualTransactionStatus | ''>('pending')
   const [search, setSearch] = useState('')
   const [moneyGroup, setMoneyGroup] = useState<MoneyGroup | ''>('')
+  const [destinationKey, setDestinationKey] = useState('')
   const [nextType, setNextType] = useState<ActualTransactionType | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -74,18 +110,44 @@ export function ClassifyTransactionsPage() {
     ? `${company.id}:${importId}:${status}:${search}`
     : null
 
+  const segmentCode = useMemo(() => {
+    return segments.find((item) => item.id === companyProfile?.segment_id)?.code ?? null
+  }, [segments, companyProfile])
+
   useEffect(() => {
     if (!company || !loadKey) return
     const companyId = company.id
     let mounted = true
-    void listActualTransactions(companyId, {
-      importId: importId || undefined,
-      status,
-      search,
-    })
-      .then((nextItems) => {
+    void Promise.all([
+      listActualTransactions(companyId, {
+        importId: importId || undefined,
+        status,
+        search,
+      }),
+      listCompanyBudgetDestinations(companyId).catch(() => [] as BudgetDestination[]),
+      listDestinationMatchPatterns(companyId),
+    ])
+      .then(([nextItems, nextDestinations, patterns]) => {
         if (!mounted) return
-        setItems(nextItems)
+        const context: ClassificationSuggestionContext = {
+          destinations: nextDestinations.map((item) => ({
+            id: item.id,
+            moneyGroup: item.money_group,
+            name: item.name,
+          })),
+          patterns: patterns.map((item) => ({
+            matchType: item.match_type,
+            matchValue: item.match_value,
+            moneyGroup: item.money_group,
+            destinationId: item.destination_id,
+            destinationName: item.destination_name,
+            usageCount: item.usage_count,
+          })),
+          profileFacts: companyProfile?.profile_facts ?? {},
+          segmentCode,
+        }
+        setDestinations(nextDestinations)
+        setItems(withClientSuggestions(nextItems, context))
         setSelected([])
         setError('')
         setFetchedFor(loadKey)
@@ -98,11 +160,19 @@ export function ClassifyTransactionsPage() {
     return () => {
       mounted = false
     }
-  }, [company, loadKey, importId, status, search])
+  }, [company, loadKey, importId, status, search, companyProfile, segmentCode])
 
   const loading = Boolean(loadKey) && fetchedFor !== loadKey
   const selectedItems = items.filter((item) => selected.includes(item.id))
   const selectedWithSuggestion = selectedItems.filter(canApplySuggestion)
+
+  const destinationsForGroup = useMemo(
+    () =>
+      moneyGroup
+        ? destinations.filter((item) => item.money_group === moneyGroup)
+        : destinations,
+    [destinations, moneyGroup]
+  )
 
   useEffect(() => {
     if (!notice) return
@@ -116,15 +186,28 @@ export function ClassifyTransactionsPage() {
     )
     if (suggested.length === 0) return
     const nextGroup = suggested[0]?.suggested_money_group ?? ''
+    const nextDestination =
+      suggested[0]?.suggested_destination_id ||
+      suggested[0]?.suggested_destination_name ||
+      ''
     const sameSuggestion = suggested.every(
-      (item) => (item.suggested_money_group ?? '') === nextGroup,
+      (item) =>
+        (item.suggested_money_group ?? '') === nextGroup &&
+        ((item.suggested_destination_id || item.suggested_destination_name || '') ===
+          nextDestination),
     )
     const frame = window.requestAnimationFrame(() => {
       if (!sameSuggestion || !nextGroup) {
         setMoneyGroup('')
+        setDestinationKey('')
         return
       }
       setMoneyGroup(nextGroup)
+      setDestinationKey(
+        suggested[0]?.suggested_destination_id ||
+          suggested[0]?.suggested_destination_name ||
+          '',
+      )
     })
     return () => window.cancelAnimationFrame(frame)
   }, [items, selected])
@@ -151,7 +234,7 @@ export function ClassifyTransactionsPage() {
           ? 'Clique em Aplicar sugestão para apropriar com estes valores.'
           : skipped > 0
             ? `Cada lançamento segue a própria sugestão. ${skipped} sem sugestão ficam de fora.`
-            : 'Cada lançamento será apropriado no grupo da própria sugestão.',
+            : 'Cada lançamento será apropriado no grupo/destino da própria sugestão.',
     }
   }, [selectedItems.length, selectedWithSuggestion])
 
@@ -165,14 +248,45 @@ export function ClassifyTransactionsPage() {
     }
   }, [items])
 
+  const resolveDestination = () => {
+    if (!destinationKey) return { destinationId: null, destinationName: null }
+    const byId = destinations.find((item) => item.id === destinationKey)
+    if (byId) {
+      return { destinationId: byId.id, destinationName: byId.name }
+    }
+    return { destinationId: null, destinationName: destinationKey }
+  }
+
   const reload = async () => {
     if (!company) return
-    const nextItems = await listActualTransactions(company.id, {
-      importId: importId || undefined,
-      status,
-      search,
-    })
-    setItems(nextItems)
+    const [nextItems, nextDestinations, patterns] = await Promise.all([
+      listActualTransactions(company.id, {
+        importId: importId || undefined,
+        status,
+        search,
+      }),
+      listCompanyBudgetDestinations(company.id).catch(() => [] as BudgetDestination[]),
+      listDestinationMatchPatterns(company.id),
+    ])
+    const context: ClassificationSuggestionContext = {
+      destinations: nextDestinations.map((item) => ({
+        id: item.id,
+        moneyGroup: item.money_group,
+        name: item.name,
+      })),
+      patterns: patterns.map((item) => ({
+        matchType: item.match_type,
+        matchValue: item.match_value,
+        moneyGroup: item.money_group,
+        destinationId: item.destination_id,
+        destinationName: item.destination_name,
+        usageCount: item.usage_count,
+      })),
+      profileFacts: companyProfile?.profile_facts ?? {},
+      segmentCode,
+    }
+    setDestinations(nextDestinations)
+    setItems(withClientSuggestions(nextItems, context))
     setSelected((current) =>
       current.filter((id) => nextItems.some((item) => item.id === id)),
     )
@@ -198,12 +312,15 @@ export function ClassifyTransactionsPage() {
       setError('Informe o grupo (Receitas, Custos, Despesas ou Investimentos) para apropriar.')
       return
     }
+    const destination = resolveDestination()
     setBusy(true)
     try {
       await classifyActualTransactions({
         companyId: company.id,
         transactionIds: selected,
         moneyGroup: moneyGroup || null,
+        destinationId: destination.destinationId,
+        destinationName: destination.destinationName,
         status: nextStatus,
         type: nextType || null,
       })
@@ -240,7 +357,7 @@ export function ClassifyTransactionsPage() {
     if (!company) return
     const targets = selectedWithSuggestion
     if (targets.length === 0) {
-      setError('Selecione um lançamento com sugestão de histórico.')
+      setError('Selecione um lançamento com sugestão de histórico ou contexto.')
       return
     }
     const labels = [
@@ -271,7 +388,7 @@ export function ClassifyTransactionsPage() {
     <ActualPageShell
       title="Realizados não apropriados"
       tourId="actual-classify"
-      description="Apropriar significa dizer a qual grupo o lançamento pertence: Receitas, Custos, Despesas ou Investimentos. As saídas entram no Orçado × Realizado; as entradas vão para os cards de receita e para os indicadores."
+      description="Apropriar significa dizer a qual grupo e destino o lançamento pertence. O sistema aprende com as classificações confirmadas e usa fornecedores, descrições e o cadastro da empresa para sugerir."
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to={ACTUAL_PATHS.import}>
@@ -306,7 +423,7 @@ export function ClassifyTransactionsPage() {
         <p className="text-sm text-mist">
           {summary.pending} não apropriados nesta lista · {summary.classified} apropriados
           {summary.withSuggestion > 0
-            ? ` · ${summary.withSuggestion} com sugestão de histórico`
+            ? ` · ${summary.withSuggestion} com sugestão`
             : ''}
           {selected.length > 0 ? ` · ${selected.length} selecionada(s)` : ''}
         </p>
@@ -315,24 +432,38 @@ export function ClassifyTransactionsPage() {
             <SuggestionBalloon
               className="w-full max-w-md"
               pointer="right"
-              title="Sugestão do histórico"
+              title="Sugestão inteligente"
               lines={suggestionPreview.lines}
               hint={suggestionPreview.hint}
             />
           </div>
         ) : null}
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="mt-4 grid gap-3 lg:grid-cols-4">
           <Select
             label="Grupo"
             value={moneyGroup}
-            onChange={(event) =>
+            onChange={(event) => {
               setMoneyGroup(event.target.value as MoneyGroup | '')
-            }
+              setDestinationKey('')
+            }}
           >
             <option value="">Selecionar</option>
             {MONEY_GROUPS.map((group) => (
               <option key={group.id} value={group.id}>
                 {group.label}
+              </option>
+            ))}
+          </Select>
+          <Select
+            label="Destino"
+            hint="Do orçamento ou digite um novo ao confirmar"
+            value={destinationKey}
+            onChange={(event) => setDestinationKey(event.target.value)}
+          >
+            <option value="">Sem destino específico</option>
+            {destinationsForGroup.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
               </option>
             ))}
           </Select>
@@ -374,6 +505,23 @@ export function ClassifyTransactionsPage() {
             </Button>
           </div>
         </div>
+        {moneyGroup ? (
+          <div className="mt-3">
+            <Input
+              label="Ou informe um destino novo"
+              value={
+                destinationsForGroup.some((item) => item.id === destinationKey)
+                  ? ''
+                  : destinationKey
+              }
+              onChange={(event) =>
+                setDestinationKey(event.target.value.toLocaleUpperCase('pt-BR'))
+              }
+              placeholder="Ex.: COMBUSTÍVEL"
+              className="text-sm tracking-wide"
+            />
+          </div>
+        ) : null}
       </section>
 
       {error ? (
@@ -413,7 +561,8 @@ export function ClassifyTransactionsPage() {
                 <th className="px-3 py-2.5 font-medium">Descrição</th>
                 <th className="px-3 py-2.5 font-medium">Tipo</th>
                 <th className="px-3 py-2.5 text-right font-medium">Valor</th>
-                <th className="px-3 py-2.5 font-medium">Grupo</th>
+                <th className="px-3 py-2.5 font-medium">Grupo / destino</th>
+                <th className="px-3 py-2.5 font-medium">Sugestão</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
               </tr>
             </thead>
@@ -439,6 +588,9 @@ export function ClassifyTransactionsPage() {
                   </td>
                   <td className="px-3 py-3">
                     <p className="font-medium text-ink">{item.description}</p>
+                    {item.counterparty ? (
+                      <p className="mt-0.5 text-xs text-mist">{item.counterparty}</p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">
                     <select
@@ -471,6 +623,9 @@ export function ClassifyTransactionsPage() {
                   </td>
                   <td className="px-3 py-3 text-xs text-mist">
                     {appropriationLabel(item)}
+                  </td>
+                  <td className="px-3 py-3 text-xs text-navy">
+                    {canApplySuggestion(item) ? suggestionLabel(item) : '—'}
                   </td>
                   <td className="px-3 py-3 text-xs font-medium text-ink-soft">
                     {TRANSACTION_STATUS_LABEL[item.status]}

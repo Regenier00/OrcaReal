@@ -10,6 +10,7 @@
     "test:statement": "node --experimental-strip-types src/features/actual/statementParse.test.ts",
     "test:actual-permissions": "node --experimental-strip-types src/features/actual/permissions.test.ts",
     "test:suggestions": "node --experimental-strip-types src/features/actual/suggestions.test.ts",
+    "test:destination-suggestions": "node --experimental-strip-types src/features/actual/destinationSuggestions.test.ts",
     "test:unit-cost": "node --experimental-strip-types src/features/experience/unitCost.test.ts",
     "test:unit-cost-card": "node --experimental-strip-types src/features/experience/unitCostCard.test.ts",
     "test:custom-indicator": "node --experimental-strip-types src/features/indicators/formula.test.ts",

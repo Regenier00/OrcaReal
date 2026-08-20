@@ -154,6 +154,19 @@ function findClassifiedTarget(
   lines: ComparisonLine[],
   slice: ClassifiedActualSlice
 ): ComparisonLine | undefined {
+  if (slice.moneyGroup && slice.destinationName) {
+    const destKey = slice.destinationName.trim().toLowerCase()
+    const byDestination = lines.find(
+      (line) =>
+        line.departmentId === slice.moneyGroup &&
+        line.costCenterId.trim().toLowerCase() === destKey
+    )
+    if (byDestination) return byDestination
+  }
+  if (slice.destinationId) {
+    const byId = lines.find((line) => line.costCenterId === slice.destinationId)
+    if (byId) return byId
+  }
   if (slice.moneyGroup) {
     const byGroup = lines.find(
       (line) =>

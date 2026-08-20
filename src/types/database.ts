@@ -117,6 +117,20 @@ export interface BudgetDestination {
   updated_at: string
 }
 
+export interface DestinationMatchPatternRow {
+  id: string
+  company_id: string
+  match_type: 'counterparty' | 'description_contains' | 'description_exact'
+  match_value: string
+  money_group: MoneyGroup
+  destination_id: string | null
+  destination_name: string
+  usage_count: number
+  last_classified_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface BudgetGroupTotal {
   id: string
   budget_id: string
@@ -363,6 +377,8 @@ export interface ActualTransaction {
   department_id: string | null
   cost_center_id: string | null
   money_group: MoneyGroup | null
+  destination_id: string | null
+  destination_name: string | null
   status: ActualTransactionStatus
   external_id: string | null
   fingerprint: string
@@ -372,6 +388,8 @@ export interface ActualTransaction {
   suggested_department_id: string | null
   suggested_cost_center_id: string | null
   suggested_money_group: MoneyGroup | null
+  suggested_destination_id: string | null
+  suggested_destination_name: string | null
   suggestion_source: 'history' | 'rule' | null
   classified_at: string | null
   classified_by: string | null

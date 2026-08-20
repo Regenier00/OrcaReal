@@ -18,7 +18,9 @@ import type {
   ActualTransactionStatus,
   ActualTransactionType,
   BankAccount,
+  BudgetDestination,
   Category,
+  DestinationMatchPatternRow,
   StatementImport,
   StatementImportStatus,
 } from '@/types/database'
@@ -66,6 +68,8 @@ const TRANSACTION_SELECT = `
   department_id,
   cost_center_id,
   money_group,
+  destination_id,
+  destination_name,
   status,
   external_id,
   fingerprint,
@@ -75,6 +79,8 @@ const TRANSACTION_SELECT = `
   suggested_department_id,
   suggested_cost_center_id,
   suggested_money_group,
+  suggested_destination_id,
+  suggested_destination_name,
   suggestion_source,
   classified_at,
   classified_by,
@@ -91,6 +97,8 @@ const CLASSIFIED_SLICE_SELECT = `
   department_id,
   cost_center_id,
   money_group,
+  destination_id,
+  destination_name,
   department:departments!actual_transactions_department_id_fkey(id, name),
   cost_center:cost_centers!actual_transactions_cost_center_id_fkey(id, name)
 `
@@ -428,7 +436,49 @@ export async function listActualTransactions(
     ...row,
     amount: Number(row.amount),
     balance: row.balance == null ? null : Number(row.balance),
+    destination_id: row.destination_id ?? null,
+    destination_name: row.destination_name ?? null,
+    suggested_destination_id: row.suggested_destination_id ?? null,
+    suggested_destination_name: row.suggested_destination_name ?? null,
   }))
+}
+
+export async function listCompanyBudgetDestinations(
+  companyId: string
+): Promise<BudgetDestination[]> {
+  const { data, error } = await supabase
+    .from('budget_destinations')
+    .select('id, company_id, money_group, name, is_active, created_at, updated_at')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+    .order('money_group')
+    .order('name')
+
+  if (error) {
+    console.error('Erro ao listar destinos do orçamento:', error)
+    throw new Error('Não foi possível carregar os destinos do orçamento.')
+  }
+  return (data as BudgetDestination[]) ?? []
+}
+
+export async function listDestinationMatchPatterns(
+  companyId: string
+): Promise<DestinationMatchPatternRow[]> {
+  const { data, error } = await supabase
+    .from('destination_match_patterns')
+    .select(
+      'id, company_id, match_type, match_value, money_group, destination_id, destination_name, usage_count, last_classified_at, created_at, updated_at'
+    )
+    .eq('company_id', companyId)
+    .order('usage_count', { ascending: false })
+    .limit(500)
+
+  if (error) {
+    // Tabela pode ainda não existir em ambientes sem a migration aplicada.
+    console.warn('Não foi possível carregar padrões de destino:', error.message)
+    return []
+  }
+  return (data as DestinationMatchPatternRow[]) ?? []
 }
 
 export async function listClassifiedActualSlices(
@@ -469,9 +519,14 @@ export async function listClassifiedActualSlices(
       const costCenter = asNamedRef(row.cost_center)
       const department = asNamedRef(row.department)
       const moneyGroup = (row.money_group as string | null) ?? null
+      const destinationName =
+        (row.destination_name as string | null)?.trim() || null
+      const destinationId = (row.destination_id as string | null) ?? null
       const costCenterId =
         costCenter?.id ||
         (row.cost_center_id as string | null) ||
+        destinationId ||
+        destinationName ||
         moneyGroup
       if (!costCenterId) continue
 
@@ -482,11 +537,17 @@ export async function listClassifiedActualSlices(
       const groupLabel = moneyGroup ? moneyGroupLabel[moneyGroup] ?? moneyGroup : null
 
       slices.push({
-        departmentId: (row.department_id as string | null) ?? department?.id ?? moneyGroup,
+        departmentId:
+          (row.department_id as string | null) ??
+          department?.id ??
+          moneyGroup,
         costCenterId,
         departmentName: department?.name || groupLabel || 'Grupo',
-        costCenterName: costCenter?.name || groupLabel || 'Grupo',
+        costCenterName:
+          costCenter?.name || destinationName || groupLabel || 'Grupo',
         moneyGroup,
+        destinationId,
+        destinationName,
         monthKey: monthKey(Number(match[1]), Number(match[2])),
         amount: Number(row.amount),
         type: (row.type as ActualTransactionType) ?? 'unknown',
@@ -515,12 +576,14 @@ export async function classifyActualTransactions(input: {
   categoryId?: string | null
   costCenterId?: string | null
   moneyGroup?: string | null
+  destinationId?: string | null
+  destinationName?: string | null
   status?: ActualTransactionStatus
   type?: ActualTransactionType | null
 }): Promise<number> {
   if (input.transactionIds.length === 0) return 0
 
-  const { data, error } = await supabase.rpc('classify_actual_transactions', {
+  const payload: Record<string, unknown> = {
     p_company_id: input.companyId,
     p_transaction_ids: input.transactionIds,
     p_department_id: input.departmentId || null,
@@ -529,7 +592,14 @@ export async function classifyActualTransactions(input: {
     p_status: input.status ?? 'classified',
     p_type: input.type || null,
     p_money_group: input.moneyGroup || null,
-  })
+  }
+
+  if (input.destinationId || input.destinationName) {
+    payload.p_destination_id = input.destinationId || null
+    payload.p_destination_name = input.destinationName || null
+  }
+
+  const { data, error } = await supabase.rpc('classify_actual_transactions', payload)
 
   if (error) {
     console.error('Erro ao classificar movimentações:', error)
@@ -555,6 +625,8 @@ export async function applyTransactionSuggestions(input: {
       categoryId: group.categoryId,
       costCenterId: group.costCenterId,
       moneyGroup: group.moneyGroup,
+      destinationId: group.destinationId,
+      destinationName: group.destinationName,
       status: 'classified',
     })
   }

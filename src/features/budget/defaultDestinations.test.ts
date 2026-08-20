@@ -68,12 +68,19 @@ assert(food.cost.includes('Custos de delivery'), 'food delivery no custo')
 
 const commerce = suggestBudgetDestinations({
   segmentCode: 'commerce',
-  revenueModel: 'ecommerce_e_marketplace',
-  profileFacts: { sales_channel: ['fisica', 'marketplace'] },
+  revenueModel: 'venda_de_produtos',
+  profileFacts: {
+    products_sold: 'café especial, chocolate artesanal',
+    sales_channel: ['fisica', 'marketplace'],
+  },
 })
 assert(
-  commerce.cost.some((item) => /marketplace/i.test(item)),
-  'commerce com taxas de canal digital'
+  commerce.revenue.some((item) => /café especial/i.test(item)),
+  'comércio usa produtos informados no cadastro'
+)
+assert(
+  commerce.revenue.some((item) => /chocolate artesanal/i.test(item)),
+  'comércio gera um destino por produto'
 )
 
 console.log('budget default destinations tests ok')

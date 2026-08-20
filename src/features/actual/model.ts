@@ -73,6 +73,8 @@ export interface ClassifiedActualSlice {
   departmentName: string
   costCenterName: string
   moneyGroup?: string | null
+  destinationId?: string | null
+  destinationName?: string | null
   monthKey: string
   amount: number
   type: ActualTransactionType

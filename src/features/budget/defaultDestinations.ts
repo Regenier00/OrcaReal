@@ -36,13 +36,16 @@ function asList(value: FactBag): string[] {
   if (value == null || value === false) return []
   if (value === true) return []
   if (Array.isArray(value)) {
-    return value.map(String).map((item) => item.trim()).filter(Boolean)
+    return value
+      .flatMap((item) => asList(String(item)))
+      .map((item) => item.trim())
+      .filter(Boolean)
   }
   if (typeof value === 'number') return []
   return String(value)
-    .split(/[,;/|]+/)
+    .split(/[\n,;/|]+|(?:\s+e\s+)|(?:\s+and\s+)/i)
     .map((item) => item.trim())
-    .filter(Boolean)
+    .filter((item) => item.length > 1)
 }
 
 function fact(facts: Record<string, unknown>, key: string): FactBag {
@@ -164,6 +167,35 @@ function factIncludes(values: string[], ...needles: string[]): boolean {
   return needles.some((needle) => normalized.includes(needle))
 }
 
+
+/** Lista de produtos/serviços informados no cadastro (texto livre ou opções). */
+export function productsFromFacts(facts: Record<string, unknown>): string[] {
+  const keys = [
+    'products_sold',
+    'manufactured_products',
+    'service_type',
+    'crops',
+    'species',
+    'mineral_type',
+    'other_activity',
+    'auto_services',
+    'beauty_services',
+    'main_products',
+    'sold_products',
+    'tech_products',
+    'food_products',
+  ]
+  const names: string[] = []
+  for (const key of keys) {
+    for (const item of asList(fact(facts, key))) {
+      const lower = item.toLowerCase()
+      if (lower === 'outra' || lower === 'outro' || lower === 'outros') continue
+      names.push(humanizeFactLabel(item))
+    }
+  }
+  return uniqueNames(names)
+}
+
 function revenueFromModels(models: string[]): string[] {
   const names: string[] = []
   for (const model of models) {
@@ -239,8 +271,13 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       }
       return ['Venda de produção aquícola']
     }
-    case 'commerce':
+    case 'commerce': {
+      const products = asList(fact(facts, 'products_sold'))
+      if (products.length > 0) {
+        return products.map((item) => `Venda de ${humanizeFactLabel(item)}`)
+      }
       return ['Vendas de mercadorias']
+    }
     case 'industry': {
       const products = asList(fact(facts, 'manufactured_products'))
       if (products.length > 0) {
@@ -248,18 +285,33 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       }
       return ['Venda de produtos fabricados']
     }
-    case 'construction':
+    case 'construction': {
+      const works = asList(fact(facts, 'work_type'))
+      if (works.length > 0) {
+        return works.map((item) => `Obras · ${humanizeFactLabel(item)}`)
+      }
       return ['Receita de contratos de obra']
+    }
     case 'transport_logistics':
       return ['Fretes prestados']
     case 'food': {
-      const names = ['Vendas de alimentos']
+      const names: string[] = []
+      const foodType = asList(fact(facts, 'food_type'))
+      for (const item of foodType) {
+        if (!factIncludes([item], 'outro')) names.push(humanizeFactLabel(item))
+      }
+      const products = asList(fact(facts, 'food_products'))
+      for (const item of products) names.push(`Venda de ${humanizeFactLabel(item)}`)
+      if (names.length === 0) names.push('Vendas de alimentos')
       if (yes(facts, 'has_delivery')) names.push('Delivery')
       return names
     }
     case 'services': {
-      const serviceType = asList(fact(facts, 'service_type'))[0]
-      return [serviceType ? `Serviços · ${humanizeFactLabel(serviceType)}` : 'Receita de serviços']
+      const services = asList(fact(facts, 'service_type'))
+      if (services.length > 0) {
+        return services.map((item) => `Serviços · ${humanizeFactLabel(item)}`)
+      }
+      return ['Receita de serviços']
     }
     case 'tech': {
       const names: string[] = []
@@ -270,15 +322,32 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       if (factIncludes(delivery, 'projetos', 'hibrido')) {
         names.push('Receita de projetos')
       }
+      const products = asList(fact(facts, 'tech_products'))
+      for (const item of products) names.push(`Venda de ${humanizeFactLabel(item)}`)
       const offer = asList(fact(facts, 'offer_type'))
-      if (factIncludes(offer, 'produtos')) names.push('Venda de produtos digitais')
+      if (factIncludes(offer, 'produtos') && products.length === 0) {
+        names.push('Venda de produtos digitais')
+      }
       if (factIncludes(offer, 'servicos')) names.push('Prestação de serviços de TI')
       return names.length > 0 ? names : ['Receita de software e serviços']
     }
-    case 'health':
+    case 'health': {
+      const types = asList(fact(facts, 'health_type'))
+      if (types.length > 0) {
+        return [
+          ...types.map((item) => `Atendimento · ${humanizeFactLabel(item)}`),
+          'Receita de procedimentos',
+        ]
+      }
       return ['Receita de consultas', 'Receita de procedimentos']
-    case 'education':
+    }
+    case 'education': {
+      const types = asList(fact(facts, 'education_type'))
+      if (types.length > 0) {
+        return types.map((item) => `Mensalidades · ${humanizeFactLabel(item)}`)
+      }
       return ['Mensalidades']
+    }
     case 'real_estate': {
       const model = asList(fact(facts, 'real_estate_model'))
       if (factIncludes(model, 'aluguel')) return ['Receita de aluguel']
@@ -547,9 +616,22 @@ export function suggestBudgetDestinations(
   )
   const revenueModels = parseRevenueModelValues(context.revenueModel)
 
+  const soldProducts = productsFromFacts(facts)
+  const productRevenues = soldProducts.map((item) => {
+    const lower = item.toLocaleLowerCase('pt-BR')
+    if (lower.startsWith('venda de ') || lower.startsWith('serviços') || lower.startsWith('servicos')) {
+      return item
+    }
+    if (segmentCode === 'services' || segmentCode === 'professional' || segmentCode === 'beauty') {
+      return `Serviços · ${item}`
+    }
+    return `Venda de ${item}`
+  })
+
   const revenue = uniqueNames([
     ...revenueFromModels(revenueModels),
     ...segmentRevenue(segmentCode, facts),
+    ...productRevenues,
     ...extraSegments.flatMap((code) => segmentRevenue(code, facts)),
     context.primaryActivity?.trim()
       ? `Receita · ${humanizeFactLabel(context.primaryActivity)}`
