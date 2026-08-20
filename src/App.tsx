@@ -22,6 +22,8 @@ import { BudgetWizardPage } from '@/pages/BudgetWizardPage'
 import { BudgetDetailPage } from '@/pages/BudgetDetailPage'
 import { ActualPage } from '@/pages/ActualPage'
 import { ImportStatementPage } from '@/pages/ImportStatementPage'
+import { ImportErpPage } from '@/pages/ImportErpPage'
+import { ReviewErpEntriesPage } from '@/pages/ReviewErpEntriesPage'
 import { ClassifyTransactionsPage } from '@/pages/ClassifyTransactionsPage'
 import { ActualsPage } from '@/pages/ActualsPage'
 import { ActualWizardPage } from '@/pages/ActualWizardPage'
@@ -72,6 +74,14 @@ export default function App() {
                 <Route
                   path={ACTUAL_PATHS.import}
                   element={<ImportStatementPage />}
+                />
+                <Route
+                  path={ACTUAL_PATHS.importErp}
+                  element={<ImportErpPage />}
+                />
+                <Route
+                  path={ACTUAL_PATHS.reviewErp}
+                  element={<ReviewErpEntriesPage />}
                 />
                 <Route
                   path={ACTUAL_PATHS.unappropriated}

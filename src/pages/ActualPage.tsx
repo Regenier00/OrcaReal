@@ -9,21 +9,25 @@ import {
 import type { ActualSummary } from '@/features/actual/actualService'
 import { ACTUAL_PATHS } from '@/features/actual/model'
 import { canDeleteImportedStatements } from '@/features/actual/permissions'
-import type { StatementImport } from '@/types/database'
+import { deleteErpImport, listErpImports } from '@/features/erp/erpService'
+import type { ErpImport, StatementImport } from '@/types/database'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import { ImportedStatementsList } from '@/components/actual/ImportedStatementsList'
 import { ImportSummary } from '@/components/actual/ImportSummary'
+import { ImportedErpList } from '@/components/erp/ImportedErpList'
 
 export function ActualPage() {
   const { company, activeMembership, loading: companyLoading } = useCompany()
   const canDelete = canDeleteImportedStatements(activeMembership?.role)
   const [summary, setSummary] = useState<ActualSummary | null>(null)
   const [imports, setImports] = useState<StatementImport[]>([])
+  const [erpImports, setErpImports] = useState<ErpImport[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<StatementImport | null>(null)
+  const [pendingErpDelete, setPendingErpDelete] = useState<ErpImport | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
@@ -34,11 +38,13 @@ export function ActualPage() {
     void Promise.all([
       getActualSummary(companyId),
       listStatementImports(companyId),
+      listErpImports(companyId).catch(() => [] as ErpImport[]),
     ])
-      .then(([nextSummary, nextImports]) => {
+      .then(([nextSummary, nextImports, nextErp]) => {
         if (!mounted) return
         setSummary(nextSummary)
         setImports(nextImports)
+        setErpImports(nextErp)
         setError('')
         setFetchedFor(companyId)
       })
@@ -91,14 +97,34 @@ export function ActualPage() {
     }
   }
 
+  const handleErpDelete = async () => {
+    if (!company || !pendingErpDelete || !canDelete) return
+    setDeleting(true)
+    try {
+      await deleteErpImport(company.id, pendingErpDelete.id)
+      setErpImports(await listErpImports(company.id))
+      setPendingErpDelete(null)
+      setError('')
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Não foi possível excluir a importação ERP.',
+      )
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <ActualPageShell
       title="Realizado"
-      description={`O extrato bancário da ${company?.trade_name || company?.name || 'empresa'} vira realizado aqui. O que ainda não tiver departamento e centro de custo fica em não apropriados até você classificar.`}
+      description={`O extrato bancário ou a planilha do ERP da ${company?.trade_name || company?.name || 'empresa'} vira realizado aqui. O que ainda não tiver classificação fica pendente até você revisar.`}
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to={ACTUAL_PATHS.import}>
             <Button>Importar extrato</Button>
+          </Link>
+          <Link to={ACTUAL_PATHS.importErp}>
+            <Button variant="secondary">Importar ERP</Button>
           </Link>
           <Link to={ACTUAL_PATHS.unappropriated}>
             <Button variant="secondary">Não apropriados</Button>
@@ -130,12 +156,11 @@ export function ActualPage() {
             {imports.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
                 <p className="font-display text-xl font-semibold text-ink">
-                  Nenhum realizado ainda
+                  Nenhum extrato ainda
                 </p>
                 <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-                  Importe o extrato (OFX, CSV, XLSX ou PDF). O sistema
-                  lê os lançamentos e envia os que faltam classificar para
-                  Realizados não apropriados.
+                  Importe o extrato (OFX, CSV, XLSX ou PDF) ou use Importar ERP
+                  para planilhas contábeis.
                 </p>
                 <Link to={ACTUAL_PATHS.import} className="mt-6 inline-block">
                   <Button>Importar extrato</Button>
@@ -147,6 +172,24 @@ export function ActualPage() {
                 onDelete={canDelete ? setPendingDelete : undefined}
               />
             )}
+          </section>
+
+          <section className="mt-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display text-xl font-semibold text-navy">
+                Importações de ERP
+              </h2>
+              <Link to={ACTUAL_PATHS.importErp}>
+                <Button variant="secondary">Importar ERP</Button>
+              </Link>
+            </div>
+            <div className="mt-4">
+              <ImportedErpList
+                items={erpImports}
+                canDelete={canDelete}
+                onDelete={canDelete ? setPendingErpDelete : undefined}
+              />
+            </div>
           </section>
         </>
       )}
@@ -160,6 +203,18 @@ export function ActualPage() {
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
           if (!deleting) void handleDelete()
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingErpDelete)}
+        title="Excluir importação ERP"
+        body={`Excluir “${pendingErpDelete?.file_name ?? ''}”? Todos os lançamentos desta importação serão removidos. Esta ação não pode ser desfeita.`}
+        confirmLabel={deleting ? 'Excluindo...' : 'Excluir'}
+        danger
+        onCancel={() => setPendingErpDelete(null)}
+        onConfirm={() => {
+          if (!deleting) void handleErpDelete()
         }}
       />
     </ActualPageShell>

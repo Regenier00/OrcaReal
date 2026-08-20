@@ -318,6 +318,111 @@ export type StatementImportStatus =
 export type ActualTransactionType = 'income' | 'expense' | 'unknown'
 export type ActualTransactionStatus = 'pending' | 'classified' | 'ignored'
 
+export type ErpFileType = 'xlsx' | 'csv' | 'ofx' | 'pdf' | 'unknown'
+export type ErpImportStatus =
+  | 'uploaded'
+  | 'validating'
+  | 'identifying'
+  | 'parsing'
+  | 'normalizing'
+  | 'classifying'
+  | 'completed'
+  | 'failed'
+export type ErpEntrySide = 'debit' | 'credit' | 'unknown'
+export type ErpEntryStatus = 'pending' | 'classified' | 'ignored'
+export type ErpClassificationMatchType =
+  | 'account_code'
+  | 'account_name'
+  | 'cost_center'
+  | 'department'
+  | 'description_exact'
+  | 'description_contains'
+
+export interface ErpImport {
+  id: string
+  company_id: string
+  file_name: string
+  file_path: string | null
+  file_size: number | null
+  file_type: ErpFileType
+  mime_type: string | null
+  file_hash: string | null
+  detected_layout: Record<string, unknown>
+  status: ErpImportStatus
+  entry_count: number
+  classified_count: number
+  pending_count: number
+  ignored_count: number
+  error_count: number
+  duplicate_count: number
+  revenue_count: number
+  cost_count: number
+  expense_count: number
+  investment_count: number
+  period_start: string | null
+  period_end: string | null
+  error_message: string | null
+  warnings: Array<{ message: string; row?: number }>
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  processed_at: string | null
+}
+
+export interface ErpEntry {
+  id: string
+  company_id: string
+  import_id: string | null
+  posted_at: string
+  description: string
+  amount: number
+  entry_side: ErpEntrySide
+  type: ActualTransactionType
+  account_code: string | null
+  account_name: string | null
+  cost_center_code: string | null
+  cost_center_name: string | null
+  department_name: string | null
+  document_number: string | null
+  external_id: string | null
+  fingerprint: string
+  department_id: string | null
+  cost_center_id: string | null
+  money_group: MoneyGroup | null
+  destination_id: string | null
+  destination_name: string | null
+  status: ErpEntryStatus
+  suggested_money_group: MoneyGroup | null
+  suggested_destination_id: string | null
+  suggested_destination_name: string | null
+  suggested_department_id: string | null
+  suggested_cost_center_id: string | null
+  suggestion_source: 'rule' | 'heuristic' | 'history' | null
+  classified_at: string | null
+  classified_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface ErpClassificationRule {
+  id: string
+  company_id: string
+  match_type: ErpClassificationMatchType
+  match_value: string
+  money_group: MoneyGroup
+  destination_id: string | null
+  destination_name: string
+  department_id: string | null
+  cost_center_id: string | null
+  priority: number
+  usage_count: number
+  is_active: boolean
+  created_by: string | null
+  last_classified_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface BankAccount {
   id: string
   company_id: string
