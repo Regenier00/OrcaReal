@@ -1,3 +1,16 @@
+/**
+ * Detecção de colunas do importador ERP.
+ *
+ * Inspirado no Odoo base_import:
+ * 1) mapeamentos salvos da empresa (prioridade máxima)
+ * 2) match exato de aliases
+ * 3) fuzzy match (distância de sequência) com limiar
+ * 4) colunas irrelevantes → ignore (não mapeamos)
+ *
+ * Campos-alvo: data, valor, descrição, centro de custo, conta contábil.
+ * Débito/crédito só existem como fonte alternativa de "valor".
+ */
+
 import {
   cellText,
   excelSerialToIso,
@@ -5,31 +18,29 @@ import {
   normalizeDescription,
   parseAmount,
   parseBrazilianDate,
+  sanitizeSpreadsheetText,
   sideFromDebitCredit,
   signedAmount,
   typeFromSide,
   typeFromSigned,
 } from './normalize.ts'
-import { HEADER_SCAN_ROWS, MIN_HEADER_SCORE } from './limits.ts'
+import { FUZZY_MATCH_DISTANCE, HEADER_SCAN_ROWS, MIN_HEADER_SCORE } from './limits.ts'
 import type {
   DetectedLayout,
   NormalizedErpEntry,
   ParseWarning,
 } from './types.ts'
 
-export type ErpColumnRole =
+/** Papéis que importamos. Tudo fora disso é descartado. */
+export type ErpFieldRole =
   | 'date'
   | 'description'
   | 'amount'
   | 'debit'
   | 'credit'
-  | 'account_code'
-  | 'account_name'
+  | 'account'
   | 'cost_center'
-  | 'cost_center_code'
-  | 'department'
-  | 'document'
-  | 'id'
+  | 'ignore'
 
 export interface ErpColumnMap {
   headerIndex: number
@@ -38,19 +49,27 @@ export interface ErpColumnMap {
   amount: number
   debit: number
   credit: number
-  accountCode: number
-  accountName: number
+  account: number
   costCenter: number
-  costCenterCode: number
-  department: number
-  document: number
-  id: number
+  /** Cabeçalhos detectados → papel (para salvar mapeamento). */
+  headerRoles: Array<{ header: string; role: ErpFieldRole; index: number }>
 }
 
-const ALIASES: Record<ErpColumnRole, string[]> = {
+export type SavedHeaderMap = Record<string, ErpFieldRole>
+
+const CORE_ROLES: ErpFieldRole[] = [
+  'date',
+  'description',
+  'amount',
+  'debit',
+  'credit',
+  'account',
+  'cost_center',
+]
+
+const ALIASES: Record<Exclude<ErpFieldRole, 'ignore'>, string[]> = {
   date: [
     'data',
-    'date',
     'datalancamento',
     'datamovimento',
     'datacompetencia',
@@ -58,9 +77,9 @@ const ALIASES: Record<ErpColumnRole, string[]> = {
     'datapagamento',
     'dtlancamento',
     'dtmovimento',
-    'dt',
     'posted',
     'competencia',
+    'date',
   ],
   description: [
     'descricao',
@@ -86,24 +105,11 @@ const ALIASES: Record<ErpColumnRole, string[]> = {
     'valorrs',
     'valorliquido',
     'valorbruto',
+    'valormovimentacao',
   ],
-  debit: [
-    'debito',
-    'debit',
-    'vlrdebito',
-    'valordebito',
-    'saida',
-    'd',
-  ],
-  credit: [
-    'credito',
-    'credit',
-    'vlrcredito',
-    'valorcredito',
-    'entrada',
-    'c',
-  ],
-  account_code: [
+  debit: ['debito', 'debit', 'vlrdebito', 'valordebito', 'saida'],
+  credit: ['credito', 'credit', 'vlrcredito', 'valorcredito', 'entrada'],
+  account: [
     'contacontabil',
     'codigoconta',
     'codconta',
@@ -111,71 +117,65 @@ const ALIASES: Record<ErpColumnRole, string[]> = {
     'planocontas',
     'account',
     'accountcode',
+    'accountname',
     'codigocontacontabil',
     'nroconta',
     'numeroconta',
-    'classificacao',
-    'contadebito',
-    'contacredito',
-  ],
-  account_name: [
     'nomeconta',
     'descricaoconta',
     'contadescricao',
-    'accountname',
-    'nomedaconta',
-    'descconta',
-    'historicoplano',
+    'classificacao',
   ],
   cost_center: [
     'centrocusto',
     'centrodecusto',
     'ccusto',
-    'cc',
     'costcenter',
+    'costcentercode',
     'nomecentrocusto',
     'descricaocentrocusto',
-    'unidadenegocio',
-    'area',
-  ],
-  cost_center_code: [
     'codigocentrocusto',
-    'codcc',
     'codcentrocusto',
-    'ccodigo',
-    'costcentercode',
-  ],
-  department: [
-    'departamento',
-    'setor',
-    'departamentoarea',
-    'depto',
-    'department',
-    'filial',
-    'unidade',
-  ],
-  document: [
-    'documento',
-    'docto',
-    'nrodoc',
-    'numerodocumento',
-    'nf',
-    'notafiscal',
-    'referencia',
-    'ref',
-  ],
-  id: [
-    'id',
-    'chave',
-    'identificador',
-    'uuid',
-    'idlancamento',
-    'sequencia',
-    'nrolancamento',
+    'codcc',
   ],
 }
 
-function normalizeHeader(value: unknown) {
+/** Cabeçalhos tipicamente irrelevantes — forçamos ignore. */
+const IGNORE_ALIASES = [
+  'saldo',
+  'balance',
+  'documento',
+  'docto',
+  'nrodoc',
+  'numerodocumento',
+  'nf',
+  'notafiscal',
+  'id',
+  'chave',
+  'uuid',
+  'sequencia',
+  'filial',
+  'empresa',
+  'cnpj',
+  'cpf',
+  'moeda',
+  'currency',
+  'usuario',
+  'user',
+  'status',
+  'situacao',
+  'lote',
+  'origem',
+  'tipo',
+  'nature',
+  'natureza',
+  'departamento',
+  'setor',
+  'depto',
+  'department',
+]
+
+export function normalizeHeader(value: unknown) {
   return cellText(value)
     .toLowerCase()
     .normalize('NFD')
@@ -183,68 +183,93 @@ function normalizeHeader(value: unknown) {
     .replace(/[^a-z0-9]+/g, '')
 }
 
+/** Distância 0 = igual, 1 = totalmente diferente (Odoo SequenceMatcher). */
+export function stringDistance(a: string, b: string) {
+  if (!a || !b) return 1
+  if (a === b) return 0
+  const left = a.length >= b.length ? a : b
+  const right = a.length >= b.length ? b : a
+  const rows = right.length + 1
+  const cols = left.length + 1
+  const matrix: number[][] = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => 0),
+  )
+  for (let i = 0; i < rows; i += 1) matrix[i][0] = i
+  for (let j = 0; j < cols; j += 1) matrix[0][j] = j
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = right[i - 1] === left[j - 1] ? 0 : 1
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost,
+      )
+    }
+  }
+  const edits = matrix[right.length][left.length]
+  return edits / Math.max(left.length, 1)
+}
+
 function scoreAlias(header: string, alias: string) {
   if (!header || !alias) return 0
-  const compactAlias = alias.replace(/[^a-z0-9]+/g, '')
-  if (!compactAlias) return 0
-  if (header === compactAlias) return 100
-  if (compactAlias.length <= 2) {
-    return header === compactAlias ? 90 : 0
-  }
-  if (header.startsWith(compactAlias)) return compactAlias.length >= 4 ? 85 : 70
-  if (compactAlias.length >= 4 && header.includes(compactAlias)) return 75
-  if (
-    compactAlias.length >= 4 &&
-    compactAlias.includes(header) &&
-    header.length >= 4
-  ) {
-    return 60
+  // Aliases curtos (≤2) geram falso positivo — alinhado ao extrato e ao Odoo.
+  if (alias.length <= 2) return 0
+  if (header === alias) return 100
+  if (header.startsWith(alias)) return alias.length >= 4 ? 85 : 70
+  if (alias.length >= 4 && header.includes(alias)) return 75
+  if (alias.length >= 4 && alias.includes(header) && header.length >= 4) return 60
+  const distance = stringDistance(header, alias)
+  if (distance <= FUZZY_MATCH_DISTANCE) {
+    return Math.round(90 * (1 - distance))
   }
   return 0
 }
 
-function bestRoleScore(header: string, role: ErpColumnRole) {
-  let best = 0
-  for (const alias of ALIASES[role]) {
-    best = Math.max(best, scoreAlias(header, alias))
+function bestRoleForHeader(
+  header: string,
+  saved?: SavedHeaderMap,
+): { role: ErpFieldRole; score: number } {
+  if (!header) return { role: 'ignore', score: 0 }
+
+  const savedRole = saved?.[header]
+  if (savedRole) return { role: savedRole, score: 200 }
+
+  for (const ignore of IGNORE_ALIASES) {
+    if (header === ignore || (ignore.length >= 4 && header.includes(ignore))) {
+      return { role: 'ignore', score: 100 }
+    }
   }
-  return best
-}
 
-function scoreHeaderRow(cells: unknown[]) {
-  const headers = cells.map(normalizeHeader)
-  const roles: ErpColumnRole[] = [
-    'date',
-    'description',
-    'amount',
-    'debit',
-    'credit',
-    'account_code',
-    'account_name',
-    'cost_center',
-    'cost_center_code',
-    'department',
-    'document',
-    'id',
-  ]
-  const assigned = new Map<ErpColumnRole, { index: number; score: number }>()
-
-  for (let index = 0; index < headers.length; index += 1) {
-    const header = headers[index]
-    if (!header) continue
-    let bestRole: ErpColumnRole | null = null
-    let bestScore = 0
-    for (const role of roles) {
-      const score = bestRoleScore(header, role)
+  let bestRole: ErpFieldRole = 'ignore'
+  let bestScore = 0
+  for (const role of CORE_ROLES) {
+    for (const alias of ALIASES[role]) {
+      const score = scoreAlias(header, alias)
       if (score > bestScore) {
         bestScore = score
         bestRole = role
       }
     }
-    if (!bestRole || bestScore < 60) continue
-    const current = assigned.get(bestRole)
-    if (!current || bestScore > current.score) {
-      assigned.set(bestRole, { index, score: bestScore })
+  }
+
+  if (bestScore < 60) return { role: 'ignore', score: bestScore }
+  return { role: bestRole, score: bestScore }
+}
+
+function scoreHeaderRow(cells: unknown[], saved?: SavedHeaderMap) {
+  const headers = cells.map(normalizeHeader)
+  const assigned = new Map<ErpFieldRole, { index: number; score: number; header: string }>()
+  const headerRoles: ErpColumnMap['headerRoles'] = []
+
+  for (let index = 0; index < headers.length; index += 1) {
+    const header = headers[index]
+    if (!header) continue
+    const { role, score } = bestRoleForHeader(header, saved)
+    headerRoles.push({ header, role, index })
+    if (role === 'ignore' || score < 60) continue
+    const current = assigned.get(role)
+    if (!current || score > current.score) {
+      assigned.set(role, { index, score, header })
     }
   }
 
@@ -252,31 +277,29 @@ function scoreHeaderRow(cells: unknown[]) {
   const hasDescription = assigned.has('description')
   const hasAmount =
     assigned.has('amount') ||
-    (assigned.has('debit') && assigned.has('credit')) ||
     assigned.has('debit') ||
     assigned.has('credit')
-  const hasAccount =
-    assigned.has('account_code') || assigned.has('account_name')
 
   if (!hasDate || !hasDescription || !hasAmount) {
-    return { score: 0, assigned }
+    return { score: 0, assigned, headerRoles }
   }
 
   let score = 0
   for (const item of assigned.values()) score += item.score
-  if (hasAccount) score += 40
-  if (assigned.has('cost_center') || assigned.has('cost_center_code')) score += 30
-  if (assigned.has('department')) score += 15
-  if (assigned.has('debit') && assigned.has('credit')) score += 25
+  // Prefer layouts que trazem conta e centro de custo (campos-alvo).
+  if (assigned.has('account')) score += 50
+  if (assigned.has('cost_center')) score += 50
+  if (assigned.has('debit') && assigned.has('credit')) score += 20
 
-  return { score, assigned }
+  return { score, assigned, headerRoles }
 }
 
 function mapFromAssigned(
   headerIndex: number,
-  assigned: Map<ErpColumnRole, { index: number; score: number }>,
+  assigned: Map<ErpFieldRole, { index: number; score: number; header: string }>,
+  headerRoles: ErpColumnMap['headerRoles'],
 ): ErpColumnMap {
-  const get = (role: ErpColumnRole) => assigned.get(role)?.index ?? -1
+  const get = (role: ErpFieldRole) => assigned.get(role)?.index ?? -1
   return {
     headerIndex,
     date: get('date'),
@@ -284,27 +307,24 @@ function mapFromAssigned(
     amount: get('amount'),
     debit: get('debit'),
     credit: get('credit'),
-    accountCode: get('account_code'),
-    accountName: get('account_name'),
+    account: get('account'),
     costCenter: get('cost_center'),
-    costCenterCode: get('cost_center_code'),
-    department: get('department'),
-    document: get('document'),
-    id: get('id'),
+    headerRoles,
   }
 }
 
 export function detectErpTabularLayout(
   rows: unknown[][],
+  saved?: SavedHeaderMap,
 ): { map: ErpColumnMap; score: number } | null {
   const limit = Math.min(rows.length, HEADER_SCAN_ROWS)
   let best: { map: ErpColumnMap; score: number } | null = null
 
   for (let i = 0; i < limit; i += 1) {
-    const { score, assigned } = scoreHeaderRow(rows[i] ?? [])
+    const { score, assigned, headerRoles } = scoreHeaderRow(rows[i] ?? [], saved)
     if (score < MIN_HEADER_SCORE) continue
     if (!best || score > best.score) {
-      best = { map: mapFromAssigned(i, assigned), score }
+      best = { map: mapFromAssigned(i, assigned, headerRoles), score }
     }
   }
 
@@ -318,6 +338,16 @@ function cellAt(row: unknown[], index: number) {
 
 const STOP_ROW =
   /(?:^|\s)(?:totais?|total\s+geral|resumo|subtotal|soma)(?:\s|$)/i
+
+function looksLikeAccountCode(value: string) {
+  const text = value.trim()
+  // Código típico de plano/CC: precisa ter dígito (ex.: 3.1.01, CC-01).
+  if (!/\d/.test(text)) return false
+  return (
+    /^[\d][\d.\/\-A-Za-z]*$/.test(text) ||
+    /^[A-Z]{1,5}[\d.\-]{1,20}$/i.test(text)
+  )
+}
 
 export function parseErpTabularRows(
   rows: unknown[][],
@@ -374,25 +404,33 @@ export function parseErpTabularRows(
 
     if (amount <= 0) continue
 
-    const accountCode =
-      map.accountCode >= 0
-        ? cellAt(row, map.accountCode).trim() || null
-        : null
-    const accountName =
-      map.accountName >= 0
-        ? cellAt(row, map.accountName).trim() || null
-        : null
-    const costCenterName =
-      map.costCenter >= 0 ? cellAt(row, map.costCenter).trim() || null : null
-    const costCenterCode =
-      map.costCenterCode >= 0
-        ? cellAt(row, map.costCenterCode).trim() || null
-        : null
-    const departmentName =
-      map.department >= 0 ? cellAt(row, map.department).trim() || null : null
-    const documentNumber =
-      map.document >= 0 ? cellAt(row, map.document).trim() || null : null
-    const externalId = map.id >= 0 ? cellAt(row, map.id).trim() || null : null
+    const accountRaw =
+      map.account >= 0
+        ? sanitizeSpreadsheetText(cellAt(row, map.account), 200)
+        : ''
+    let accountCode: string | null = null
+    let accountName: string | null = null
+    if (accountRaw) {
+      if (looksLikeAccountCode(accountRaw)) {
+        accountCode = sanitizeSpreadsheetText(accountRaw, 80) || null
+      } else {
+        accountName = accountRaw || null
+      }
+    }
+
+    const costCenterRaw =
+      map.costCenter >= 0
+        ? sanitizeSpreadsheetText(cellAt(row, map.costCenter), 200)
+        : ''
+    let costCenterCode: string | null = null
+    let costCenterName: string | null = null
+    if (costCenterRaw) {
+      if (looksLikeAccountCode(costCenterRaw) && costCenterRaw.length <= 40) {
+        costCenterCode = sanitizeSpreadsheetText(costCenterRaw, 80) || null
+      } else {
+        costCenterName = costCenterRaw || null
+      }
+    }
 
     const hint = heuristicMoneyGroup({
       accountCode,
@@ -411,15 +449,14 @@ export function parseErpTabularRows(
       accountName,
       costCenterCode,
       costCenterName,
-      departmentName,
-      documentNumber,
-      externalId,
+      departmentName: null,
+      documentNumber: null,
+      externalId: null,
       suggestedMoneyGroup: hint?.moneyGroup ?? null,
       suggestedDestinationName: hint?.destinationName ?? null,
       suggestionSource: hint ? 'heuristic' : null,
       raw: {
         row: r + 1,
-        cells: row.map(cellText),
       },
     })
   }
@@ -430,13 +467,8 @@ export function parseErpTabularRows(
     amount: map.amount,
     debit: map.debit,
     credit: map.credit,
-    account_code: map.accountCode,
-    account_name: map.accountName,
+    account: map.account,
     cost_center: map.costCenter,
-    cost_center_code: map.costCenterCode,
-    department: map.department,
-    document: map.document,
-    id: map.id,
   }
 
   return {
@@ -446,6 +478,19 @@ export function parseErpTabularRows(
       format: 'xlsx',
       headerIndex: map.headerIndex,
       columns,
+      headerRoles: map.headerRoles.map((item) => ({
+        header: item.header,
+        role: item.role,
+      })),
     },
   }
+}
+
+export function mappingsPayloadFromLayout(map: ErpColumnMap) {
+  return map.headerRoles
+    .filter((item) => item.header)
+    .map((item) => ({
+      header: item.header,
+      role: item.role,
+    }))
 }

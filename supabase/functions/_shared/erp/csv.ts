@@ -92,12 +92,13 @@ export const csvErpParser: ErpParser = {
       if (rows.length === 0) {
         return emptyResult('csv', [{ message: 'Arquivo sem linhas.' }])
       }
-      const detected = detectErpTabularLayout(rows)
+      const saved = file.savedHeaders as import('./columns.ts').SavedHeaderMap | undefined
+      const detected = detectErpTabularLayout(rows, saved)
       if (!detected) {
         return emptyResult('csv', [
           {
             message:
-              'Não foi possível identificar colunas de data, descrição, valor e conta/centro de custo.',
+              'Não foi possível identificar as colunas necessárias: data, descrição, valor, conta contábil e/ou centro de custo.',
           },
         ])
       }

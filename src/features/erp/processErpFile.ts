@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { MAX_ERP_BATCH } from '../../../supabase/functions/_shared/erp/limits.ts'
 import { parseErpFile } from '../../../supabase/functions/_shared/erp/parse.ts'
+import type { SavedHeaderMap } from '../../../supabase/functions/_shared/erp/columns.ts'
 import type { ErpParseResult } from '../../../supabase/functions/_shared/erp/types.ts'
 import type { ErpFileType, ErpImportStatus } from '@/types/database'
 
@@ -49,6 +50,45 @@ function yieldToMain() {
   })
 }
 
+async function loadSavedHeaders(companyId: string): Promise<SavedHeaderMap> {
+  const { data, error } = await supabase
+    .from('erp_column_mappings')
+    .select('header_normalized, field_role')
+    .eq('company_id', companyId)
+    .limit(200)
+
+  if (error || !data) return {}
+  const map: SavedHeaderMap = {}
+  for (const row of data) {
+    const header = String(row.header_normalized ?? '')
+    const role = String(row.field_role ?? '') as SavedHeaderMap[string]
+    if (header && role) map[header] = role
+  }
+  return map
+}
+
+async function persistHeaderMappings(
+  companyId: string,
+  parsed: ErpParseResult,
+) {
+  const roles = parsed.layout?.headerRoles
+  if (!roles || roles.length === 0) return
+
+  const mappings = roles
+    .filter((item) => item.header)
+    .map((item) => ({
+      header: item.header,
+      role: item.role,
+    }))
+
+  if (mappings.length === 0) return
+
+  await supabase.rpc('save_erp_column_mappings', {
+    p_company_id: companyId,
+    p_mappings: mappings,
+  })
+}
+
 function toRpcEntries(parsed: ErpParseResult) {
   return parsed.entries.map((item) => ({
     posted_at: item.postedAt,
@@ -86,6 +126,8 @@ export async function processErpFile(input: {
       status: 'identifying',
     })
 
+    const savedHeaders = await loadSavedHeaders(input.companyId)
+
     await updateImport(input.importId, input.companyId, {
       status: 'parsing',
     })
@@ -94,6 +136,7 @@ export async function processErpFile(input: {
       input.fileName,
       input.bytes,
       input.mimeType,
+      savedHeaders,
     )
 
     const fileType: ErpFileType | undefined =
@@ -127,6 +170,9 @@ export async function processErpFile(input: {
       detected_layout: parsed.layout ?? {},
       warnings: parsed.warnings,
     })
+
+    // Salva mapeamento de colunas (padrão Odoo) para próximas importações.
+    await persistHeaderMappings(input.companyId, parsed).catch(() => undefined)
 
     const payload = toRpcEntries(parsed)
     let inserted = 0

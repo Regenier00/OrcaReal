@@ -12,16 +12,10 @@ export const ERP_FILE_TYPES: ErpFileType[] = [
   'unknown',
 ]
 
-export const ACCEPTED_ERP_EXTENSIONS = [
-  '.xlsx',
-  '.csv',
-  '.txt',
-  '.ofx',
-  '.pdf',
-] as const
+export const ACCEPTED_ERP_EXTENSIONS = ['.xlsx', '.csv', '.txt'] as const
 
 export const ACCEPTED_ERP_ACCEPT = ACCEPTED_ERP_EXTENSIONS.join(',')
-export const MAX_ERP_FILE_BYTES = 30 * 1024 * 1024
+export const MAX_ERP_FILE_BYTES = 20 * 1024 * 1024
 
 export const ERP_FILE_TYPE_LABEL: Record<ErpFileType, string> = {
   xlsx: 'XLSX',
@@ -69,7 +63,7 @@ export const ERP_IMPORT_STEPS: Array<{
 
 export function erpFileTypeFromName(fileName: string): ErpFileType {
   const name = fileName.toLowerCase()
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return 'xlsx'
+  if (name.endsWith('.xlsx')) return 'xlsx'
   if (name.endsWith('.csv') || name.endsWith('.txt')) return 'csv'
   if (name.endsWith('.ofx') || name.endsWith('.qfx')) return 'ofx'
   if (name.endsWith('.pdf')) return 'pdf'
@@ -77,7 +71,8 @@ export function erpFileTypeFromName(fileName: string): ErpFileType {
 }
 
 export function isAcceptedErpFile(fileName: string) {
-  return erpFileTypeFromName(fileName) !== 'unknown'
+  const type = erpFileTypeFromName(fileName)
+  return type === 'xlsx' || type === 'csv'
 }
 
 export function erpImportStepIndex(status: ErpImportStatus) {

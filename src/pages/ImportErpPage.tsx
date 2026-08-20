@@ -2,7 +2,7 @@ import { useState, type DragEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
-import { canDeleteImportedStatements } from '@/features/actual/permissions'
+import { canDeleteImportedStatements, canImportErp } from '@/features/actual/permissions'
 import {
   deleteErpImport,
   uploadAndProcessErpImport,
@@ -27,6 +27,7 @@ export function ImportErpPage() {
   const { user } = useAuth()
   const { company, activeMembership } = useCompany()
   const canDelete = canDeleteImportedStatements(activeMembership?.role)
+  const canImport = canImportErp(activeMembership?.role)
   const [file, setFile] = useState<File | null>(null)
   const [current, setCurrent] = useState<ErpImport | null>(null)
   const [busy, setBusy] = useState(false)
@@ -39,11 +40,11 @@ export function ImportErpPage() {
     const next = list?.[0]
     if (!next) return
     if (!isAcceptedErpFile(next.name)) {
-      setError('Envie um arquivo XLSX, CSV, OFX ou PDF.')
+      setError('Envie um arquivo XLSX ou CSV.')
       return
     }
     if (next.size > MAX_ERP_FILE_BYTES) {
-      setError('O arquivo excede o limite de 30 MB.')
+      setError('O arquivo excede o limite de 20 MB.')
       return
     }
     setError('')
@@ -59,6 +60,10 @@ export function ImportErpPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
+    if (!canImport) {
+      setError('Seu perfil só visualiza. Peça a um membro para importar.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -120,8 +125,10 @@ export function ImportErpPage() {
               Arquivo do ERP
             </h2>
             <p className="mt-1 text-sm text-mist">
-              Preferência: XLSX. Também aceita CSV (OFX/PDF preparados na arquitetura).
-              Validamos extensão, MIME, tamanho e conteúdo — não só a extensão.
+              Formato principal: XLSX (também CSV). Identificamos só as colunas
+              essenciais — data, valor, descrição, centro de custo e conta
+              contábil — e descartamos o resto. Validamos extensão, MIME, magic
+              bytes e tamanho (máx. 20 MB).
             </p>
             <label
               onDragOver={(event) => {
@@ -146,15 +153,20 @@ export function ImportErpPage() {
                 {file ? file.name : 'Arraste a planilha ou clique para selecionar'}
               </span>
               <span className="mt-1 text-xs text-mist">
-                Até 30 MB · processamento em lotes · isolamento por empresa
+                Até 20 MB · processamento em lotes · isolamento por empresa
               </span>
             </label>
           </section>
 
           <div>
-            <Button type="submit" disabled={busy || !file}>
+            <Button type="submit" disabled={busy || !file || !canImport}>
               {busy ? 'Processando...' : 'Enviar e processar'}
             </Button>
+            {!canImport ? (
+              <p className="mt-2 text-xs text-mist">
+                Visualizadores não podem importar arquivos.
+              </p>
+            ) : null}
           </div>
         </form>
       </div>

@@ -152,7 +152,7 @@ function xmlInner(xml: string, tag: string) {
 }
 
 function parseSharedStrings(xml: string) {
-  if (xml.length > 3_000_000) {
+  if (xml.length > 2_000_000) {
     throw new Error('A planilha é grande demais para leitura segura.')
   }
   const values: string[] = []
@@ -229,7 +229,7 @@ function readCellValue(attrs: string, body: string, shared: string[]) {
 }
 
 function parseSheet(xml: string, shared: string[]) {
-  if (xml.length > 3_000_000) {
+  if (xml.length > 2_000_000) {
     throw new Error('A planilha é grande demais para leitura segura.')
   }
   const byRow = new Map<number, string[]>()
@@ -294,12 +294,13 @@ export const xlsxErpParser: ErpParser = {
         return emptyResult('xlsx', [{ message: 'Planilha XLSX sem aba de dados.' }])
       }
 
+      const saved = file.savedHeaders as import('./columns.ts').SavedHeaderMap | undefined
       let bestEntries: ReturnType<typeof parseErpTabularRows> | null = null
       let sheetName: string | null = null
 
       for (const [name, sheet] of sheets) {
         const rows = parseSheet(decodeXml(sheet), shared)
-        const detected = detectErpTabularLayout(rows)
+        const detected = detectErpTabularLayout(rows, saved)
         if (!detected) continue
         const parsed = parseErpTabularRows(rows, detected.map)
         parsed.layout.format = 'xlsx'
@@ -317,7 +318,7 @@ export const xlsxErpParser: ErpParser = {
         return emptyResult('xlsx', [
           {
             message:
-              'Não foi possível identificar colunas de data, descrição, valor e conta/centro de custo.',
+              'Não foi possível identificar as colunas necessárias: data, descrição, valor, conta contábil e/ou centro de custo.',
           },
         ])
       }

@@ -36,6 +36,8 @@ export interface DetectedLayout {
   headerIndex: number
   columns: Record<string, number>
   sheetName?: string | null
+  /** Cabeçalhos → papel detectado (Odoo-like mapping memory). */
+  headerRoles?: Array<{ header: string; role: string }>
 }
 
 export interface ErpParseResult {
@@ -51,6 +53,8 @@ export interface DetectedErpFile {
   text: string
   format: ErpFileFormat
   mimeType: string | null
+  /** Mapeamentos salvos da empresa (header → role). */
+  savedHeaders?: Record<string, string>
 }
 
 /**

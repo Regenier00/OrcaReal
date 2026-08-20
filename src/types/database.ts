@@ -423,6 +423,26 @@ export interface ErpClassificationRule {
   updated_at: string
 }
 
+export interface ErpColumnMapping {
+  id: string
+  company_id: string
+  header_normalized: string
+  field_role:
+    | 'date'
+    | 'description'
+    | 'amount'
+    | 'debit'
+    | 'credit'
+    | 'account'
+    | 'cost_center'
+    | 'ignore'
+  usage_count: number
+  last_used_at: string
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface BankAccount {
   id: string
   company_id: string

@@ -16,13 +16,20 @@ export function roundMoney(value: number) {
   return Math.round(value * 100) / 100
 }
 
-export function normalizeDescription(value: string) {
-  let text = value.replace(/\s+/g, ' ').trim()
-  text = text.replace(/^[=+\-@|]+/, '').trim()
-  if (text.length > MAX_DESCRIPTION_CHARS) {
-    text = text.slice(0, MAX_DESCRIPTION_CHARS)
-  }
+/** Remove BOM/controles e prefixos de fórmula de planilha (= + - @ |). */
+export function sanitizeSpreadsheetText(value: unknown, max = 200) {
+  let text = String(value ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/^[\t\r\n ]+/, '')
+    .replace(/^[=+\-@|]+/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length > max) text = text.slice(0, max)
   return text
+}
+
+export function normalizeDescription(value: string) {
+  return sanitizeSpreadsheetText(value, MAX_DESCRIPTION_CHARS)
 }
 
 export function normalizeToken(value: string) {
@@ -235,9 +242,6 @@ export function heuristicMoneyGroup(input: {
       moneyGroup: 'expense',
       destinationName: destination || 'Despesas operacionais',
     }
-  }
-  if (destination) {
-    return null
   }
   return null
 }
