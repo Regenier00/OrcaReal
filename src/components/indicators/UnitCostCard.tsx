@@ -126,6 +126,7 @@ function IndicatorDialog({
 }) {
   const canChangePeriod = card.canChangePeriod
   const quantityIsConsolidated = card.quantityIsConsolidated
+  const isConsolidated = card.isConsolidated
   const [monthKey, setMonthKey] = useState(card.monthKey)
   const [quantityText, setQuantityText] = useState(
     formatInput(
@@ -139,18 +140,25 @@ function IndicatorDialog({
 
   const selectedMonth = months.find((item) => item.key === monthKey)
   const quantity = parseQuantity(quantityText)
-  const volumeKey = quantityVolumeKey(card.formula, monthKey)
+  const volumeKey = isConsolidated
+    ? CONSOLIDATED_VOLUME_KEY
+    : quantityVolumeKey(card.formula, monthKey)
   const volumes = {
     ...card.volumes,
     ...(quantity != null ? { [volumeKey]: quantity } : {}),
   }
+  const consolidatedQty = consolidatedQuantity(volumes)
   const context: FormulaContext = {
-    period: card.totalsByMonth[monthKey] ?? { revenue: 0, cost: 0 },
+    period: isConsolidated
+      ? card.consolidated
+      : (card.totalsByMonth[monthKey] ?? { revenue: 0, cost: 0 }),
     consolidated: card.consolidated,
-    periodQuantity: quantityIsConsolidated
-      ? null
-      : (quantity ?? card.volumes[monthKey] ?? null),
-    consolidatedQuantity: consolidatedQuantity(volumes),
+    periodQuantity: isConsolidated
+      ? (quantity ?? consolidatedQty)
+      : quantityIsConsolidated
+        ? null
+        : (quantity ?? card.volumes[monthKey] ?? null),
+    consolidatedQuantity: consolidatedQty,
   }
   const preview = evaluateFormula(card.formula, context)
   const leftValue = readOperandValue(card.formula.left, context)
@@ -241,7 +249,11 @@ function IndicatorDialog({
             label="Período"
             value={CONSOLIDATED_VOLUME_KEY}
             disabled
-            hint="O segundo operador ficou consolidado: a quantidade não muda por mês."
+            hint={
+              isConsolidated
+                ? 'Na visualização Consolidados todos os meses entram no cálculo; não é possível escolher um mês.'
+                : 'O segundo operador ficou consolidado: a quantidade não muda por mês.'
+            }
           >
             <option value={CONSOLIDATED_VOLUME_KEY}>Período consolidado</option>
           </Select>

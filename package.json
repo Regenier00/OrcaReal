@@ -11,6 +11,7 @@
     "test:actual-permissions": "node --experimental-strip-types src/features/actual/permissions.test.ts",
     "test:suggestions": "node --experimental-strip-types src/features/actual/suggestions.test.ts",
     "test:unit-cost": "node --experimental-strip-types src/features/experience/unitCost.test.ts",
+    "test:unit-cost-card": "node --experimental-strip-types src/features/experience/unitCostCard.test.ts",
     "test:custom-indicator": "node --experimental-strip-types src/features/indicators/formula.test.ts",
     "test:operational-indicator": "node --experimental-strip-types src/features/indicators/operationalFormula.test.ts",
     "test:greeting": "node --experimental-strip-types src/lib/greeting.test.ts",
