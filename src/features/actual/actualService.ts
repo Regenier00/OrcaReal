@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import {
   costCentersForDepartment,
   loadCompanyStructure,
@@ -244,6 +245,12 @@ function mapActualError(error: unknown, fallback: string) {
   if (normalized.includes('apenas administradores')) {
     return 'Apenas administradores da empresa podem excluir extratos importados.'
   }
+  if (
+    normalized.includes('direct deletion from storage') ||
+    normalized.includes('use the storage api')
+  ) {
+    return 'Não foi possível excluir o extrato. Atualize o banco (migration de storage) e tente de novo.'
+  }
   if (normalized.includes('importação não encontrada')) {
     return 'Esse extrato já não está mais disponível.'
   }
@@ -313,7 +320,7 @@ export async function deleteStatementImport(
   })
 
   if (!error) {
-    await removeStatementImportFile(current?.file_path)
+    await removeStatementImportFile(companyId, current?.file_path)
     return
   }
 
@@ -367,16 +374,20 @@ export async function deleteStatementImport(
     throw new Error(mapActualError(importError, 'Não foi possível excluir o extrato.'))
   }
 
-  await removeStatementImportFile(current?.file_path)
+  await removeStatementImportFile(companyId, current?.file_path)
 }
 
-async function removeStatementImportFile(filePath?: string | null) {
-  if (!filePath) return
+async function removeStatementImportFile(
+  companyId: string,
+  filePath?: string | null,
+) {
+  if (!isCompanyScopedStoragePath(companyId, filePath)) return
   const { error } = await supabase.storage
     .from('statement-imports')
     .remove([filePath])
   if (error) {
-    console.error('Erro ao excluir arquivo do extrato:', error)
+    // Dados já foram removidos pela RPC; falha no arquivo não reverte a exclusão.
+    console.error('Erro ao excluir arquivo do extrato via Storage API:', error)
   }
 }
 
