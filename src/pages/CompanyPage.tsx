@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import {
   createCostCenter,
@@ -37,7 +37,9 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { CompanyBrandColorField } from '@/components/company/CompanyBrandColorField'
+import { ChartAccountsTab } from '@/components/company/ChartAccountsTab'
 import { OperationalPrioritiesEditor } from '@/components/company/OperationalPrioritiesEditor'
+import { canClassifyErp } from '@/features/actual/permissions'
 import { useTour } from '@/features/tour/useTour'
 import { SKIP_TOUR_LABEL } from '@/features/tour/storage'
 import { cn } from '@/lib/utils'
@@ -48,7 +50,14 @@ import type {
   Department,
 } from '@/types/database'
 
-type Tab = 'dados' | 'perfil' | 'usuarios' | 'departamentos' | 'centros' | 'configuracoes'
+type Tab =
+  | 'dados'
+  | 'perfil'
+  | 'usuarios'
+  | 'departamentos'
+  | 'centros'
+  | 'classificacao'
+  | 'configuracoes'
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'dados', label: 'Dados da empresa' },
@@ -56,6 +65,7 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: 'usuarios', label: 'Usuários' },
   { id: 'departamentos', label: 'Departamentos' },
   { id: 'centros', label: 'Centros de custo' },
+  { id: 'classificacao', label: 'Classificação' },
   { id: 'configuracoes', label: 'Configurações' },
 ]
 
@@ -68,12 +78,18 @@ function roleLabel(role: string) {
 export function CompanyPage() {
   const {
     activeCompany,
+    activeMembership,
     companyProfile,
     segments,
     isAdmin,
     refresh,
   } = useCompany()
-  const [tab, setTab] = useState<Tab>('dados')
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab')
+  const [tab, setTab] = useState<Tab>(
+    initialTab === 'classificacao' ? 'classificacao' : 'dados',
+  )
+  const canEditChart = canClassifyErp(activeMembership?.role)
 
   if (!activeCompany) return null
 
@@ -158,6 +174,13 @@ export function CompanyPage() {
             key={activeCompany.id}
             companyId={activeCompany.id}
             canEdit={isAdmin}
+          />
+        ) : null}
+        {tab === 'classificacao' ? (
+          <ChartAccountsTab
+            key={activeCompany.id}
+            companyId={activeCompany.id}
+            canEdit={canEditChart}
           />
         ) : null}
         {tab === 'configuracoes' ? (
