@@ -10,9 +10,11 @@ import type {
   CategoryType,
   CostCenter,
   Department,
+  MoneyGroup,
 } from '@/types/database'
 import type { DraftActual, LoadedActual } from '@/features/actual/model'
 import type { LoadedBudgetItem } from '@/features/budget/model'
+import { emptyGroupTotals } from '@/features/budget/model'
 import { monthKey } from '@/features/budget/period'
 
 interface ActualRow extends Actual {
@@ -57,6 +59,9 @@ const ACTUAL_SELECT = `
     cost_center_id,
     activity_id,
     category_id,
+    money_group,
+    destination_id,
+    destination_name,
     sort_order,
     business_unit:business_units(id, name),
     department:departments(id, name),
@@ -81,15 +86,18 @@ function mapItem(row: ActualItemRow): LoadedBudgetItem {
   return {
     localId: row.id,
     id: row.id,
+    moneyGroup: (row.money_group ?? '') as MoneyGroup | '',
+    destinationName: row.destination_name ?? '',
+    destinationId: row.destination_id ?? undefined,
     businessUnitId: row.business_unit_id ?? '',
-    departmentId: row.department_id,
-    costCenterId: row.cost_center_id,
+    departmentId: row.department_id ?? '',
+    costCenterId: row.cost_center_id ?? '',
     activityId: row.activity_id ?? '',
     categoryId: row.category_id ?? '',
     amounts,
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
-    departmentName: asSingle(row.department)?.name ?? 'Departamento',
-    costCenterName: asSingle(row.cost_center)?.name ?? 'Centro de custo',
+    departmentName: asSingle(row.department)?.name ?? '',
+    costCenterName: asSingle(row.cost_center)?.name ?? '',
     activityName: asSingle(row.activity)?.name ?? '',
     categoryName: asSingle(row.category)?.name ?? '',
     categoryType: (asSingle(row.category)?.category_type ?? null) as CategoryType | null,
@@ -118,6 +126,10 @@ function mapActual(row: ActualRow): LoadedActual {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
+    groupTotals: emptyGroupTotals().map((group) => ({
+      ...group,
+      amounts: {},
+    })),
     items,
   }
 }
@@ -199,10 +211,13 @@ function toPayload(draft: DraftActual) {
 function toItemsPayload(draft: DraftActual) {
   return draft.items.map((item) => ({
     business_unit_id: item.businessUnitId || null,
-    department_id: item.departmentId,
-    cost_center_id: item.costCenterId,
+    department_id: item.departmentId || null,
+    cost_center_id: item.costCenterId || null,
     activity_id: item.activityId || null,
     category_id: item.categoryId || null,
+    money_group: item.moneyGroup || null,
+    destination_id: item.destinationId || null,
+    destination_name: item.destinationName.trim() || null,
     values: Object.entries(item.amounts).map(([key, amount]) => {
       const [year, month] = key.split('-').map(Number)
       return { year, month, amount }

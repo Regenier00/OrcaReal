@@ -2,20 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import {
-  loadCompanyStructure,
-  type CompanyStructure,
-} from '@/features/company/structureService'
-import {
   getCompanyBudget,
   saveCompanyBudget,
   toDraft,
 } from '@/features/budget/budgetService'
-import type { DraftBudget, DraftBudgetItem } from '@/features/budget/model'
+import type { DraftBudget, MoneyGroup } from '@/features/budget/model'
 import {
-  duplicateItem,
-  emptyAmounts,
+  emptyGroupTotals,
+  groupRemaining,
+  MONEY_GROUP_LABEL,
   remapAmounts,
-  createEmptyItem,
 } from '@/features/budget/model'
 import {
   calendarYearBounds,
@@ -26,21 +22,30 @@ import {
   periodLabelForYear,
 } from '@/features/budget/period'
 import {
-  findDuplicateStructure,
   validateBudgetForSave,
-  validateBudgetItem,
   validateBudgetMeta,
+  validateGroupDestinations,
+  validateGroupTotals,
 } from '@/features/budget/validation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
-import { ConfirmDialog } from '@/components/ui/Dialog'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { WizardSteps } from '@/components/budget/WizardSteps'
 import { BudgetSummaryBar } from '@/components/budget/BudgetSummaryBar'
-import { BudgetItemEditor } from '@/components/budget/BudgetItemEditor'
-import { BudgetItemsTable } from '@/components/budget/BudgetItemsTable'
+import {
+  DestinationEditor,
+  DestinationReview,
+  GroupTotalsStep,
+} from '@/components/budget/DestinationWizard'
+import { formatMoney } from '@/features/budget/money'
+
+const WIZARD_STEPS = [
+  { id: 1, label: 'Período' },
+  { id: 2, label: 'Grupos' },
+  { id: 3, label: 'Destinos' },
+  { id: 4, label: 'Revisar' },
+] as const
 
 function createDraft(year = currentFiscalYear()): DraftBudget {
   const bounds = calendarYearBounds(year)
@@ -54,6 +59,7 @@ function createDraft(year = currentFiscalYear()): DraftBudget {
     businessUnitId: '',
     notes: '',
     status: 'draft',
+    groupTotals: emptyGroupTotals(),
     items: [],
   }
 }
@@ -68,15 +74,13 @@ export function BudgetWizardPage() {
   const [draft, setDraft] = useState<DraftBudget>(createDraft)
   const [nameTouched, setNameTouched] = useState(isEdit)
   const [labelTouched, setLabelTouched] = useState(isEdit)
-  const [structure, setStructure] = useState<CompanyStructure | null>(null)
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [metaErrors, setMetaErrors] = useState<string[]>([])
-  const [editor, setEditor] = useState<DraftBudgetItem | null>(null)
-  const [editorMode, setEditorMode] = useState<'create' | 'edit'>('create')
-  const [editorErrors, setEditorErrors] = useState<string[]>([])
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [groupErrors, setGroupErrors] = useState<string[]>([])
+  const [destinationErrors, setDestinationErrors] = useState<string[]>([])
+  const [activeGroupIndex, setActiveGroupIndex] = useState(0)
   const fetchKey = company ? `${company.id}:${id ?? 'new'}` : null
 
   useEffect(() => {
@@ -86,10 +90,6 @@ export function BudgetWizardPage() {
     let mounted = true
 
     const load = async () => {
-      const nextStructure = await loadCompanyStructure(companyId)
-      if (!mounted) return
-      setStructure(nextStructure)
-
       if (id) {
         const budget = await getCompanyBudget(companyId, id)
         if (!mounted) return
@@ -109,11 +109,7 @@ export function BudgetWizardPage() {
         setDraft(nextDraft)
         setError('')
       } else {
-        const fresh = createDraft()
-        if (nextStructure.businessUnits.length === 1) {
-          fresh.businessUnitId = nextStructure.businessUnits[0].id
-        }
-        setDraft(fresh)
+        setDraft(createDraft())
         setError('')
       }
       setFetchedFor(key)
@@ -137,17 +133,17 @@ export function BudgetWizardPage() {
     [draft.startDate, draft.endDate]
   )
 
-  const labels = useMemo(() => {
-    const lookup = (list: { id: string; name: string }[]) => {
-      const map = new Map(list.map((item) => [item.id, item.name]))
-      return (value: string) => map.get(value) ?? ''
-    }
-    return {
-      businessUnit: lookup(structure?.businessUnits ?? []),
-      department: lookup(structure?.departments ?? []),
-      costCenter: lookup(structure?.costCenters ?? []),
-    }
-  }, [structure])
+  const activeGroups = useMemo(
+    () =>
+      draft.groupTotals
+        .filter((group) => group.total > 0)
+        .map((group) => group.moneyGroup),
+    [draft.groupTotals]
+  )
+
+  const currentGroup: MoneyGroup | null =
+    activeGroups[Math.min(activeGroupIndex, Math.max(activeGroups.length - 1, 0))] ??
+    null
 
   const applyYear = (year: number) => {
     const bounds = calendarYearBounds(year)
@@ -161,7 +157,10 @@ export function BudgetWizardPage() {
       name: nameTouched ? current.name : defaultBudgetName(year),
       items: current.items.map((item) => ({
         ...item,
-        amounts: remapAmounts(item.amounts, monthsBetween(bounds.startDate, bounds.endDate)),
+        amounts: remapAmounts(
+          item.amounts,
+          monthsBetween(bounds.startDate, bounds.endDate)
+        ),
       })),
     }))
   }
@@ -179,113 +178,64 @@ export function BudgetWizardPage() {
     }))
   }
 
-  const goToItems = () => {
+  const goToGroups = () => {
     const errors = validateBudgetMeta(draft)
     setMetaErrors(errors)
     if (errors.length > 0) return
     setStep(2)
   }
 
-  const openNewItem = () => {
-    setEditorMode('create')
-    setEditorErrors([])
-    setEditor(createEmptyItem(months, draft.businessUnitId))
+  const goToDestinations = () => {
+    const errors = validateGroupTotals(draft)
+    setGroupErrors(errors)
+    if (errors.length > 0) return
+    setActiveGroupIndex(0)
+    setDestinationErrors([])
+    setStep(3)
   }
 
-  const openEditItem = (localId: string) => {
-    const item = draft.items.find((row) => row.localId === localId)
-    if (!item || !structure) return
-    setEditorMode('edit')
-    setEditorErrors([])
-    setEditor({
-      ...item,
-      amounts: remapAmounts(item.amounts, months),
-    })
-  }
-
-  const openDuplicateItem = (localId: string) => {
-    const item = draft.items.find((row) => row.localId === localId)
-    if (!item) return
-    setEditorMode('create')
-    setEditorErrors([
-      'Linha duplicada. Altere ao menos um campo da estrutura antes de adicionar.',
-    ])
-    setEditor(duplicateItem(item, months))
-  }
-
-  const submitEditor = () => {
-    if (!editor || !structure) return
-    const errors = validateBudgetItem(editor, structure)
-    const duplicate = findDuplicateStructure(
-      draft.items,
-      editor,
-      editorMode === 'edit' ? editor.localId : undefined
-    )
-    if (duplicate) {
-      errors.push(
-        'Já existe uma linha com esta combinação de unidade, departamento e centro de custo neste orçamento.'
-      )
+  const goToNextGroupOrReview = () => {
+    if (!currentGroup) {
+      setStep(4)
+      return
     }
-    setEditorErrors(errors)
+    const errors = validateGroupDestinations(draft, currentGroup)
+    setDestinationErrors(errors)
     if (errors.length > 0) return
 
-    setDraft((current) => {
-      if (editorMode === 'edit') {
-        return {
-          ...current,
-          items: current.items.map((item) =>
-            item.localId === editor.localId ? { ...editor, amounts: remapAmounts(editor.amounts, months) } : item
-          ),
-        }
-      }
-      return {
-        ...current,
-        items: [
-          ...current.items,
-          { ...editor, amounts: remapAmounts(editor.amounts, months) },
-        ],
-      }
-    })
-    setEditor(null)
-    setEditorErrors([])
+    if (activeGroupIndex < activeGroups.length - 1) {
+      setActiveGroupIndex((index) => index + 1)
+      setDestinationErrors([])
+      return
+    }
+    setStep(4)
   }
 
-  const confirmDeleteItem = () => {
-    if (!pendingDeleteId) return
-    setDraft((current) => ({
-      ...current,
-      items: current.items.filter((item) => item.localId !== pendingDeleteId),
-    }))
-    if (editor?.localId === pendingDeleteId) setEditor(null)
-    setPendingDeleteId(null)
+  const goBackFromDestinations = () => {
+    if (activeGroupIndex > 0) {
+      setActiveGroupIndex((index) => index - 1)
+      setDestinationErrors([])
+      return
+    }
+    setStep(2)
   }
 
   const save = async () => {
-    if (!company || !structure) return
-    const errors = validateBudgetForSave(draft, structure)
+    if (!company) return
+    const errors = validateBudgetForSave(draft)
     if (errors.length > 0) {
       setError(errors[0])
       setMetaErrors(errors)
       if (validateBudgetMeta(draft).length > 0) setStep(1)
+      else if (validateGroupTotals(draft).length > 0) setStep(2)
+      else setStep(3)
       return
     }
 
     setSaving(true)
     setError('')
     try {
-      const budgetId = await saveCompanyBudget(company.id, {
-        ...draft,
-        items: draft.items.map((item) => ({
-          ...item,
-          amounts: months.reduce(
-            (acc, month) => {
-              acc[month.key] = item.amounts[month.key] ?? 0
-              return acc
-            },
-            { ...emptyAmounts(months) }
-          ),
-        })),
-      })
+      const budgetId = await saveCompanyBudget(company.id, draft)
       navigate(`/app/orcamentos/${budgetId}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível salvar o orçamento.')
@@ -293,6 +243,8 @@ export function BudgetWizardPage() {
       setSaving(false)
     }
   }
+
+  const cancelTo = isEdit && id ? `/app/orcamentos/${id}` : '/app/orcamentos'
 
   if (!companyLoading && !company) {
     return (
@@ -317,10 +269,14 @@ export function BudgetWizardPage() {
             {isEdit ? 'Editar orçamento' : 'Novo orçamento'}
           </p>
           <h1 className="font-display text-3xl font-bold text-ink">
-            {isEdit ? 'Atualizar orçamento' : 'Criar orçamento'}
+            {isEdit ? 'Atualizar orçamento' : 'Criar novo orçamento'}
           </h1>
+          <p className="mt-1 max-w-xl text-sm text-mist">
+            Pense primeiro em quanto dinheiro você tem e para onde quer destiná-lo.
+            O sistema organiza a estrutura e os indicadores.
+          </p>
         </div>
-        <WizardSteps current={step} />
+        <WizardSteps current={step} steps={WIZARD_STEPS} />
       </div>
 
       <BudgetSummaryBar
@@ -338,12 +294,11 @@ export function BudgetWizardPage() {
       {step === 1 ? (
         <section className="rounded-2xl border border-paper-muted bg-white p-6">
           <h2 className="font-display text-xl font-semibold text-ink">
-            Informações gerais
+            Definir período
           </h2>
           <p className="mt-1 text-sm text-mist">
-            O exercício padrão do OrcaReal é janeiro a dezembro. O rótulo 2026/2027
-            corresponde a janeiro/2026 até dezembro/2026. As datas podem ser
-            ajustadas para outros períodos.
+            Escolha o intervalo do orçamento. O padrão é janeiro a dezembro do ano
+            informado.
           </p>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -381,26 +336,7 @@ export function BudgetWizardPage() {
               }}
               placeholder="2026/2027"
             />
-            {structure && structure.businessUnits.length > 0 ? (
-              <Select
-                label="Unidade de negócio"
-                value={draft.businessUnitId}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    businessUnitId: event.target.value,
-                  }))
-                }
-                hint="Opcional. Usada como padrão ao adicionar itens."
-              >
-                <option value="">Toda a empresa</option>
-                {structure.businessUnits.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
-                ))}
-              </Select>
-            ) : null}
+            <div className="hidden md:block" />
             <Input
               label="Data inicial"
               type="date"
@@ -422,7 +358,7 @@ export function BudgetWizardPage() {
               onChange={(event) =>
                 setDraft((current) => ({ ...current, notes: event.target.value }))
               }
-              placeholder="Premissas, premissas de reajuste, recortes da empresa..."
+              placeholder="Premissas, recortes da empresa..."
             />
           </div>
 
@@ -434,73 +370,122 @@ export function BudgetWizardPage() {
             </ul>
           ) : null}
 
-          <div className="mt-6 flex justify-end gap-2">
-            <Link to={isEdit && id ? `/app/orcamentos/${id}` : '/app/orcamentos'}>
+          <div className="mt-6 flex flex-wrap justify-between gap-2">
+            <Link to={cancelTo}>
               <Button type="button" variant="secondary">
                 Cancelar
               </Button>
             </Link>
-            <Button type="button" onClick={goToItems}>
+            <Button type="button" onClick={goToGroups}>
               Continuar
             </Button>
           </div>
         </section>
       ) : null}
 
-      {step === 2 && structure ? (
-        <section className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2 className="font-display text-xl font-semibold text-ink">
-                Estrutura e valores
-              </h2>
-              <p className="mt-1 text-sm text-mist">
-                Unidade → departamento → centro de custo → valor por mês.
-              </p>
-            </div>
-            <Button type="button" onClick={openNewItem}>
-              + Adicionar item
-            </Button>
-          </div>
-
-          {editor ? (
-            <BudgetItemEditor
-              structure={structure}
-              months={months}
-              item={editor}
-              title={editorMode === 'edit' ? 'Editar item' : 'Novo item'}
-              submitLabel={editorMode === 'edit' ? 'Salvar item' : 'Adicionar item'}
-              errors={editorErrors}
-              onChange={setEditor}
-              onSubmit={submitEditor}
-              onCancel={() => {
-                setEditor(null)
-                setEditorErrors([])
-              }}
-            />
-          ) : null}
-
-          <BudgetItemsTable
-            items={draft.items}
-            months={months}
-            labels={labels}
-            onEdit={openEditItem}
-            onDuplicate={openDuplicateItem}
-            onDelete={setPendingDeleteId}
+      {step === 2 ? (
+        <div className="flex flex-col gap-4">
+          <GroupTotalsStep
+            draft={draft}
+            onChangeTotal={(moneyGroup, total) =>
+              setDraft((current) => ({
+                ...current,
+                groupTotals: current.groupTotals.map((group) =>
+                  group.moneyGroup === moneyGroup ? { ...group, total } : group
+                ),
+                items:
+                  total <= 0
+                    ? current.items.filter((item) => item.moneyGroup !== moneyGroup)
+                    : current.items,
+              }))
+            }
           />
 
+          {groupErrors.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-danger">
+              {groupErrors.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+
           <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="secondary" onClick={() => setStep(1)}>
-              Voltar
-            </Button>
-            <Button type="button" onClick={() => setStep(3)}>
-              Revisar
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={() => setStep(1)}>
+                Voltar
+              </Button>
+              <Link to={cancelTo}>
+                <Button type="button" variant="secondary">
+                  Cancelar
+                </Button>
+              </Link>
+            </div>
+            <Button type="button" onClick={goToDestinations}>
+              Continuar para destinos
             </Button>
           </div>
-        </section>
+        </div>
       ) : null}
 
-      {step === 3 && structure ? (
+      {step === 3 && currentGroup ? (
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2">
+            {activeGroups.map((group, index) => (
+              <button
+                key={group}
+                type="button"
+                onClick={() => {
+                  setActiveGroupIndex(index)
+                  setDestinationErrors([])
+                }}
+                className={
+                  group === currentGroup
+                    ? 'rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white'
+                    : 'rounded-full bg-paper-muted px-3 py-1.5 text-xs font-medium text-mist'
+                }
+              >
+                {index + 1}. {MONEY_GROUP_LABEL[group]}
+                {groupRemaining(draft, group, months) === 0 ? ' ✓' : ''}
+              </button>
+            ))}
+          </div>
+
+          <DestinationEditor
+            draft={draft}
+            months={months}
+            moneyGroup={currentGroup}
+            onChangeItems={(items) => setDraft((current) => ({ ...current, items }))}
+          />
+
+          {destinationErrors.length > 0 ? (
+            <ul className="list-disc space-y-1 pl-5 text-sm text-danger">
+              {destinationErrors.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          ) : null}
+
+          <div className="flex flex-wrap justify-between gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" onClick={goBackFromDestinations}>
+                Voltar
+              </Button>
+              <Link to={cancelTo}>
+                <Button type="button" variant="secondary">
+                  Cancelar
+                </Button>
+              </Link>
+            </div>
+            <Button type="button" onClick={goToNextGroupOrReview}>
+              {activeGroupIndex < activeGroups.length - 1
+                ? `Continuar · ${MONEY_GROUP_LABEL[activeGroups[activeGroupIndex + 1]]}`
+                : 'Revisar'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 4 ? (
         <section className="flex flex-col gap-4">
           <div className="rounded-2xl border border-paper-muted bg-white p-6">
             <h2 className="font-display text-xl font-semibold text-ink">Revisão</h2>
@@ -516,16 +501,16 @@ export function BudgetWizardPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-mist">Unidade</dt>
-                <dd className="font-medium text-ink">
-                  {draft.businessUnitId
-                    ? labels.businessUnit(draft.businessUnitId)
-                    : 'Toda a empresa'}
-                </dd>
+                <dt className="text-mist">Destinos</dt>
+                <dd className="font-medium text-ink">{draft.items.length}</dd>
               </div>
               <div>
-                <dt className="text-mist">Itens</dt>
-                <dd className="font-medium text-ink">{draft.items.length}</dd>
+                <dt className="text-mist">Total orçado</dt>
+                <dd className="font-medium text-ink">
+                  {formatMoney(
+                    draft.groupTotals.reduce((total, group) => total + group.total, 0)
+                  )}
+                </dd>
               </div>
             </dl>
             {draft.notes ? (
@@ -533,35 +518,32 @@ export function BudgetWizardPage() {
             ) : null}
           </div>
 
-          {draft.items.length === 0 ? (
-            <p className="rounded-xl border border-paper-muted bg-white px-4 py-3 text-sm text-mist">
-              Este orçamento ainda não tem itens. Você pode salvar assim mesmo e
-              completar depois.
-            </p>
-          ) : null}
-
-          <BudgetItemsTable items={draft.items} months={months} labels={labels} readOnly />
+          <DestinationReview draft={draft} months={months} />
 
           <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="secondary" onClick={() => setStep(2)}>
-              Voltar
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setActiveGroupIndex(Math.max(activeGroups.length - 1, 0))
+                  setStep(3)
+                }}
+              >
+                Voltar
+              </Button>
+              <Link to={cancelTo}>
+                <Button type="button" variant="secondary">
+                  Cancelar
+                </Button>
+              </Link>
+            </div>
             <Button type="button" disabled={saving} onClick={() => void save()}>
               {saving ? 'Salvando...' : 'Salvar orçamento'}
             </Button>
           </div>
         </section>
       ) : null}
-
-      <ConfirmDialog
-        open={Boolean(pendingDeleteId)}
-        title="Excluir linha"
-        body="Excluir esta linha do orçamento? Os valores mensais desta combinação serão removidos."
-        confirmLabel="Excluir linha"
-        danger
-        onCancel={() => setPendingDeleteId(null)}
-        onConfirm={confirmDeleteItem}
-      />
     </div>
   )
 }

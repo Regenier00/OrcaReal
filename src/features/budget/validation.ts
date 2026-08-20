@@ -1,7 +1,12 @@
-import type { CompanyStructure } from '@/features/company/structureService'
-import type { DraftBudget, DraftBudgetItem } from '@/features/budget/model'
-import { structureKey } from '@/features/budget/model'
+import type { DraftBudget, DraftBudgetItem, MoneyGroup } from '@/features/budget/model'
+import {
+  groupAllocatedTotal,
+  groupItems,
+  MONEY_GROUP_LABEL,
+  structureKey,
+} from '@/features/budget/model'
 import { monthsBetween } from '@/features/budget/period'
+import { roundMoney } from '@/features/budget/money'
 
 export function validateBudgetMeta(draft: DraftBudget): string[] {
   const errors: string[] = []
@@ -32,20 +37,31 @@ export function validateBudgetMeta(draft: DraftBudget): string[] {
   return errors
 }
 
-export function validateBudgetItem(
-  item: DraftBudgetItem,
-  structure: CompanyStructure,
-  options?: { requireBusinessUnit?: boolean }
-): string[] {
+export function validateGroupTotals(draft: DraftBudget): string[] {
   const errors: string[] = []
-  const requireBusinessUnit =
-    options?.requireBusinessUnit ?? structure.businessUnits.length > 0
-
-  if (requireBusinessUnit && !item.businessUnitId) {
-    errors.push('Selecione a unidade de negócio.')
+  const enabled = draft.groupTotals.filter((group) => group.total > 0)
+  if (enabled.length === 0) {
+    errors.push('Informe ao menos um valor em Receitas, Custos, Despesas ou Investimentos.')
   }
-  if (!item.departmentId) errors.push('Selecione o departamento.')
-  if (!item.costCenterId) errors.push('Selecione o centro de custo.')
+  for (const group of draft.groupTotals) {
+    if (!Number.isFinite(group.total) || group.total < 0) {
+      errors.push(`Valor inválido em ${MONEY_GROUP_LABEL[group.moneyGroup]}.`)
+    }
+  }
+  return errors
+}
+
+export function validateBudgetItem(item: DraftBudgetItem): string[] {
+  const errors: string[] = []
+
+  if (item.moneyGroup) {
+    if (!item.destinationName.trim()) {
+      errors.push('Informe o nome do destino.')
+    }
+  } else {
+    if (!item.departmentId) errors.push('Selecione o departamento.')
+    if (!item.costCenterId) errors.push('Selecione o centro de custo.')
+  }
 
   for (const [key, amount] of Object.entries(item.amounts)) {
     if (!Number.isFinite(amount)) {
@@ -61,6 +77,20 @@ export function validateBudgetItem(
   return errors
 }
 
+/** @deprecated Prefer validateBudgetItem without structure for destination budgets. */
+export function validateBudgetItemLegacy(
+  item: DraftBudgetItem,
+  options?: { requireBusinessUnit?: boolean; hasBusinessUnits?: boolean }
+): string[] {
+  const errors = validateBudgetItem(item)
+  const requireBusinessUnit =
+    options?.requireBusinessUnit ?? Boolean(options?.hasBusinessUnits)
+  if (!item.moneyGroup && requireBusinessUnit && !item.businessUnitId) {
+    errors.push('Selecione a unidade de negócio.')
+  }
+  return errors
+}
+
 export function findDuplicateStructure(
   items: DraftBudgetItem[],
   candidate: DraftBudgetItem,
@@ -72,25 +102,101 @@ export function findDuplicateStructure(
   )
 }
 
-export function validateBudgetForSave(
+export function validateGroupDestinations(
   draft: DraftBudget,
-  structure: CompanyStructure
-) {
-  const errors = validateBudgetMeta(draft)
-  const requireBusinessUnit = structure.businessUnits.length > 0
+  moneyGroup: MoneyGroup
+): string[] {
+  const errors: string[] = []
+  const months = monthsBetween(draft.startDate, draft.endDate)
+  const planned =
+    draft.groupTotals.find((group) => group.moneyGroup === moneyGroup)?.total ?? 0
+  const items = groupItems(draft.items, moneyGroup)
+
+  if (planned <= 0) return errors
+
+  if (items.length === 0) {
+    errors.push(
+      `Crie ao menos um destino em ${MONEY_GROUP_LABEL[moneyGroup]} ou zere o valor do grupo.`
+    )
+    return errors
+  }
+
+  items.forEach((item, index) => {
+    for (const error of validateBudgetItem(item)) {
+      errors.push(`${MONEY_GROUP_LABEL[moneyGroup]} · destino ${index + 1}: ${error}`)
+    }
+  })
+
+  const seen = new Set<string>()
+  for (const item of items) {
+    const key = structureKey(item)
+    if (seen.has(key)) {
+      errors.push(
+        `O destino “${item.destinationName.trim()}” está duplicado em ${MONEY_GROUP_LABEL[moneyGroup]}.`
+      )
+    }
+    seen.add(key)
+  }
+
+  const allocated = groupAllocatedTotal(draft.items, moneyGroup, months)
+  if (roundMoney(allocated) !== roundMoney(planned)) {
+    errors.push(
+      `Em ${MONEY_GROUP_LABEL[moneyGroup]}, a soma dos destinos (${allocated.toFixed(2)}) precisa fechar o valor do grupo (${planned.toFixed(2)}).`
+    )
+  }
+
+  return errors
+}
+
+export function validateBudgetForSave(draft: DraftBudget) {
+  const errors = [
+    ...validateBudgetMeta(draft),
+    ...validateGroupTotals(draft),
+  ]
   const seen = new Set<string>()
 
+  const activeGroups = draft.groupTotals
+    .filter((group) => group.total > 0)
+    .map((group) => group.moneyGroup)
+
+  for (const moneyGroup of activeGroups) {
+    errors.push(...validateGroupDestinations(draft, moneyGroup))
+  }
+
   draft.items.forEach((item, index) => {
-    const itemErrors = validateBudgetItem(item, structure, { requireBusinessUnit })
+    const itemErrors = validateBudgetItem(item)
     for (const error of itemErrors) {
       errors.push(`Linha ${index + 1}: ${error}`)
     }
 
     const key = structureKey(item)
     if (seen.has(key)) {
-      errors.push(
-        `Linha ${index + 1}: esta combinação de estrutura já existe neste orçamento.`
-      )
+      errors.push(`Linha ${index + 1}: este destino já existe neste orçamento.`)
+    }
+    seen.add(key)
+  })
+
+  return errors
+}
+
+/** Validação leve para realizado periódico (não exige fechar totais de grupo). */
+export function validateActualItemsForSave(draft: DraftBudget) {
+  const errors: string[] = []
+  const seen = new Set<string>()
+
+  if (draft.items.length === 0) {
+    errors.push('Adicione ao menos uma linha no realizado.')
+  }
+
+  draft.items.forEach((item, index) => {
+    const itemErrors = validateBudgetItem(item)
+    for (const error of itemErrors) {
+      errors.push(`Linha ${index + 1}: ${error}`)
+    }
+
+    const key = structureKey(item)
+    if (seen.has(key)) {
+      errors.push(`Linha ${index + 1}: esta combinação já existe neste realizado.`)
     }
     seen.add(key)
   })

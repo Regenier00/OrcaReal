@@ -11,13 +11,29 @@ import type {
   CategoryType,
   CostCenter,
   Department,
+  MoneyGroup,
 } from '@/types/database'
-import type { DraftBudget, LoadedBudget, LoadedBudgetItem } from '@/features/budget/model'
-import { monthKey } from '@/features/budget/period'
+import type {
+  DraftBudget,
+  LoadedBudget,
+  LoadedBudgetItem,
+  LoadedGroupTotal,
+} from '@/features/budget/model'
+import { emptyGroupTotals, distributeAmounts } from '@/features/budget/model'
+import { monthKey, monthsBetween } from '@/features/budget/period'
+import { sum } from '@/lib/money'
+import { roundMoney } from '@/features/budget/money'
+
+interface BudgetGroupTotalRow {
+  id: string
+  money_group: MoneyGroup
+  month_values: Pick<BudgetItemValue, 'year' | 'month' | 'amount'>[] | null
+}
 
 interface BudgetRow extends Budget {
   business_unit: Pick<BusinessUnit, 'id' | 'name'> | null
   budget_items: BudgetItemRow[] | null
+  budget_group_totals: BudgetGroupTotalRow[] | null
 }
 
 interface BudgetItemRow extends BudgetItem {
@@ -45,6 +61,11 @@ const BUDGET_SELECT = `
   created_at,
   updated_at,
   business_unit:business_units(id, name),
+  budget_group_totals (
+    id,
+    money_group,
+    month_values:budget_group_total_values(year, month, amount)
+  ),
   budget_items (
     id,
     budget_id,
@@ -54,6 +75,9 @@ const BUDGET_SELECT = `
     cost_center_id,
     activity_id,
     category_id,
+    money_group,
+    destination_id,
+    destination_name,
     sort_order,
     business_unit:business_units(id, name),
     department:departments(id, name),
@@ -69,28 +93,70 @@ function asSingle<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? (value[0] ?? null) : value
 }
 
-function mapItem(row: BudgetItemRow): LoadedBudgetItem {
+function mapAmounts(
+  values: Pick<BudgetItemValue, 'year' | 'month' | 'amount'>[] | null | undefined
+) {
   const amounts: Record<string, number> = {}
-  for (const value of row.month_values ?? []) {
+  for (const value of values ?? []) {
     amounts[monthKey(value.year, value.month)] = Number(value.amount)
   }
+  return amounts
+}
 
+function mapItem(row: BudgetItemRow): LoadedBudgetItem {
   return {
     localId: row.id,
     id: row.id,
+    moneyGroup: (row.money_group ?? '') as MoneyGroup | '',
+    destinationName: row.destination_name ?? '',
+    destinationId: row.destination_id ?? undefined,
     businessUnitId: row.business_unit_id ?? '',
-    departmentId: row.department_id,
-    costCenterId: row.cost_center_id,
+    departmentId: row.department_id ?? '',
+    costCenterId: row.cost_center_id ?? '',
     activityId: row.activity_id ?? '',
     categoryId: row.category_id ?? '',
-    amounts,
+    amounts: mapAmounts(row.month_values),
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
-    departmentName: asSingle(row.department)?.name ?? 'Departamento',
-    costCenterName: asSingle(row.cost_center)?.name ?? 'Centro de custo',
+    departmentName: asSingle(row.department)?.name ?? '',
+    costCenterName: asSingle(row.cost_center)?.name ?? '',
     activityName: asSingle(row.activity)?.name ?? '',
     categoryName: asSingle(row.category)?.name ?? '',
     categoryType: (asSingle(row.category)?.category_type ?? null) as CategoryType | null,
   }
+}
+
+function mapGroupTotals(
+  rows: BudgetGroupTotalRow[] | null | undefined,
+  items: LoadedBudgetItem[],
+  startDate: string,
+  endDate: string
+): LoadedGroupTotal[] {
+  const months = monthsBetween(startDate, endDate)
+  const byGroup = new Map(
+    (rows ?? []).map((row) => {
+      const amounts = mapAmounts(row.month_values)
+      const total = roundMoney(sum(Object.values(amounts)))
+      return [row.money_group, { moneyGroup: row.money_group, total, amounts }]
+    })
+  )
+
+  return emptyGroupTotals().map((group) => {
+    const existing = byGroup.get(group.moneyGroup)
+    if (existing) return existing
+
+    const itemTotal = roundMoney(
+      sum(
+        items
+          .filter((item) => item.moneyGroup === group.moneyGroup)
+          .flatMap((item) => Object.values(item.amounts))
+      )
+    )
+    return {
+      moneyGroup: group.moneyGroup,
+      total: itemTotal,
+      amounts: distributeAmounts(itemTotal, months),
+    }
+  })
 }
 
 function mapBudget(row: BudgetRow): LoadedBudget {
@@ -113,6 +179,12 @@ function mapBudget(row: BudgetRow): LoadedBudget {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
+    groupTotals: mapGroupTotals(
+      row.budget_group_totals,
+      items,
+      row.start_date,
+      row.end_date
+    ),
     items,
   }
 }
@@ -170,18 +242,35 @@ function toPayload(draft: DraftBudget) {
   }
 }
 
+function toValuesPayload(amounts: Record<string, number>) {
+  return Object.entries(amounts).map(([key, amount]) => {
+    const [year, month] = key.split('-').map(Number)
+    return { year, month, amount }
+  })
+}
+
 function toItemsPayload(draft: DraftBudget) {
   return draft.items.map((item) => ({
     business_unit_id: item.businessUnitId || null,
-    department_id: item.departmentId,
-    cost_center_id: item.costCenterId,
+    department_id: item.departmentId || null,
+    cost_center_id: item.costCenterId || null,
     activity_id: item.activityId || null,
     category_id: item.categoryId || null,
-    values: Object.entries(item.amounts).map(([key, amount]) => {
-      const [year, month] = key.split('-').map(Number)
-      return { year, month, amount }
-    }),
+    money_group: item.moneyGroup || null,
+    destination_id: item.destinationId || null,
+    destination_name: item.destinationName.trim() || null,
+    values: toValuesPayload(item.amounts),
   }))
+}
+
+function toGroupsPayload(draft: DraftBudget) {
+  const months = monthsBetween(draft.startDate, draft.endDate)
+  return draft.groupTotals
+    .filter((group) => group.total > 0)
+    .map((group) => ({
+      money_group: group.moneyGroup,
+      values: toValuesPayload(distributeAmounts(group.total, months)),
+    }))
 }
 
 export async function saveCompanyBudget(
@@ -192,6 +281,7 @@ export async function saveCompanyBudget(
     p_company_id: companyId,
     p_budget: toPayload(draft),
     p_items: toItemsPayload(draft),
+    p_groups: toGroupsPayload(draft),
   })
 
   if (error) {
@@ -230,8 +320,20 @@ export function toDraft(budget: LoadedBudget): DraftBudget {
     businessUnitId: budget.businessUnitId,
     notes: budget.notes,
     status: budget.status,
+    groupTotals: emptyGroupTotals().map((group) => {
+      const loaded = budget.groupTotals.find(
+        (entry) => entry.moneyGroup === group.moneyGroup
+      )
+      return {
+        moneyGroup: group.moneyGroup,
+        total: loaded?.total ?? 0,
+      }
+    }),
     items: budget.items.map((item) => ({
       localId: item.localId,
+      moneyGroup: item.moneyGroup,
+      destinationName: item.destinationName,
+      destinationId: item.destinationId,
       businessUnitId: item.businessUnitId,
       departmentId: item.departmentId,
       costCenterId: item.costCenterId,

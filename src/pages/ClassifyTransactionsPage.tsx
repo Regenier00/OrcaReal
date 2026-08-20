@@ -4,10 +4,7 @@ import { useCompany } from '@/features/company/useCompany'
 import {
   applyTransactionSuggestions,
   classifyActualTransactions,
-  costCentersForDepartment,
   listActualTransactions,
-  loadActualCatalog,
-  type ActualCatalog,
 } from '@/features/actual/actualService'
 import {
   ACTUAL_PATHS,
@@ -20,7 +17,9 @@ import type {
   ActualTransaction,
   ActualTransactionStatus,
   ActualTransactionType,
+  MoneyGroup,
 } from '@/types/database'
+import { MONEY_GROUP_LABEL, MONEY_GROUPS } from '@/features/budget/model'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -44,30 +43,27 @@ function canApplySuggestion(item: ActualTransaction) {
   )
 }
 
-function suggestionLabel(
-  item: ActualTransaction,
-  catalog: ActualCatalog | null,
-) {
-  const parts = [
-    catalog?.departments.find((entry) => entry.id === item.suggested_department_id)
-      ?.name,
-    catalog?.costCenters.find((entry) => entry.id === item.suggested_cost_center_id)
-      ?.name,
-  ].filter((value): value is string => Boolean(value))
-  return parts.join(' · ')
+function suggestionLabel(item: ActualTransaction) {
+  if (item.suggested_money_group) {
+    return MONEY_GROUP_LABEL[item.suggested_money_group]
+  }
+  return 'Sugestão do histórico'
+}
+
+function appropriationLabel(item: ActualTransaction) {
+  if (item.money_group) return MONEY_GROUP_LABEL[item.money_group]
+  return '—'
 }
 
 export function ClassifyTransactionsPage() {
   const [params] = useSearchParams()
   const importId = params.get('importacao') ?? ''
   const { company } = useCompany()
-  const [catalog, setCatalog] = useState<ActualCatalog | null>(null)
   const [items, setItems] = useState<ActualTransaction[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [status, setStatus] = useState<ActualTransactionStatus | ''>('pending')
   const [search, setSearch] = useState('')
-  const [departmentId, setDepartmentId] = useState('')
-  const [costCenterId, setCostCenterId] = useState('')
+  const [moneyGroup, setMoneyGroup] = useState<MoneyGroup | ''>('')
   const [nextType, setNextType] = useState<ActualTransactionType | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -77,23 +73,6 @@ export function ClassifyTransactionsPage() {
   const loadKey = company
     ? `${company.id}:${importId}:${status}:${search}`
     : null
-
-  useEffect(() => {
-    if (!company) return
-    const companyId = company.id
-    let mounted = true
-    void loadActualCatalog(companyId)
-      .then((data) => {
-        if (mounted) setCatalog(data)
-      })
-      .catch((err: unknown) => {
-        if (!mounted) return
-        setError(err instanceof Error ? err.message : 'Erro ao carregar a estrutura da empresa.')
-      })
-    return () => {
-      mounted = false
-    }
-  }, [company])
 
   useEffect(() => {
     if (!company || !loadKey) return
@@ -124,9 +103,6 @@ export function ClassifyTransactionsPage() {
   const loading = Boolean(loadKey) && fetchedFor !== loadKey
   const selectedItems = items.filter((item) => selected.includes(item.id))
   const selectedWithSuggestion = selectedItems.filter(canApplySuggestion)
-  const costCenters = catalog
-    ? costCentersForDepartment(catalog, departmentId)
-    : []
 
   useEffect(() => {
     if (!notice) return
@@ -139,24 +115,17 @@ export function ClassifyTransactionsPage() {
       (item) => selected.includes(item.id) && canApplySuggestion(item),
     )
     if (suggested.length === 0) return
-    const nextDepartmentId = suggested[0]?.suggested_department_id ?? ''
-    const nextCostCenterId = suggested[0]?.suggested_cost_center_id ?? ''
+    const nextGroup = suggested[0]?.suggested_money_group ?? ''
     const sameSuggestion = suggested.every(
-      (item) =>
-        (item.suggested_department_id ?? '') === nextDepartmentId &&
-        (item.suggested_cost_center_id ?? '') === nextCostCenterId,
+      (item) => (item.suggested_money_group ?? '') === nextGroup,
     )
-    const apply = () => {
-      if (!sameSuggestion) {
-        setDepartmentId('')
-        setCostCenterId('')
+    const frame = window.requestAnimationFrame(() => {
+      if (!sameSuggestion || !nextGroup) {
+        setMoneyGroup('')
         return
       }
-      if (!nextDepartmentId) return
-      setDepartmentId(nextDepartmentId)
-      setCostCenterId(nextCostCenterId)
-    }
-    const frame = window.requestAnimationFrame(apply)
+      setMoneyGroup(nextGroup)
+    })
     return () => window.cancelAnimationFrame(frame)
   }, [items, selected])
 
@@ -164,7 +133,7 @@ export function ClassifyTransactionsPage() {
     if (selectedWithSuggestion.length === 0) return null
     const counts = new Map<string, number>()
     for (const item of selectedWithSuggestion) {
-      const label = suggestionLabel(item, catalog)
+      const label = suggestionLabel(item)
       if (!label) continue
       counts.set(label, (counts.get(label) ?? 0) + 1)
     }
@@ -182,9 +151,9 @@ export function ClassifyTransactionsPage() {
           ? 'Clique em Aplicar sugestão para apropriar com estes valores.'
           : skipped > 0
             ? `Cada lançamento segue a própria sugestão. ${skipped} sem sugestão ficam de fora.`
-            : 'Cada lançamento será apropriado no departamento e no centro de custo da própria sugestão.',
+            : 'Cada lançamento será apropriado no grupo da própria sugestão.',
     }
-  }, [catalog, selectedItems.length, selectedWithSuggestion])
+  }, [selectedItems.length, selectedWithSuggestion])
 
   const allSelected = items.length > 0 && selected.length === items.length
 
@@ -225,12 +194,8 @@ export function ClassifyTransactionsPage() {
       setError('Defina se o lançamento é entrada ou saída antes de apropriar.')
       return
     }
-    if (
-      nextStatus === 'classified' &&
-      effectiveTypes.some((itemType) => itemType === 'expense' || itemType === 'income') &&
-      (!departmentId || !costCenterId)
-    ) {
-      setError('Informe departamento e centro de custo para apropriar.')
+    if (nextStatus === 'classified' && !moneyGroup) {
+      setError('Informe o grupo (Receitas, Custos, Despesas ou Investimentos) para apropriar.')
       return
     }
     setBusy(true)
@@ -238,8 +203,7 @@ export function ClassifyTransactionsPage() {
       await classifyActualTransactions({
         companyId: company.id,
         transactionIds: selected,
-        departmentId: departmentId || null,
-        costCenterId: costCenterId || null,
+        moneyGroup: moneyGroup || null,
         status: nextStatus,
         type: nextType || null,
       })
@@ -280,7 +244,7 @@ export function ClassifyTransactionsPage() {
       return
     }
     const labels = [
-      ...new Set(targets.map((item) => suggestionLabel(item, catalog)).filter(Boolean)),
+      ...new Set(targets.map((item) => suggestionLabel(item)).filter(Boolean)),
     ]
     setBusy(true)
     try {
@@ -303,16 +267,11 @@ export function ClassifyTransactionsPage() {
     }
   }
 
-  const nameOf = (
-    list: Array<{ id: string; name: string }>,
-    id: string | null,
-  ) => list.find((item) => item.id === id)?.name ?? '—'
-
   return (
     <ActualPageShell
       title="Realizados não apropriados"
       tourId="actual-classify"
-      description="Classifique departamento e centro de custo. Se o tipo estiver errado, corrija entrada ou saída. As saídas entram no Orçado × Realizado; as entradas vão para os cards de receita e para os indicadores."
+      description="Apropriar significa dizer a qual grupo o lançamento pertence: Receitas, Custos, Despesas ou Investimentos. As saídas entram no Orçado × Realizado; as entradas vão para os cards de receita e para os indicadores."
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to={ACTUAL_PATHS.import}>
@@ -362,31 +321,18 @@ export function ClassifyTransactionsPage() {
             />
           </div>
         ) : null}
-        <div className="mt-4 grid gap-3 lg:grid-cols-4">
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
           <Select
-            label="Departamento"
-            value={departmentId}
-            onChange={(event) => {
-              setDepartmentId(event.target.value)
-              setCostCenterId('')
-            }}
+            label="Grupo"
+            value={moneyGroup}
+            onChange={(event) =>
+              setMoneyGroup(event.target.value as MoneyGroup | '')
+            }
           >
             <option value="">Selecionar</option>
-            {(catalog?.departments ?? []).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Centro de custo"
-            value={costCenterId}
-            onChange={(event) => setCostCenterId(event.target.value)}
-          >
-            <option value="">Selecionar</option>
-            {costCenters.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
+            {MONEY_GROUPS.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.label}
               </option>
             ))}
           </Select>
@@ -467,7 +413,7 @@ export function ClassifyTransactionsPage() {
                 <th className="px-3 py-2.5 font-medium">Descrição</th>
                 <th className="px-3 py-2.5 font-medium">Tipo</th>
                 <th className="px-3 py-2.5 text-right font-medium">Valor</th>
-                <th className="px-3 py-2.5 font-medium">Apropriação</th>
+                <th className="px-3 py-2.5 font-medium">Grupo</th>
                 <th className="px-3 py-2.5 font-medium">Status</th>
               </tr>
             </thead>
@@ -524,9 +470,7 @@ export function ClassifyTransactionsPage() {
                     {formatMoney(item.amount)}
                   </td>
                   <td className="px-3 py-3 text-xs text-mist">
-                    {nameOf(catalog?.departments ?? [], item.department_id)}
-                    {' · '}
-                    {nameOf(catalog?.costCenters ?? [], item.cost_center_id)}
+                    {appropriationLabel(item)}
                   </td>
                   <td className="px-3 py-3 text-xs font-medium text-ink-soft">
                     {TRANSACTION_STATUS_LABEL[item.status]}

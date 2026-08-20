@@ -65,6 +65,7 @@ const TRANSACTION_SELECT = `
   category_id,
   department_id,
   cost_center_id,
+  money_group,
   status,
   external_id,
   fingerprint,
@@ -73,6 +74,7 @@ const TRANSACTION_SELECT = `
   suggested_category_id,
   suggested_department_id,
   suggested_cost_center_id,
+  suggested_money_group,
   suggestion_source,
   classified_at,
   classified_by,
@@ -88,6 +90,7 @@ const CLASSIFIED_SLICE_SELECT = `
   type,
   department_id,
   cost_center_id,
+  money_group,
   department:departments!actual_transactions_department_id_fkey(id, name),
   cost_center:cost_centers!actual_transactions_cost_center_id_fkey(id, name)
 `
@@ -437,6 +440,13 @@ export async function listClassifiedActualSlices(
   const slices: ClassifiedActualSlice[] = []
   let from = 0
 
+  const moneyGroupLabel: Record<string, string> = {
+    revenue: 'Receitas',
+    cost: 'Custos',
+    expense: 'Despesas',
+    investment: 'Investimentos',
+  }
+
   while (true) {
     const { data, error } = await supabase
       .from('actual_transactions')
@@ -445,7 +455,7 @@ export async function listClassifiedActualSlices(
       .eq('status', 'classified')
       .gte('posted_at', startDate)
       .lte('posted_at', endDate)
-      .not('cost_center_id', 'is', null)
+      .or('cost_center_id.not.is.null,money_group.not.is.null')
       .order('posted_at', { ascending: true })
       .range(from, from + pageSize - 1)
 
@@ -458,18 +468,25 @@ export async function listClassifiedActualSlices(
     for (const row of rows) {
       const costCenter = asNamedRef(row.cost_center)
       const department = asNamedRef(row.department)
-      const costCenterId = costCenter?.id || (row.cost_center_id as string | null)
+      const moneyGroup = (row.money_group as string | null) ?? null
+      const costCenterId =
+        costCenter?.id ||
+        (row.cost_center_id as string | null) ||
+        moneyGroup
       if (!costCenterId) continue
 
       const postedAt = String(row.posted_at ?? '')
       const match = /^(\d{4})-(\d{2})/.exec(postedAt)
       if (!match) continue
 
+      const groupLabel = moneyGroup ? moneyGroupLabel[moneyGroup] ?? moneyGroup : null
+
       slices.push({
-        departmentId: (row.department_id as string | null) ?? department?.id ?? null,
+        departmentId: (row.department_id as string | null) ?? department?.id ?? moneyGroup,
         costCenterId,
-        departmentName: department?.name || 'Departamento',
-        costCenterName: costCenter?.name || 'Centro de custo',
+        departmentName: department?.name || groupLabel || 'Grupo',
+        costCenterName: costCenter?.name || groupLabel || 'Grupo',
+        moneyGroup,
         monthKey: monthKey(Number(match[1]), Number(match[2])),
         amount: Number(row.amount),
         type: (row.type as ActualTransactionType) ?? 'unknown',
@@ -497,6 +514,7 @@ export async function classifyActualTransactions(input: {
   departmentId?: string | null
   categoryId?: string | null
   costCenterId?: string | null
+  moneyGroup?: string | null
   status?: ActualTransactionStatus
   type?: ActualTransactionType | null
 }): Promise<number> {
@@ -510,6 +528,7 @@ export async function classifyActualTransactions(input: {
     p_cost_center_id: input.costCenterId || null,
     p_status: input.status ?? 'classified',
     p_type: input.type || null,
+    p_money_group: input.moneyGroup || null,
   })
 
   if (error) {
@@ -535,6 +554,7 @@ export async function applyTransactionSuggestions(input: {
       departmentId: group.departmentId,
       categoryId: group.categoryId,
       costCenterId: group.costCenterId,
+      moneyGroup: group.moneyGroup,
       status: 'classified',
     })
   }

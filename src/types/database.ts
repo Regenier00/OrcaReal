@@ -103,8 +103,37 @@ export interface CompanyMember {
 }
 
 export type CategoryType = 'revenue' | 'expense' | 'cost'
+export type MoneyGroup = 'revenue' | 'cost' | 'expense' | 'investment'
 export type BudgetPeriodKind = 'calendar_year' | 'custom'
 export type BudgetStatus = 'draft' | 'active' | 'archived'
+
+export interface BudgetDestination {
+  id: string
+  company_id: string
+  money_group: MoneyGroup
+  name: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface BudgetGroupTotal {
+  id: string
+  budget_id: string
+  company_id: string
+  money_group: MoneyGroup
+  created_at: string
+  updated_at: string
+}
+
+export interface BudgetGroupTotalValue {
+  id: string
+  budget_group_total_id: string
+  company_id: string
+  year: number
+  month: number
+  amount: number
+}
 
 export interface BusinessUnit {
   id: string
@@ -160,10 +189,13 @@ export interface BudgetItem {
   budget_id: string
   company_id: string
   business_unit_id: string | null
-  department_id: string
-  cost_center_id: string
+  department_id: string | null
+  cost_center_id: string | null
   activity_id: string | null
   category_id: string | null
+  money_group: MoneyGroup | null
+  destination_id: string | null
+  destination_name: string | null
   sort_order: number
 }
 
@@ -199,10 +231,13 @@ export interface ActualItem {
   actual_id: string
   company_id: string
   business_unit_id: string | null
-  department_id: string
-  cost_center_id: string
+  department_id: string | null
+  cost_center_id: string | null
   activity_id: string | null
   category_id: string | null
+  money_group: MoneyGroup | null
+  destination_id: string | null
+  destination_name: string | null
   sort_order: number
 }
 
@@ -327,6 +362,7 @@ export interface ActualTransaction {
   category_id: string | null
   department_id: string | null
   cost_center_id: string | null
+  money_group: MoneyGroup | null
   status: ActualTransactionStatus
   external_id: string | null
   fingerprint: string
@@ -335,6 +371,7 @@ export interface ActualTransaction {
   suggested_category_id: string | null
   suggested_department_id: string | null
   suggested_cost_center_id: string | null
+  suggested_money_group: MoneyGroup | null
   suggestion_source: 'history' | 'rule' | null
   classified_at: string | null
   classified_by: string | null
