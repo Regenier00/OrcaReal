@@ -20,3 +20,12 @@ export function moneySideIconClass(side: MoneySide | null | undefined) {
     !side && 'bg-brand-soft text-brand'
   )
 }
+
+/** Faixa de título no estilo dashboard (ex.: card Orçado × Realizado). */
+export function moneySideHeaderClass(side: MoneySide | null | undefined) {
+  return cn(
+    side === 'revenue' && 'bg-revenue text-ink',
+    side === 'cost' && 'bg-cost text-ink',
+    !side && 'bg-brand text-white'
+  )
+}

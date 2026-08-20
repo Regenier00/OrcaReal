@@ -8,7 +8,6 @@ import { volumeNoun } from '@/features/experience/unitCost'
 import type { UnitCostCardModel } from '@/features/experience/useUnitCostCards'
 import type { BudgetMonth } from '@/features/budget/period'
 import { ChangeBadge } from '@/components/home/ChangeBadge'
-import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 import {
   CONSOLIDATED_VOLUME_KEY,
@@ -24,7 +23,7 @@ import {
   type CustomFormula,
   type FormulaContext,
 } from '@/features/indicators/formula'
-import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
+import { moneySideCardClass, moneySideHeaderClass } from '@/components/indicators/moneySideStyle'
 import { FormulaChip } from '@/components/indicators/FormulaChip'
 
 export function UnitCostCard({
@@ -50,37 +49,31 @@ export function UnitCostCard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={cn(
-          'flex h-full w-full cursor-pointer flex-col rounded-2xl border p-5 text-left shadow-card transition',
-          moneySideCardClass(side, true)
-        )}
+        className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-paper-muted bg-white text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-soft"
       >
-        <div className="flex items-start justify-between gap-3">
-          <span
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-              moneySideIconClass(side)
-            )}
-          >
-            <CalculatorIcon />
-          </span>
-          <ChangeBadge value={card.unitCostChange} invert={card.formula.left.metric === 'actual_cost'} />
+        <div
+          className={cn(
+            'flex items-center justify-between gap-3 px-4 py-3',
+            moneySideHeaderClass(side)
+          )}
+        >
+          <h3 className="font-display text-sm font-semibold tracking-tight">
+            {card.def.indicatorName}
+          </h3>
         </div>
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist">
-          {kicker ?? card.segmentLabel}
-        </p>
-        <h3 className="mt-1 font-display text-sm font-medium text-navy/80">
-          {card.def.indicatorName}
-        </h3>
-        <p className="mt-3 font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
-          {card.unitCost == null
+        <div className="relative flex flex-1 flex-col items-center justify-center bg-white px-4 py-6">
+          <div className="absolute right-3 top-3">
+            <ChangeBadge value={card.unitCostChange} invert={card.formula.left.metric === 'actual_cost'} />
+          </div>
+          <p className="text-center font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
+            {card.unitCost == null
             ? card.usesQuantity
               ? 'Informar quantidade'
               : 'Sem dados'
             : formatResult(card.unitCost, card.formula)}
-        </p>
-        <p className="mt-2 text-sm leading-relaxed text-mist">
-          {card.quantity != null
+          </p>
+          <p className="mt-2 text-center text-sm leading-relaxed text-mist">
+            {card.quantity != null
             ? `${formatQuantity(card.quantity)} ${volumeNoun(
                 card.quantity,
                 card.def.quantityNounSingular,
@@ -91,8 +84,8 @@ export function UnitCostCard({
                   : `em ${card.monthLabel || 'mês atual'}`
               }`
             : card.def.displayUnit}
-        </p>
-        <FormulaChip name={card.def.indicatorName} formula={card.formulaHint} />
+          </p>
+        </div>
       </button>
 
       {open ? (

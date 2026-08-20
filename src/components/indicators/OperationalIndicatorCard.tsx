@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { formatMoney } from '@/features/budget/money'
 import { ChangeBadge } from '@/components/home/ChangeBadge'
-import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 import { formatOperationalValue, evaluateBreakdown } from '@/features/indicators/operationalDisplay'
 import {
@@ -14,7 +13,7 @@ import {
 import { FormulaChip } from '@/components/indicators/FormulaChip'
 import type { OperationalCardModel } from '@/features/experience/useOperationalIndicators'
 import type { OperationalInputDef } from '@/features/experience/catalog/operationModels'
-import { moneySideCardClass, moneySideIconClass } from '@/components/indicators/moneySideStyle'
+import { moneySideHeaderClass } from '@/components/indicators/moneySideStyle'
 
 export function OperationalIndicatorCard({
   card,
@@ -38,33 +37,31 @@ export function OperationalIndicatorCard({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={cn(
-          'flex h-full w-full cursor-pointer flex-col rounded-2xl border p-5 text-left shadow-card transition',
-          moneySideCardClass(surface, true)
-        )}
+        className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-2xl border border-paper-muted bg-white text-left shadow-card transition hover:-translate-y-0.5 hover:shadow-soft"
       >
-        <div className="flex items-start justify-between gap-3">
-          <span
-            className={cn(
-              'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-              moneySideIconClass(surface)
-            )}
-          >
-            <CalculatorIcon />
-          </span>
-          <ChangeBadge value={card.change} invert={invert} />
+        <div
+          className={cn(
+            'flex items-center justify-between gap-3 px-4 py-3',
+            moneySideHeaderClass(surface)
+          )}
+        >
+          <h3 className="font-display text-sm font-semibold tracking-tight">
+            {card.def.name}
+          </h3>
         </div>
-        <h3 className="mt-4 font-display text-sm font-medium text-navy/80">
-          {card.def.name}
-        </h3>
-        <p className="mt-3 text-center font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
-          {card.value == null
-            ? needsInputs
-              ? 'Informar dados'
-              : 'Sem dados'
-            : formatOperationalValue(card.value, card.def.format)}
-        </p>
-        <p className="mt-2 text-center text-sm leading-relaxed text-mist">{card.def.unit}</p>
+        <div className="relative flex flex-1 flex-col items-center justify-center bg-white px-4 py-6">
+          <div className="absolute right-3 top-3">
+            <ChangeBadge value={card.change} invert={invert} />
+          </div>
+          <p className="text-center font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
+            {card.value == null
+              ? needsInputs
+                ? 'Informar dados'
+                : 'Sem dados'
+              : formatOperationalValue(card.value, card.def.format)}
+          </p>
+          <p className="mt-2 text-center text-sm leading-relaxed text-mist">{card.def.unit}</p>
+        </div>
       </button>
 
       {open ? (
