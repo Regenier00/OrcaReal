@@ -45,7 +45,7 @@ export function IndicatorsPage() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
             {operational.model
-              ? `Selecionados para ${operational.model.label}. Cada card mostra a fórmula; clique para informar os dados que faltam e ver o cálculo.`
+              ? `Selecionados para ${operational.model.label}. Clique em um indicador para ver o cálculo e informar os dados que faltam.`
               : 'Depois de informar o modelo de operação, escolha os indicadores que a empresa quer acompanhar.'}
           </p>
         </div>

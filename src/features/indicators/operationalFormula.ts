@@ -202,6 +202,67 @@ function positiveOrZero(value: number | null | undefined): number | null {
   return value
 }
 
+export type FormulaBaseMetric =
+  | 'revenue'
+  | 'cost'
+  | 'expense'
+  | 'previousRevenue'
+  | 'employeeCount'
+
+/** Quais totais do período a fórmula usa (para exibir no detalhe do indicador). */
+export function formulaBaseMetrics(node: FormulaNode): Set<FormulaBaseMetric> {
+  const metrics = new Set<FormulaBaseMetric>()
+  collectBaseMetrics(node, metrics)
+  return metrics
+}
+
+function collectBaseMetrics(node: FormulaNode, metrics: Set<FormulaBaseMetric>) {
+  switch (node.type) {
+    case 'revenue':
+      metrics.add('revenue')
+      return
+    case 'cost':
+      metrics.add('cost')
+      return
+    case 'expense':
+      metrics.add('expense')
+      return
+    case 'profit':
+      metrics.add('revenue')
+      metrics.add('cost')
+      metrics.add('expense')
+      return
+    case 'previousRevenue':
+      metrics.add('previousRevenue')
+      return
+    case 'employeeCount':
+      metrics.add('employeeCount')
+      return
+    case 'op':
+      collectBaseMetrics(node.left, metrics)
+      collectBaseMetrics(node.right, metrics)
+      return
+    case 'sum':
+    case 'max':
+    case 'min':
+      for (const item of node.values) collectBaseMetrics(item, metrics)
+      return
+    case 'breakEven':
+      collectBaseMetrics(node.fixed, metrics)
+      if (node.variable) collectBaseMetrics(node.variable, metrics)
+      else {
+        metrics.add('cost')
+      }
+      if (node.sales) collectBaseMetrics(node.sales, metrics)
+      else {
+        metrics.add('revenue')
+      }
+      return
+    default:
+      return
+  }
+}
+
 export function formulaNeedsInput(node: FormulaNode, key: string): boolean {
   switch (node.type) {
     case 'input':
