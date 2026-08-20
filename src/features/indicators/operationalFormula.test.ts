@@ -5,6 +5,7 @@ import {
   employeeCount,
   evaluateOperationalFormula,
   expense,
+  formulaBaseMetrics,
   input,
   lit,
   max,
@@ -326,5 +327,38 @@ assert(selectedOperationPriorities('__skipped__').length === 0, 'pular não sele
 
 const names = OPERATION_MODELS.flatMap((model) => model.indicators.map((item) => item.code))
 assert(new Set(names).size === names.length, 'códigos de indicadores operacionais são únicos')
+
+const marginBases = formulaBaseMetrics(
+  findOperationalIndicator('own_operating_margin')!.formula
+)
+assert(marginBases.has('revenue'), 'margem operacional usa receita')
+assert(marginBases.has('cost'), 'margem operacional usa custo')
+assert(marginBases.has('expense'), 'margem operacional usa despesa')
+
+const operatingCostBases = formulaBaseMetrics(
+  findOperationalIndicator('own_total_operating_cost')!.formula
+)
+assert(!operatingCostBases.has('revenue'), 'custo operacional não usa receita')
+assert(operatingCostBases.has('cost'), 'custo operacional usa custo')
+assert(operatingCostBases.has('expense'), 'custo operacional usa despesa')
+
+assert(formulaBaseMetrics(operatingCost()).has('expense'), 'operatingCost inclui despesa')
+assert(formulaBaseMetrics(profit()).has('expense'), 'profit inclui despesa')
+assert(
+  formulaBaseMetrics(pct(profit(), revenue())).has('expense'),
+  'margem via profit inclui despesa'
+)
+
+const periodExpenseHints = OPERATION_MODELS.flatMap((model) =>
+  model.indicators.filter((item) =>
+    /(?:custo|receita).*(?:\+|−|-).*despesa|despesa.*(?:\+|−|-)/i.test(item.formulaHint)
+  )
+)
+for (const item of periodExpenseHints) {
+  assert(
+    formulaBaseMetrics(item.formula).has('expense'),
+    `${item.code}: fórmula de período cita Despesa mas não marca expense`
+  )
+}
 
 console.log('operational indicator formula tests ok')

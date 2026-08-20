@@ -7,7 +7,10 @@ import { ChangeBadge } from '@/components/home/ChangeBadge'
 import { CalculatorIcon } from '@/components/home/DashboardIcons'
 import { cn } from '@/lib/utils'
 import { formatOperationalValue, evaluateBreakdown } from '@/features/indicators/operationalDisplay'
-import { evaluateOperationalFormula } from '@/features/indicators/operationalFormula'
+import {
+  evaluateOperationalFormula,
+  formulaBaseMetrics,
+} from '@/features/indicators/operationalFormula'
 import { FormulaChip } from '@/components/indicators/FormulaChip'
 import type { OperationalCardModel } from '@/features/experience/useOperationalIndicators'
 import type { OperationalInputDef } from '@/features/experience/catalog/operationModels'
@@ -51,21 +54,17 @@ export function OperationalIndicatorCard({
           </span>
           <ChangeBadge value={card.change} invert={invert} />
         </div>
-        <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-mist">
-          {card.model.label}
-        </p>
-        <h3 className="mt-1 font-display text-sm font-medium text-navy/80">
+        <h3 className="mt-4 font-display text-sm font-medium text-navy/80">
           {card.def.name}
         </h3>
-        <p className="mt-3 font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
+        <p className="mt-3 text-center font-numeric text-2xl font-semibold tracking-tight text-navy sm:text-[1.7rem]">
           {card.value == null
             ? needsInputs
               ? 'Informar dados'
               : 'Sem dados'
             : formatOperationalValue(card.value, card.def.format)}
         </p>
-        <p className="mt-2 text-sm leading-relaxed text-mist">{card.def.unit}</p>
-        <FormulaChip name={card.def.name} formula={card.def.formulaHint} />
+        <p className="mt-2 text-center text-sm leading-relaxed text-mist">{card.def.unit}</p>
       </button>
 
       {open ? (
@@ -108,6 +107,30 @@ function OperationalDialog({
   }
   const preview = evaluateOperationalFormula(card.def.formula, context)
   const breakdown = card.def.breakdown ? evaluateBreakdown(card.def.breakdown, context) : []
+  const bases = formulaBaseMetrics(card.def.formula)
+  const factBoxes = [
+    bases.has('revenue')
+      ? { label: 'Receita do período', value: formatMoney(card.context.revenue) }
+      : null,
+    bases.has('cost')
+      ? { label: 'Custos do período', value: formatMoney(card.context.cost) }
+      : null,
+    bases.has('expense')
+      ? { label: 'Despesas do período', value: formatMoney(card.context.expense) }
+      : null,
+    bases.has('previousRevenue') && card.context.previousRevenue != null
+      ? {
+          label: 'Receita do período anterior',
+          value: formatMoney(card.context.previousRevenue),
+        }
+      : null,
+    bases.has('employeeCount') && card.context.employeeCount != null
+      ? {
+          label: 'Funcionários',
+          value: String(card.context.employeeCount),
+        }
+      : null,
+  ].filter((item): item is { label: string; value: string } => item != null)
 
   const handleSubmit = async () => {
     if (card.def.inputs.length > 0 && parsed.missing.length > 0) {
@@ -128,7 +151,7 @@ function OperationalDialog({
   return (
     <Dialog
       open
-      wide={card.def.inputs.length > 2 || breakdown.length > 0}
+      wide={card.def.inputs.length > 2 || breakdown.length > 0 || factBoxes.length > 2}
       title={card.def.name}
       onClose={onClose}
       footer={
@@ -149,10 +172,18 @@ function OperationalDialog({
           <p className="text-xs text-mist">Período: {card.monthLabel}</p>
         ) : null}
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FactBox label="Receita do período" value={formatMoney(card.context.revenue)} />
-          <FactBox label="Custos do período" value={formatMoney(card.context.cost)} />
-        </div>
+        {factBoxes.length > 0 ? (
+          <div
+            className={cn(
+              'grid gap-3',
+              factBoxes.length >= 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+            )}
+          >
+            {factBoxes.map((item) => (
+              <FactBox key={item.label} label={item.label} value={item.value} />
+            ))}
+          </div>
+        ) : null}
 
         {card.def.inputs.map((item) => (
           <Input
@@ -185,7 +216,7 @@ function OperationalDialog({
         ) : null}
 
         {preview != null ? (
-          <div className="rounded-xl border border-paper-muted px-4 py-3">
+          <div className="rounded-xl border border-paper-muted px-4 py-3 text-center">
             <p className="text-[11px] uppercase tracking-wide text-mist">Resultado</p>
             <p className="mt-1 font-numeric text-xl font-semibold text-ink">
               {formatOperationalValue(preview, card.def.format)}
