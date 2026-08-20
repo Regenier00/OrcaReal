@@ -12,7 +12,7 @@ import type {
   LoadedBudget,
   LoadedBudgetItem,
 } from '@/features/budget/model'
-import { emptyAmounts, remapAmounts } from '@/features/budget/model'
+import { emptyAmounts, remapAmounts, structureKey } from '@/features/budget/model'
 import type { BudgetMonth } from '@/features/budget/period'
 
 export const STATEMENT_FILE_TYPES: StatementFileType[] = [
@@ -72,6 +72,7 @@ export interface ClassifiedActualSlice {
   costCenterId: string
   departmentName: string
   costCenterName: string
+  moneyGroup?: string | null
   monthKey: string
   amount: number
   type: ActualTransactionType
@@ -145,8 +146,15 @@ export function toDraftActual(actual: LoadedActual): DraftActual {
     businessUnitId: actual.businessUnitId,
     notes: actual.notes,
     status: actual.status as BudgetStatus,
+    groupTotals: actual.groupTotals.map((group) => ({
+      moneyGroup: group.moneyGroup,
+      total: group.total,
+    })),
     items: actual.items.map((item) => ({
       localId: item.localId,
+      moneyGroup: item.moneyGroup,
+      destinationName: item.destinationName,
+      destinationId: item.destinationId,
       businessUnitId: item.businessUnitId,
       departmentId: item.departmentId,
       costCenterId: item.costCenterId,
@@ -173,6 +181,10 @@ export function draftFromBudget(
     businessUnitId: budget.businessUnitId,
     notes: '',
     status: 'draft',
+    groupTotals: budget.groupTotals.map((group) => ({
+      moneyGroup: group.moneyGroup,
+      total: group.total,
+    })),
     items: budget.items.map((item) => copyItemFromBudget(item, months)),
   }
 }
@@ -183,6 +195,9 @@ function copyItemFromBudget(
 ): DraftBudgetItem {
   return {
     localId: crypto.randomUUID(),
+    moneyGroup: item.moneyGroup,
+    destinationName: item.destinationName,
+    destinationId: item.destinationId,
     businessUnitId: item.businessUnitId,
     departmentId: item.departmentId,
     costCenterId: item.costCenterId,
@@ -198,22 +213,18 @@ export function alignActualToBudget(
   months: BudgetMonth[]
 ): DraftActual {
   const existing = new Map(
-    draft.items.map((item) => [
-      [item.businessUnitId || '', item.departmentId, item.costCenterId].join('|'),
-      item,
-    ])
+    draft.items.map((item) => [structureKey(item), item])
   )
 
   const items = budget.items.map((item) => {
-    const key = [
-      item.businessUnitId || '',
-      item.departmentId,
-      item.costCenterId,
-    ].join('|')
+    const key = structureKey(item)
     const current = existing.get(key)
     if (current) {
       return {
         ...current,
+        moneyGroup: item.moneyGroup,
+        destinationName: item.destinationName,
+        destinationId: item.destinationId,
         amounts: remapAmounts(current.amounts, months),
       }
     }
@@ -229,6 +240,10 @@ export function alignActualToBudget(
     startDate: budget.startDate,
     endDate: budget.endDate,
     businessUnitId: budget.businessUnitId,
+    groupTotals: budget.groupTotals.map((group) => ({
+      moneyGroup: group.moneyGroup,
+      total: group.total,
+    })),
     items,
   }
 }

@@ -21,13 +21,14 @@ import type { DraftBudgetItem, LoadedBudget } from '@/features/budget/model'
 import {
   duplicateItem,
   emptyAmounts,
+  emptyGroupTotals,
   remapAmounts,
   createEmptyItem,
 } from '@/features/budget/model'
 import { defaultActualName, monthsBetween } from '@/features/budget/period'
 import {
   findDuplicateStructure,
-  validateBudgetForSave,
+  validateActualItemsForSave,
   validateBudgetItem,
 } from '@/features/budget/validation'
 import { Button } from '@/components/ui/Button'
@@ -59,6 +60,7 @@ function emptyDraft(): DraftActual {
     businessUnitId: '',
     notes: '',
     status: 'draft',
+    groupTotals: emptyGroupTotals(),
     items: [],
   }
 }
@@ -245,7 +247,7 @@ export function ActualWizardPage() {
 
   const submitEditor = () => {
     if (!editor || !structure) return
-    const errors = validateBudgetItem(editor, structure)
+    const errors = validateBudgetItem(editor)
     const duplicate = findDuplicateStructure(
       draft.items,
       editor,
@@ -253,7 +255,7 @@ export function ActualWizardPage() {
     )
     if (duplicate) {
       errors.push(
-        'Já existe uma linha com esta combinação de unidade, departamento e centro de custo neste realizado.'
+        'Já existe uma linha com esta combinação neste realizado.'
       )
     }
     setEditorErrors(errors)
@@ -299,7 +301,7 @@ export function ActualWizardPage() {
       setStep(1)
       return
     }
-    const errors = validateBudgetForSave(draft, structure)
+    const errors = validateActualItemsForSave(draft)
     if (errors.length > 0) {
       setError(errors[0])
       setMetaErrors(errors)

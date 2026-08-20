@@ -1,6 +1,12 @@
 import type { BudgetMonth } from '@/features/budget/period'
 import type { DraftBudgetItem } from '@/features/budget/model'
-import { grandTotal, lineTotal, monthTotal } from '@/features/budget/model'
+import {
+  grandTotal,
+  isDestinationItem,
+  itemGroupLabel,
+  lineTotal,
+  monthTotal,
+} from '@/features/budget/model'
 import { formatMoney } from '@/features/budget/money'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
@@ -38,7 +44,7 @@ export function BudgetItemsTable({
     return (
       <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-5 py-10 text-center text-sm text-mist">
         {emptyMessage ??
-          'Nenhum item neste orçamento. Clique em “+ Adicionar item” para começar.'}
+          'Nenhum destino neste orçamento. Defina os grupos e crie destinos para começar.'}
       </div>
     )
   }
@@ -48,7 +54,9 @@ export function BudgetItemsTable({
       <table className="min-w-full text-left text-sm">
         <thead className="bg-paper text-[11px] uppercase tracking-wide text-mist">
           <tr>
-            <th className="sticky left-0 z-10 bg-paper px-3 py-2.5 font-medium">Estrutura</th>
+            <th className="sticky left-0 z-10 bg-paper px-3 py-2.5 font-medium">
+              Destino
+            </th>
             {months.map((month) => (
               <th key={month.key} className="px-3 py-2.5 text-right font-medium">
                 {month.label}/{String(month.year).slice(2)}
@@ -64,17 +72,26 @@ export function BudgetItemsTable({
           {items.map((item) => (
             <tr key={item.localId} className="border-t border-paper-muted">
               <td className="sticky left-0 z-10 bg-white px-3 py-3 align-top">
-                <p className="font-medium text-ink">
-                  {labels.department(item.departmentId)}
-                </p>
-                <p className="mt-0.5 text-xs text-mist">
-                  {[
-                    labels.businessUnit(item.businessUnitId),
-                    labels.costCenter(item.costCenterId),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
+                {isDestinationItem(item) ? (
+                  <>
+                    <p className="font-medium text-ink">{item.destinationName}</p>
+                    <p className="mt-0.5 text-xs text-mist">{itemGroupLabel(item)}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium text-ink">
+                      {labels.department(item.departmentId) || 'Departamento'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-mist">
+                      {[
+                        labels.businessUnit(item.businessUnitId),
+                        labels.costCenter(item.costCenterId),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </>
+                )}
               </td>
               {months.map((month) => (
                 <td

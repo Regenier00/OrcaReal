@@ -34,7 +34,7 @@ export const features: Feature[] = [
     title: 'Orçamento',
     summary: 'Monte o plano financeiro numa estrutura padrão, ou importe o que já existe.',
     explanation:
-      'O orçamento fica organizado em departamentos, centros de custo e categorias. Dá para começar do zero ou trazer a planilha que a empresa já usa. O formato é o mesmo para quem planeja e para quem acompanha o realizado.',
+      'O orçamento fica organizado em Receitas, Custos, Despesas e Investimentos, com destinos simples que você cria. Dá para começar do zero ou trazer a planilha que a empresa já usa. O formato é o mesmo para quem planeja e para quem acompanha o realizado.',
     detail: 'Estrutura padronizada, com importação opcional.',
   },
   {

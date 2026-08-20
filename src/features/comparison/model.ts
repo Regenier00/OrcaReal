@@ -59,6 +59,19 @@ function sliceAmounts(
 }
 
 function itemLabel(item: LoadedBudgetItem) {
+  if (item.moneyGroup && item.destinationName) {
+    return {
+      department: item.moneyGroup === 'revenue'
+        ? 'Receitas'
+        : item.moneyGroup === 'cost'
+          ? 'Custos'
+          : item.moneyGroup === 'expense'
+            ? 'Despesas'
+            : 'Investimentos',
+      costCenter: item.destinationName,
+      category: '',
+    }
+  }
   return {
     department: item.departmentName || 'Departamento',
     costCenter: item.costCenterName || 'Centro de custo',
@@ -104,12 +117,13 @@ export function buildComparisonLines(
     item: LoadedBudgetItem,
     side: 'budget' | 'actual'
   ) => {
+    if (item.moneyGroup === 'revenue') return
     const key = structureKey(item)
     const names = itemLabel(item)
     const current = map.get(key) ?? createLine({
       key,
-      departmentId: item.departmentId || '',
-      costCenterId: item.costCenterId || '',
+      departmentId: item.departmentId || item.moneyGroup || '',
+      costCenterId: item.costCenterId || item.destinationName || item.moneyGroup || '',
       department: names.department,
       costCenter: names.costCenter,
       category: names.category,
@@ -125,11 +139,11 @@ export function buildComparisonLines(
   }
 
   for (const item of budget?.items ?? []) {
-    if (!isComparisonCategory(item.categoryType)) continue
+    if (!item.moneyGroup && !isComparisonCategory(item.categoryType)) continue
     add(item, 'budget')
   }
   for (const item of actual?.items ?? []) {
-    if (!isComparisonCategory(item.categoryType)) continue
+    if (!item.moneyGroup && !isComparisonCategory(item.categoryType)) continue
     add(item, 'actual')
   }
 
@@ -140,6 +154,14 @@ function findClassifiedTarget(
   lines: ComparisonLine[],
   slice: ClassifiedActualSlice
 ): ComparisonLine | undefined {
+  if (slice.moneyGroup) {
+    const byGroup = lines.find(
+      (line) =>
+        line.departmentId === slice.moneyGroup ||
+        line.costCenterId === slice.moneyGroup
+    )
+    if (byGroup) return byGroup
+  }
   const exact = lines.find(
     (line) =>
       line.costCenterId === slice.costCenterId &&

@@ -1,16 +1,65 @@
-import type { BudgetPeriodKind, BudgetStatus, CategoryType } from '@/types/database'
+import type { BudgetPeriodKind, BudgetStatus, CategoryType, MoneyGroup } from '@/types/database'
 import type { BudgetMonth } from '@/features/budget/period'
 import { applyPercent, distributeEqually, roundMoney } from '@/features/budget/money'
 import { sum } from '@/lib/money'
 
+export type { MoneyGroup }
+
+export const MONEY_GROUPS: ReadonlyArray<{
+  id: MoneyGroup
+  label: string
+  description: string
+  question: string
+}> = [
+  {
+    id: 'revenue',
+    label: 'Receitas',
+    description: 'Dinheiro que entra no negócio.',
+    question: 'Quanto você espera receber neste período?',
+  },
+  {
+    id: 'cost',
+    label: 'Custos',
+    description: 'Gastos ligados diretamente ao que você entrega.',
+    question: 'Quanto quer destinar a custos?',
+  },
+  {
+    id: 'expense',
+    label: 'Despesas',
+    description: 'Gastos de estrutura e operação do dia a dia.',
+    question: 'Quanto quer destinar a despesas?',
+  },
+  {
+    id: 'investment',
+    label: 'Investimentos',
+    description: 'Aplicações que fortalecem o negócio no médio prazo.',
+    question: 'Quanto quer destinar a investimentos?',
+  },
+] as const
+
+export const MONEY_GROUP_LABEL: Record<MoneyGroup, string> = {
+  revenue: 'Receitas',
+  cost: 'Custos',
+  expense: 'Despesas',
+  investment: 'Investimentos',
+}
+
 export interface DraftBudgetItem {
   localId: string
+  moneyGroup: MoneyGroup | ''
+  destinationName: string
+  destinationId?: string
   businessUnitId: string
   departmentId: string
   costCenterId: string
   activityId?: string
   categoryId?: string
   amounts: Record<string, number>
+}
+
+export interface DraftGroupTotal {
+  moneyGroup: MoneyGroup
+  total: number
 }
 
 export interface DraftBudget {
@@ -24,6 +73,7 @@ export interface DraftBudget {
   businessUnitId: string
   notes: string
   status: BudgetStatus
+  groupTotals: DraftGroupTotal[]
   items: DraftBudgetItem[]
 }
 
@@ -44,12 +94,17 @@ export interface LoadedBudgetItem extends DraftBudgetItem {
   categoryType: CategoryType | null
 }
 
+export interface LoadedGroupTotal extends DraftGroupTotal {
+  amounts: Record<string, number>
+}
+
 export interface LoadedBudget extends DraftBudget {
   id: string
   companyId: string
   createdAt: string
   updatedAt: string
   businessUnitName: string | null
+  groupTotals: LoadedGroupTotal[]
   items: LoadedBudgetItem[]
 }
 
@@ -61,12 +116,35 @@ export function emptyAmounts(months: BudgetMonth[]): Record<string, number> {
   return Object.fromEntries(months.map((month) => [month.key, 0]))
 }
 
+export function emptyGroupTotals(): DraftGroupTotal[] {
+  return MONEY_GROUPS.map((group) => ({
+    moneyGroup: group.id,
+    total: 0,
+  }))
+}
+
 export function structureKey(
-  item: Pick<DraftBudgetItem, 'businessUnitId' | 'departmentId' | 'costCenterId'>
+  item: Pick<
+    DraftBudgetItem,
+    | 'businessUnitId'
+    | 'departmentId'
+    | 'costCenterId'
+    | 'moneyGroup'
+    | 'destinationName'
+  >
 ) {
+  if (item.moneyGroup) {
+    return [item.moneyGroup, item.destinationName.trim().toLowerCase()].join('|')
+  }
   return [item.businessUnitId || '', item.departmentId, item.costCenterId].join(
     '|'
   )
+}
+
+export function isDestinationItem(
+  item: Pick<DraftBudgetItem, 'moneyGroup' | 'destinationName'>
+) {
+  return Boolean(item.moneyGroup && item.destinationName.trim())
 }
 
 export function lineTotal(item: DraftBudgetItem, months: BudgetMonth[]) {
@@ -82,6 +160,31 @@ export function monthTotal(
 
 export function grandTotal(items: DraftBudgetItem[], months: BudgetMonth[]) {
   return roundMoney(sum(items.map((item) => lineTotal(item, months))))
+}
+
+export function groupItems(
+  items: DraftBudgetItem[],
+  moneyGroup: MoneyGroup
+) {
+  return items.filter((item) => item.moneyGroup === moneyGroup)
+}
+
+export function groupAllocatedTotal(
+  items: DraftBudgetItem[],
+  moneyGroup: MoneyGroup,
+  months: BudgetMonth[]
+) {
+  return grandTotal(groupItems(items, moneyGroup), months)
+}
+
+export function groupRemaining(
+  draft: Pick<DraftBudget, 'groupTotals' | 'items'>,
+  moneyGroup: MoneyGroup,
+  months: BudgetMonth[]
+) {
+  const planned =
+    draft.groupTotals.find((group) => group.moneyGroup === moneyGroup)?.total ?? 0
+  return roundMoney(planned - groupAllocatedTotal(draft.items, moneyGroup, months))
 }
 
 export function remapAmounts(
@@ -154,13 +257,43 @@ export const BUDGET_STATUS_LABEL: Record<BudgetStatus, string> = {
 
 export function createEmptyItem(
   months: BudgetMonth[],
-  businessUnitId = ''
+  businessUnitId = '',
+  moneyGroup: MoneyGroup | '' = ''
 ): DraftBudgetItem {
   return {
     localId: newLocalId(),
+    moneyGroup,
+    destinationName: '',
     businessUnitId,
     departmentId: '',
     costCenterId: '',
     amounts: emptyAmounts(months),
   }
+}
+
+export function createDestinationItem(
+  months: BudgetMonth[],
+  moneyGroup: MoneyGroup,
+  name: string,
+  total: number
+): DraftBudgetItem {
+  return {
+    localId: newLocalId(),
+    moneyGroup,
+    destinationName: name.trim(),
+    businessUnitId: '',
+    departmentId: '',
+    costCenterId: '',
+    amounts: distributeAmounts(total, months),
+  }
+}
+
+export function itemDisplayName(item: DraftBudgetItem) {
+  if (isDestinationItem(item)) return item.destinationName.trim()
+  return ''
+}
+
+export function itemGroupLabel(item: DraftBudgetItem) {
+  if (!item.moneyGroup) return ''
+  return MONEY_GROUP_LABEL[item.moneyGroup]
 }

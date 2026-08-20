@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { BudgetItemsTable } from '@/components/budget/BudgetItemsTable'
+import { DestinationReview } from '@/components/budget/DestinationWizard'
 
 export function BudgetDetailPage() {
   const { id } = useParams()
@@ -184,7 +185,11 @@ export function BudgetDetailPage() {
         </p>
       ) : null}
 
-      <BudgetItemsTable items={budget.items} months={months} labels={labels} readOnly />
+      {budget.items.some((item) => item.moneyGroup) ? (
+        <DestinationReview draft={budget} months={months} />
+      ) : (
+        <BudgetItemsTable items={budget.items} months={months} labels={labels} readOnly />
+      )}
 
       <Link to="/app/orcamentos">
         <Button variant="secondary">Voltar aos orçamentos</Button>

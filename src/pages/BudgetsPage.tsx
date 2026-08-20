@@ -74,10 +74,11 @@ export function BudgetsPage() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Orçamentos</h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            Planeje o exercício da{' '}
+            Planeje para onde o dinheiro da{' '}
             <span className="font-medium text-ink-soft/80">
               {company?.trade_name || company?.name || 'sua empresa'}
-            </span>
+            </span>{' '}
+            vai — em Receitas, Custos, Despesas e Investimentos.
             . Cada orçamento fica isolado por empresa.
           </p>
         </div>
@@ -100,8 +101,8 @@ export function BudgetsPage() {
             Nenhum orçamento ainda
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-            Crie o primeiro orçamento, defina o período janeiro–dezembro e monte as
-            linhas com a estrutura da empresa.
+            Crie o primeiro orçamento, defina o período e diga para onde o dinheiro
+            vai — em Receitas, Custos, Despesas e Investimentos.
           </p>
           <Link to="/app/orcamentos/novo" className="mt-6 inline-block">
             <Button>Novo orçamento</Button>
