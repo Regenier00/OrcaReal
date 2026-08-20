@@ -85,6 +85,38 @@ export interface CostCenter {
   updated_at: string
 }
 
+export type CostCenterImportStatus =
+  | 'pending'
+  | 'validating'
+  | 'parsing'
+  | 'importing'
+  | 'completed'
+  | 'failed'
+
+export interface CostCenterImport {
+  id: string
+  company_id: string
+  file_name: string
+  file_path: string | null
+  file_size: number | null
+  file_type: 'xlsx'
+  mime_type: string | null
+  file_hash: string | null
+  detected_layout: Record<string, unknown>
+  status: CostCenterImportStatus
+  row_count: number
+  inserted_count: number
+  updated_count: number
+  skipped_count: number
+  destinations_ensured: number
+  error_message: string | null
+  warnings: Array<{ message: string; row?: number }>
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  processed_at: string | null
+}
+
 export interface CompanySettings {
   id: string
   company_id: string

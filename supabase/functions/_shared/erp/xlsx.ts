@@ -271,6 +271,34 @@ function parseSheet(xml: string, shared: string[]) {
   })
 }
 
+/** Lê a primeira aba útil de um XLSX (matriz de células em texto). */
+export async function readFirstXlsxSheetRows(bytes: Uint8Array): Promise<{
+  sheetName: string
+  rows: string[][]
+}> {
+  const files = await unzip(bytes)
+  if (!findFile(files, (name) => name === '[Content_Types].xml')) {
+    throw new Error('O arquivo ZIP não é uma planilha XLSX válida.')
+  }
+  const sharedXml = findFile(files, (name) =>
+    /^xl\/sharedStrings\.xml$/i.test(name),
+  )
+  const shared = sharedXml ? parseSharedStrings(decodeXml(sharedXml)) : []
+  const sheets = worksheetEntries(files)
+  if (sheets.length === 0) {
+    throw new Error('Planilha XLSX sem aba de dados.')
+  }
+
+  for (const [name, sheet] of sheets) {
+    const rows = parseSheet(decodeXml(sheet), shared)
+    if (rows.some((row) => row.some((cell) => String(cell ?? '').trim()))) {
+      return { sheetName: name, rows }
+    }
+  }
+
+  return { sheetName: sheets[0]![0], rows: [] }
+}
+
 export const xlsxErpParser: ErpParser = {
   id: 'xlsx',
   matches(file) {
