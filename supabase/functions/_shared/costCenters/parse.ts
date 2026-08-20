@@ -4,7 +4,6 @@ import {
   MAX_COST_CENTER_DESCRIPTION,
   MAX_COST_CENTER_NAME,
   MAX_COST_CENTER_ROWS,
-  MAX_WARNINGS,
 } from './limits.ts'
 
 export type CostCenterColumnRole = 'name' | 'code' | 'description' | 'ignore'
@@ -133,7 +132,6 @@ export async function parseCostCenterXlsx(
   }
 
   const rows: CostCenterImportRow[] = []
-  const seen = new Set<string>()
 
   for (let i = startRow; i < matrix.length; i += 1) {
     if (rows.length >= MAX_COST_CENTER_ROWS) {
@@ -156,18 +154,7 @@ export async function parseCostCenterXlsx(
         ? trimCell(line[descriptionCol], MAX_COST_CENTER_DESCRIPTION) || null
         : null
 
-    const key = name.toLowerCase()
-    if (seen.has(key)) {
-      if (warnings.length < MAX_WARNINGS) {
-        warnings.push({
-          message: `Linha ${i + 1}: centro de custo duplicado na planilha (${name}).`,
-          row: i + 1,
-        })
-      }
-      continue
-    }
-    seen.add(key)
-
+    // Não aplica regra de negócio aqui: duplicatas/upsert ficam na RPC.
     rows.push({
       name,
       code,
