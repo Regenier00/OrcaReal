@@ -105,11 +105,16 @@ export function ImportErpPage() {
   return (
     <ActualPageShell
       title="Importar ERP"
-      description="Importe lançamentos de ERPs (XLSX principal). O sistema identifica colunas, normaliza para o padrão OrcaReal e sugere Receita, Custo, Despesa ou Investimento."
+      description="Importe lançamentos de ERPs (XLSX/CSV). Após o parse e a normalização, contas mapeadas no plano da empresa são apropriadas automaticamente; as demais recebem sugestão por prefixo ou descrição."
       actions={
-        <Link to={ERP_PATHS.review}>
-          <Button variant="secondary">Revisar lançamentos</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/app/empresa?tab=classificacao">
+            <Button variant="secondary">Plano de contas</Button>
+          </Link>
+          <Link to={ERP_PATHS.review}>
+            <Button variant="secondary">Revisar lançamentos</Button>
+          </Link>
+        </div>
       }
     >
       <div className="mt-8 grid gap-6">

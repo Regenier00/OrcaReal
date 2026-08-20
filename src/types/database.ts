@@ -332,11 +332,32 @@ export type ErpEntrySide = 'debit' | 'credit' | 'unknown'
 export type ErpEntryStatus = 'pending' | 'classified' | 'ignored'
 export type ErpClassificationMatchType =
   | 'account_code'
+  | 'account_prefix'
   | 'account_name'
   | 'cost_center'
   | 'department'
   | 'description_exact'
   | 'description_contains'
+
+export type ChartAccountMatchKind = 'exact' | 'prefix'
+
+export interface CompanyChartAccount {
+  id: string
+  company_id: string
+  account_code: string
+  account_name: string | null
+  match_kind: ChartAccountMatchKind
+  money_group: MoneyGroup
+  destination_id: string | null
+  destination_name: string
+  department_id: string | null
+  cost_center_id: string | null
+  priority: number
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
 
 export interface ErpImport {
   id: string
@@ -397,7 +418,7 @@ export interface ErpEntry {
   suggested_destination_name: string | null
   suggested_department_id: string | null
   suggested_cost_center_id: string | null
-  suggestion_source: 'rule' | 'heuristic' | 'history' | null
+  suggestion_source: 'rule' | 'heuristic' | 'history' | 'chart' | 'prefix' | null
   classified_at: string | null
   classified_by: string | null
   created_at: string

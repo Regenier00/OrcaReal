@@ -214,7 +214,7 @@ export function ReviewErpEntriesPage() {
   return (
     <ActualPageShell
       title="Revisar ERP"
-      description="Confirme a classificação dos lançamentos não identificados. As confirmações viram regras da empresa para as próximas importações."
+      description="Confirme a classificação dos lançamentos não mapeados. Contas do plano (código exato) já vêm apropriadas; prefixos e descrições só sugerem. Confirmações atualizam o plano de contas da empresa."
       actions={
         <Link to={ERP_PATHS.import}>
           <Button variant="secondary">Nova importação</Button>
@@ -405,6 +405,19 @@ export function ReviewErpEntriesPage() {
                           {item.suggested_destination_name
                             ? ` › ${item.suggested_destination_name}`
                             : ''}
+                          {item.suggestion_source ? (
+                            <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-mist">
+                              {item.suggestion_source === 'chart'
+                                ? 'Plano de contas'
+                                : item.suggestion_source === 'prefix'
+                                  ? 'Prefixo'
+                                  : item.suggestion_source === 'heuristic'
+                                    ? 'Descrição/heurística'
+                                    : item.suggestion_source === 'history'
+                                      ? 'Histórico'
+                                      : 'Regra'}
+                            </span>
+                          ) : null}
                         </span>
                       ) : (
                         '—'
