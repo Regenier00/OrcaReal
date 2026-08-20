@@ -128,23 +128,31 @@ export function ReviewErpEntriesPage() {
     setBusy(true)
     setError('')
     try {
-      const destinationName =
+      const pickedName =
         selectedDestination?.name ||
         destinationOptions.find((item) => item.id === destinationKey)?.name ||
         null
-      await classifyErpEntries({
-        companyId: company.id,
-        entryIds: selected,
-        moneyGroup,
-        destinationId: selectedDestination?.id ?? (destinationKey || null),
-        destinationName,
-        status: 'classified',
-        type: moneyGroup === 'revenue' ? 'income' : 'expense',
-        saveRules,
-      })
+      const pickedId = selectedDestination?.id ?? (destinationKey || null)
+
+      for (const item of items.filter((row) => selected.includes(row.id))) {
+        const fromFile =
+          item.cost_center_name?.trim() ||
+          item.cost_center_code?.trim() ||
+          null
+        await classifyErpEntries({
+          companyId: company.id,
+          entryIds: [item.id],
+          moneyGroup,
+          destinationId: pickedId || null,
+          destinationName: pickedName || fromFile,
+          status: 'classified',
+          type: moneyGroup === 'revenue' ? 'income' : 'expense',
+          saveRules,
+        })
+      }
       setNotice(
         saveRules
-          ? 'Classificação salva e regras da empresa atualizadas.'
+          ? 'Classificação salva. Destino sem escolha manual usa o centro de custo do arquivo.'
           : 'Classificação salva.',
       )
       await refresh()
@@ -214,7 +222,7 @@ export function ReviewErpEntriesPage() {
   return (
     <ActualPageShell
       title="Revisar ERP"
-      description="Confirme a classificação dos lançamentos não mapeados. Contas do plano (código exato) já vêm apropriadas; prefixos e descrições só sugerem. Confirmações atualizam o plano de contas da empresa."
+      description="Revise só o que o prefixo da empresa não cobriu. Quando houver sugestão, o destino tende a seguir o centro de custo do arquivo."
       actions={
         <Link to={ERP_PATHS.import}>
           <Button variant="secondary">Nova importação</Button>
