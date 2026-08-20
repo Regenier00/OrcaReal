@@ -28,6 +28,7 @@
     "test:tour": "node --experimental-strip-types src/features/tour/storage.test.ts",
     "test:supabase-env": "node --experimental-strip-types src/lib/supabaseEnv.test.ts",
     "test:storage-path": "node --experimental-strip-types src/lib/storagePath.test.ts",
+    "test:cost-center-import": "node --experimental-strip-types src/features/company/costCenterImport.test.ts",
     "test:auth-errors": "node --experimental-strip-types src/features/auth/authErrors.test.ts",
     "test:brand-color": "node --experimental-strip-types src/lib/brandColor.test.ts",
     "preview": "vite preview"

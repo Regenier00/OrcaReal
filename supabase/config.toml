@@ -389,6 +389,9 @@ allow_dynamic_registration = false
 # is not rejected by the gateway as a CORS/fetch failure.
 verify_jwt = false
 
+[functions.process-cost-center-import]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

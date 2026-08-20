@@ -17,6 +17,7 @@ import {
   updateCompanySegment,
   updateCompanySettings,
 } from '@/features/company/companyService'
+import { importCostCentersFromXlsx } from '@/features/company/costCenterImportService'
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
 import { SEGMENT_OPTIONS, isOtherSegment, segmentLabel } from '@/features/company/segmentOptions'
 import {
@@ -585,8 +586,10 @@ function CostCentersTab({
   const [items, setItems] = useState<CostCenter[]>([])
   const [name, setName] = useState('')
   const [error, setError] = useState('')
+  const [importMessage, setImportMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [importing, setImporting] = useState(false)
 
   const reload = useCallback(async () => {
     const result = await listCostCenters(companyId)
@@ -637,6 +640,38 @@ function CostCentersTab({
     await reload()
   }
 
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file || !canEdit || importing) return
+
+    setImporting(true)
+    setError('')
+    setImportMessage('')
+    try {
+      const result = await importCostCentersFromXlsx({ companyId, file })
+      const parts = [
+        `${result.summary.inserted} novo(s)`,
+        `${result.summary.updated} atualizado(s)`,
+      ]
+      if (result.summary.skipped > 0) {
+        parts.push(`${result.summary.skipped} ignorado(s)`)
+      }
+      setImportMessage(
+        `Importação concluída: ${parts.join(', ')}. Destinos liberados para orçado e realizado.`,
+      )
+      await reload()
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível importar os centros de custo.',
+      )
+    } finally {
+      setImporting(false)
+    }
+  }
+
   if (loading) return <p className="text-sm text-mist">Carregando centros de custo...</p>
 
   return (
@@ -645,8 +680,45 @@ function CostCentersTab({
         Centros de custo
       </h2>
       <p className="mt-1 text-sm text-mist">
-        O código é gerado automaticamente na ordem de criação (001, 002…).
+        O código é gerado automaticamente na ordem de criação (001, 002…), salvo
+        quando a planilha informa um código. Os centros importados definem os
+        destinos e a apropriação do realizado.
       </p>
+
+      {canEdit ? (
+        <div className="mt-5 rounded-2xl border border-paper-muted bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-medium text-ink">Importar planilha XLSX</p>
+              <p className="mt-1 text-sm text-mist">
+                Colunas: Nome (obrigatório), Código e Descrição (opcionais).
+                Validação de tipo e tamanho acontece no servidor.
+              </p>
+            </div>
+            <div>
+              <input
+                id="cost-center-xlsx-input"
+                type="file"
+                className="sr-only"
+                disabled={importing}
+                onChange={(event) => void handleImport(event)}
+              />
+              <Button
+                type="button"
+                disabled={importing}
+                onClick={() => {
+                  document.getElementById('cost-center-xlsx-input')?.click()
+                }}
+              >
+                {importing ? 'Importando...' : 'Escolher XLSX'}
+              </Button>
+            </div>
+          </div>
+          {importMessage ? (
+            <p className="mt-3 text-sm text-ok">{importMessage}</p>
+          ) : null}
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <p className="mt-4 text-sm text-mist">
