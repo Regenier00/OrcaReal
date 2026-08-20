@@ -294,7 +294,7 @@ export function ImportStatementPage() {
       <ConfirmDialog
         open={Boolean(pendingDelete)}
         title="Excluir extrato"
-        body={`Excluir o extrato “${pendingDelete?.file_name ?? ''}”? Os lançamentos importados com ele serão removidos. Esta ação não pode ser desfeita.`}
+        body={`Excluir o extrato “${pendingDelete?.file_name ?? ''}”? Todos os lançamentos deste extrato serão removidos — inclusive os já apropriados. Esta ação não pode ser desfeita.`}
         confirmLabel={deleting ? 'Excluindo...' : 'Excluir extrato'}
         danger
         onCancel={() => setPendingDelete(null)}
