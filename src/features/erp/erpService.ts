@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
 import {
@@ -257,13 +258,63 @@ export async function uploadAndProcessErpImport(input: {
 }
 
 export async function deleteErpImport(companyId: string, importId: string) {
+  const current = await getErpImport(companyId, importId)
+
   const { error } = await supabase.rpc('delete_erp_import', {
     p_company_id: companyId,
     p_import_id: importId,
   })
   if (error) {
     console.error('Erro ao excluir importação ERP:', error)
-    throw new Error(error.message || 'Não foi possível excluir a importação.')
+    throw new Error(mapErpDeleteError(error))
+  }
+
+  // Arquivo sai pela Storage API (RLS: só admin da empresa no path company/import/…).
+  await removeErpImportFile(companyId, current?.file_path)
+}
+
+function mapErpDeleteError(error: unknown) {
+  const message =
+    error && typeof error === 'object' && 'message' in error
+      ? String((error as { message: unknown }).message ?? '')
+      : error instanceof Error
+        ? error.message
+        : ''
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('apenas administradores')) {
+    return 'Apenas administradores da empresa podem excluir importações ERP.'
+  }
+  if (normalized.includes('sem acesso')) {
+    return 'Sem acesso a esta empresa.'
+  }
+  if (normalized.includes('não encontrada') || normalized.includes('nao encontrada')) {
+    return 'Essa importação já não está mais disponível.'
+  }
+  if (
+    normalized.includes('usuário não autenticado') ||
+    normalized.includes('not authenticated')
+  ) {
+    return 'Sua sessão expirou. Entre novamente para continuar.'
+  }
+  if (
+    normalized.includes('direct deletion from storage') ||
+    normalized.includes('use the storage api')
+  ) {
+    return 'Não foi possível excluir a importação. Atualize o banco (migration de storage) e tente de novo.'
+  }
+  return message.trim() || 'Não foi possível excluir a importação.'
+}
+
+async function removeErpImportFile(
+  companyId: string,
+  filePath?: string | null,
+) {
+  if (!isCompanyScopedStoragePath(companyId, filePath)) return
+  const { error } = await supabase.storage.from('erp-imports').remove([filePath])
+  if (error) {
+    // Dados já foram removidos pela RPC; falha no arquivo não reverte a exclusão.
+    console.error('Erro ao excluir arquivo ERP via Storage API:', error)
   }
 }
 
