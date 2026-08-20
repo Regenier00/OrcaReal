@@ -105,11 +105,11 @@ export function ImportErpPage() {
   return (
     <ActualPageShell
       title="Importar ERP"
-      description="Importe lançamentos de ERPs (XLSX/CSV). Após o parse e a normalização, contas mapeadas no plano da empresa são apropriadas automaticamente; as demais recebem sugestão por prefixo ou descrição."
+      description="Importe lançamentos de ERPs (XLSX/CSV). Contas cujo prefixo está cadastrado na empresa entram no grupo certo; o destino é o centro de custo do arquivo."
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to="/app/empresa?tab=classificacao">
-            <Button variant="secondary">Plano de contas</Button>
+            <Button variant="secondary">Prefixos por grupo</Button>
           </Link>
           <Link to={ERP_PATHS.review}>
             <Button variant="secondary">Revisar lançamentos</Button>

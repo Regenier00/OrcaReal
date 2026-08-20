@@ -36,14 +36,13 @@ export async function listCompanyChartAccounts(
     .eq('company_id', companyId)
     .eq('is_active', true)
     .order('money_group', { ascending: true })
-    .order('match_kind', { ascending: true })
     .order('account_code', { ascending: true })
 
   if (error) {
     console.error('Erro ao listar plano de contas:', error)
     return {
       ok: false,
-      message: 'Não foi possível carregar o plano de contas.',
+      message: 'Não foi possível carregar a classificação.',
     }
   }
   return { ok: true, data: (data ?? []) as CompanyChartAccount[] }
@@ -53,39 +52,35 @@ export async function createCompanyChartAccount(input: {
   companyId: string
   accountCode: string
   accountName?: string
-  matchKind: ChartAccountMatchKind
+  matchKind?: ChartAccountMatchKind
   moneyGroup: MoneyGroup
-  destinationId?: string | null
-  destinationName: string
+  destinationName?: string
   priority?: number
 }): Promise<ChartAccountResult<CompanyChartAccount>> {
   const code = input.accountCode.trim()
-  const destinationName = input.destinationName.trim()
   if (!code) {
-    return { ok: false, message: 'Informe o código ou prefixo da conta.' }
-  }
-  if (!destinationName) {
-    return { ok: false, message: 'Informe o destino da classificação.' }
+    return { ok: false, message: 'Informe o prefixo da conta.' }
   }
 
   const { data, error } = await supabase.rpc('upsert_company_chart_account', {
     p_company_id: input.companyId,
     p_account_code: code,
     p_account_name: input.accountName?.trim() || null,
-    p_match_kind: input.matchKind,
+    p_match_kind: input.matchKind ?? 'prefix',
     p_money_group: input.moneyGroup,
-    p_destination_id: input.destinationId ?? null,
-    p_destination_name: destinationName,
+    p_destination_id: null,
+    p_destination_name:
+      input.destinationName?.trim() || 'Centro de custo do arquivo',
     p_department_id: null,
     p_cost_center_id: null,
-    p_priority: input.priority ?? (input.matchKind === 'prefix' ? 40 : 100),
+    p_priority: input.priority ?? 40,
   })
 
   if (error) {
-    console.error('Erro ao salvar conta do plano:', error)
+    console.error('Erro ao salvar prefixo:', error)
     return {
       ok: false,
-      message: error.message || 'Não foi possível salvar a conta.',
+      message: error.message || 'Não foi possível salvar o prefixo.',
     }
   }
 
@@ -98,7 +93,7 @@ export async function createCompanyChartAccount(input: {
   if (loadError || !row) {
     return {
       ok: false,
-      message: 'Conta salva, mas não foi possível recarregar o registro.',
+      message: 'Prefixo salvo, mas não foi possível recarregar o registro.',
     }
   }
   return { ok: true, data: row as CompanyChartAccount }
@@ -113,27 +108,11 @@ export async function deleteCompanyChartAccount(
     .eq('id', accountId)
 
   if (error) {
-    console.error('Erro ao remover conta do plano:', error)
+    console.error('Erro ao remover prefixo:', error)
     return {
       ok: false,
-      message: error.message || 'Não foi possível remover a conta.',
+      message: error.message || 'Não foi possível remover o prefixo.',
     }
   }
   return { ok: true, data: true }
-}
-
-export async function seedCompanyChartDefaults(
-  companyId: string,
-): Promise<ChartAccountResult<number>> {
-  const { data, error } = await supabase.rpc('seed_company_chart_defaults', {
-    p_company_id: companyId,
-  })
-  if (error) {
-    console.error('Erro ao aplicar estrutura padrão:', error)
-    return {
-      ok: false,
-      message: error.message || 'Não foi possível aplicar a estrutura padrão.',
-    }
-  }
-  return { ok: true, data: Number(data ?? 0) }
 }

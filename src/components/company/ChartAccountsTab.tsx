@@ -4,20 +4,26 @@ import {
   createCompanyChartAccount,
   deleteCompanyChartAccount,
   listCompanyChartAccounts,
-  seedCompanyChartDefaults,
 } from '@/features/erp/chartAccountService'
-import { ERP_MONEY_GROUP_LABEL, ERP_PATHS } from '@/features/erp/model'
-import { listCompanyBudgetDestinations } from '@/features/actual/actualService'
+import { ERP_PATHS } from '@/features/erp/model'
 import { MONEY_GROUPS } from '@/features/budget/model'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
-import type {
-  BudgetDestination,
-  ChartAccountMatchKind,
-  CompanyChartAccount,
-  MoneyGroup,
-} from '@/types/database'
+import type { CompanyChartAccount, MoneyGroup } from '@/types/database'
+
+const GROUP_PREFIX_HINT: Record<MoneyGroup, string> = {
+  revenue: 'Ex.: 3.1',
+  cost: 'Ex.: 4.1',
+  expense: 'Ex.: 4.2',
+  investment: 'Ex.: 1.2',
+}
+
+const GROUP_QUESTION: Record<MoneyGroup, string> = {
+  revenue: 'Qual prefixo das contas de receita?',
+  cost: 'Qual prefixo das contas de custo?',
+  expense: 'Qual prefixo das contas de despesa?',
+  investment: 'Qual prefixo das contas de investimento?',
+}
 
 export function ChartAccountsTab({
   companyId,
@@ -27,48 +33,37 @@ export function ChartAccountsTab({
   canEdit: boolean
 }) {
   const [items, setItems] = useState<CompanyChartAccount[]>([])
-  const [destinations, setDestinations] = useState<BudgetDestination[]>([])
-  const [accountCode, setAccountCode] = useState('')
-  const [accountName, setAccountName] = useState('')
-  const [matchKind, setMatchKind] = useState<ChartAccountMatchKind>('exact')
-  const [moneyGroup, setMoneyGroup] = useState<MoneyGroup | ''>('')
-  const [destinationKey, setDestinationKey] = useState('')
-  const [destinationName, setDestinationName] = useState('')
+  const [drafts, setDrafts] = useState<Record<MoneyGroup, string>>({
+    revenue: '',
+    cost: '',
+    expense: '',
+    investment: '',
+  })
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [seeding, setSeeding] = useState(false)
-  const [filterGroup, setFilterGroup] = useState<MoneyGroup | ''>('')
+  const [savingGroup, setSavingGroup] = useState<MoneyGroup | null>(null)
 
   const reload = useCallback(async () => {
-    const [accounts, nextDestinations] = await Promise.all([
-      listCompanyChartAccounts(companyId),
-      listCompanyBudgetDestinations(companyId),
-    ])
+    const accounts = await listCompanyChartAccounts(companyId)
     if (!accounts.ok) {
       setError(accounts.message)
       return
     }
     setError('')
-    setItems(accounts.data)
-    setDestinations(nextDestinations)
+    setItems(accounts.data.filter((item) => item.match_kind === 'prefix'))
   }, [companyId])
 
   useEffect(() => {
     let mounted = true
-    void Promise.all([
-      listCompanyChartAccounts(companyId),
-      listCompanyBudgetDestinations(companyId),
-    ]).then(([accounts, nextDestinations]) => {
+    void listCompanyChartAccounts(companyId).then((accounts) => {
       if (!mounted) return
       if (!accounts.ok) {
         setError(accounts.message)
       } else {
         setError('')
-        setItems(accounts.data)
+        setItems(accounts.data.filter((item) => item.match_kind === 'prefix'))
       }
-      setDestinations(nextDestinations)
       setLoading(false)
     })
     return () => {
@@ -76,86 +71,49 @@ export function ChartAccountsTab({
     }
   }, [companyId])
 
-  const destinationOptions = useMemo(() => {
-    if (!moneyGroup) return []
-    return destinations.filter((item) => item.money_group === moneyGroup)
-  }, [destinations, moneyGroup])
-
-  const grouped = useMemo(() => {
-    const visible = filterGroup
-      ? items.filter((item) => item.money_group === filterGroup)
-      : items
+  const byGroup = useMemo(() => {
     return MONEY_GROUPS.map((group) => ({
       group,
-      accounts: visible.filter((item) => item.money_group === group.id),
-    })).filter((row) => row.accounts.length > 0 || (!filterGroup && items.length === 0))
-  }, [items, filterGroup])
+      prefixes: items
+        .filter((item) => item.money_group === group.id)
+        .sort((a, b) => a.account_code.localeCompare(b.account_code, 'pt-BR')),
+    }))
+  }, [items])
 
-  const handleAdd = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!canEdit || saving) return
-    if (!moneyGroup) {
-      setError('Selecione o grupo (Receita, Custo, Despesa ou Investimento).')
-      return
-    }
-    const selectedDestination = destinations.find(
-      (item) => item.id === destinationKey,
-    )
-    const name =
-      selectedDestination?.name?.trim() || destinationName.trim()
-    if (!name) {
-      setError('Informe o destino (ex.: Receitas operacionais).')
+  const handleAddPrefix = async (moneyGroup: MoneyGroup) => {
+    if (!canEdit || savingGroup) return
+    const prefix = drafts[moneyGroup].trim()
+    if (!prefix) {
+      setError('Informe o prefixo usado pela empresa nesse grupo.')
       return
     }
 
-    setSaving(true)
+    setSavingGroup(moneyGroup)
     setError('')
     setMessage('')
     const result = await createCompanyChartAccount({
       companyId,
-      accountCode,
-      accountName,
-      matchKind,
+      accountCode: prefix,
+      accountName: `Prefixo ${groupLabel(moneyGroup)}`,
+      matchKind: 'prefix',
       moneyGroup,
-      destinationId: selectedDestination?.id ?? null,
-      destinationName: name,
+      destinationName: 'Centro de custo do arquivo',
+      priority: 40,
     })
-    setSaving(false)
+    setSavingGroup(null)
     if (!result.ok) {
       setError(result.message)
       return
     }
-    setAccountCode('')
-    setAccountName('')
-    setDestinationKey('')
-    setDestinationName('')
+    setDrafts((current) => ({ ...current, [moneyGroup]: '' }))
     setMessage(
-      matchKind === 'exact'
-        ? 'Conta mapeada. Nas próximas importações ela será apropriada automaticamente.'
-        : 'Prefixo salvo. Contas com esse início receberão sugestão de classificação.',
-    )
-    await reload()
-  }
-
-  const handleSeed = async () => {
-    if (!canEdit || seeding) return
-    setSeeding(true)
-    setError('')
-    setMessage('')
-    const result = await seedCompanyChartDefaults(companyId)
-    setSeeding(false)
-    if (!result.ok) {
-      setError(result.message)
-      return
-    }
-    setMessage(
-      `Estrutura inicial aplicada (${result.data} contas/prefixos ativos). Ajuste conforme o plano de contas da empresa.`,
+      `Prefixo ${prefix} salvo em ${groupLabel(moneyGroup)}. No upload, contas com esse início serão apropriadas nesse grupo e o destino virá do centro de custo do arquivo.`,
     )
     await reload()
   }
 
   if (loading) {
-    return <p className="text-sm text-mist">Carregando plano de contas...</p>
+    return <p className="text-sm text-mist">Carregando classificação...</p>
   }
 
   return (
@@ -166,201 +124,112 @@ export function ChartAccountsTab({
             Classificação financeira
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-mist">
-            Defina o plano de contas da empresa nos grupos{' '}
-            <span className="font-medium text-ink">Receita</span>,{' '}
-            <span className="font-medium text-ink">Custo</span>,{' '}
-            <span className="font-medium text-ink">Despesa</span> e{' '}
-            <span className="font-medium text-ink">Investimento</span>. Contas
-            com código exato são apropriadas automaticamente no upload do
-            realizado; prefixos e descrições só sugerem para confirmação.
+            Informe o prefixo que a empresa usa em cada grupo. No upload do
+            realizado, contas com esse prefixo entram no grupo correspondente e o{' '}
+            <span className="font-medium text-ink">destino</span> é o centro de
+            custo que veio no arquivo.
           </p>
         </div>
-        <Link to={ERP_PATHS.import} className="text-sm font-medium text-navy-bright hover:underline">
+        <Link
+          to={ERP_PATHS.import}
+          className="text-sm font-medium text-navy-bright hover:underline"
+        >
           Importar realizado ERP
         </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Select
-          label="Filtrar grupo"
-          value={filterGroup}
-          onChange={(event) =>
-            setFilterGroup(event.target.value as MoneyGroup | '')
-          }
-        >
-          <option value="">Todos</option>
-          {MONEY_GROUPS.map((group) => (
-            <option key={group.id} value={group.id}>
+      <div className="space-y-4">
+        {byGroup.map(({ group, prefixes }) => (
+          <section
+            key={group.id}
+            className="rounded-2xl border border-paper-muted bg-paper/30 px-4 py-4 sm:px-5"
+          >
+            <h3 className="font-display text-lg font-semibold text-navy">
               {group.label}
-            </option>
-          ))}
-        </Select>
-        {canEdit ? (
-          <div className="flex items-end">
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={seeding}
-              onClick={() => void handleSeed()}
-            >
-              {seeding ? 'Aplicando…' : 'Usar prefixos típicos'}
-            </Button>
-          </div>
-        ) : null}
+            </h3>
+            <p className="mt-1 text-sm text-mist">{group.description}</p>
+            <p className="mt-3 text-sm font-medium text-ink">
+              {GROUP_QUESTION[group.id]}
+            </p>
+
+            {prefixes.length > 0 ? (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {prefixes.map((item) => (
+                  <li
+                    key={item.id}
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm text-ink ring-1 ring-paper-muted"
+                  >
+                    <span className="font-mono font-medium">{item.account_code}</span>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className="text-xs text-mist hover:text-danger"
+                        aria-label={`Remover prefixo ${item.account_code}`}
+                        onClick={() => {
+                          void deleteCompanyChartAccount(item.id).then((result) => {
+                            if (!result.ok) setError(result.message)
+                            else void reload()
+                          })
+                        }}
+                      >
+                        Remover
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-mist">
+                Nenhum prefixo cadastrado neste grupo.
+              </p>
+            )}
+
+            {canEdit ? (
+              <form
+                className="mt-4 flex flex-wrap items-end gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void handleAddPrefix(group.id)
+                }}
+              >
+                <div className="min-w-[10rem] flex-1">
+                  <Input
+                    label="Prefixo"
+                    value={drafts[group.id]}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [group.id]: event.target.value,
+                      }))
+                    }
+                    placeholder={GROUP_PREFIX_HINT[group.id]}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={savingGroup === group.id}
+                  className="mb-0.5"
+                >
+                  {savingGroup === group.id ? 'Salvando…' : 'Adicionar prefixo'}
+                </Button>
+              </form>
+            ) : null}
+          </section>
+        ))}
       </div>
 
-      {items.length === 0 ? (
-        <p className="rounded-xl bg-paper px-4 py-3 text-sm text-mist">
-          Nenhuma conta mapeada ainda. Cadastre códigos do ERP ou aplique os
-          prefixos típicos (3 → Receita, 4.1 → Custo, 4.2 → Despesa, 1.2/1.3 →
-          Investimento).
-        </p>
-      ) : (
-        <div className="space-y-5">
-          {grouped.map(({ group, accounts }) =>
-            accounts.length === 0 ? null : (
-              <section key={group.id}>
-                <h3 className="font-display text-base font-semibold text-navy">
-                  {group.label}
-                </h3>
-                <p className="text-xs text-mist">{group.description}</p>
-                <ul className="mt-3 divide-y divide-paper-muted">
-                  {accounts.map((item) => (
-                    <li
-                      key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-3 py-3"
-                    >
-                      <div>
-                        <p className="font-medium text-ink">
-                          <span className="font-mono text-sm">
-                            {item.account_code}
-                          </span>
-                          {item.account_name ? (
-                            <span className="text-ink-soft">
-                              {' '}
-                              · {item.account_name}
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="mt-0.5 text-xs text-mist">
-                          {item.match_kind === 'exact'
-                            ? 'Código exato · apropria no upload'
-                            : 'Prefixo · sugere classificação'}
-                          {' · '}
-                          {item.destination_name}
-                        </p>
-                      </div>
-                      {canEdit ? (
-                        <Button
-                          variant="secondary"
-                          onClick={() => {
-                            void deleteCompanyChartAccount(item.id).then(
-                              (result) => {
-                                if (!result.ok) setError(result.message)
-                                else void reload()
-                              },
-                            )
-                          }}
-                        >
-                          Remover
-                        </Button>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ),
-          )}
-        </div>
-      )}
-
-      {canEdit ? (
-        <form
-          onSubmit={(event) => void handleAdd(event)}
-          className="grid max-w-3xl gap-3 rounded-2xl border border-paper-muted bg-paper/40 p-4 sm:grid-cols-2"
-        >
-          <h3 className="font-display text-lg font-semibold text-navy sm:col-span-2">
-            Adicionar conta ou prefixo
-          </h3>
-          <Input
-            label="Código / prefixo"
-            value={accountCode}
-            onChange={(event) => setAccountCode(event.target.value)}
-            placeholder={matchKind === 'prefix' ? 'Ex.: 4.1' : 'Ex.: 3.1.01'}
-            required
-          />
-          <Input
-            label="Descrição (opcional)"
-            value={accountName}
-            onChange={(event) => setAccountName(event.target.value)}
-            placeholder="Ex.: Vendas de mercadorias"
-          />
-          <Select
-            label="Correspondência"
-            value={matchKind}
-            onChange={(event) =>
-              setMatchKind(event.target.value as ChartAccountMatchKind)
-            }
-          >
-            <option value="exact">Código exato (apropria automático)</option>
-            <option value="prefix">Prefixo (só sugere)</option>
-          </Select>
-          <Select
-            label="Grupo"
-            value={moneyGroup}
-            onChange={(event) => {
-              setMoneyGroup(event.target.value as MoneyGroup | '')
-              setDestinationKey('')
-            }}
-            required
-          >
-            <option value="">Selecione…</option>
-            {MONEY_GROUPS.map((group) => (
-              <option key={group.id} value={group.id}>
-                {ERP_MONEY_GROUP_LABEL[group.id]}
-              </option>
-            ))}
-          </Select>
-          <Select
-            label="Destino cadastrado"
-            value={destinationKey}
-            onChange={(event) => {
-              setDestinationKey(event.target.value)
-              const found = destinations.find(
-                (item) => item.id === event.target.value,
-              )
-              if (found) setDestinationName(found.name)
-            }}
-            disabled={!moneyGroup}
-          >
-            <option value="">Novo / digitar abaixo…</option>
-            {destinationOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </Select>
-          <Input
-            label="Nome do destino"
-            value={destinationName}
-            onChange={(event) => setDestinationName(event.target.value)}
-            placeholder="Ex.: Receitas operacionais"
-            disabled={Boolean(destinationKey)}
-          />
-          <div className="sm:col-span-2">
-            <Button type="submit" disabled={saving}>
-              {saving ? 'Salvando…' : 'Salvar no plano de contas'}
-            </Button>
-          </div>
-        </form>
-      ) : (
+      {!canEdit ? (
         <p className="text-sm text-mist">
-          Somente administradores e membros podem editar o plano de contas.
+          Somente administradores e membros podem editar os prefixos.
         </p>
-      )}
+      ) : null}
 
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       {message ? <p className="text-sm text-ok">{message}</p> : null}
     </div>
   )
+}
+
+function groupLabel(group: MoneyGroup) {
+  return MONEY_GROUPS.find((item) => item.id === group)?.label ?? group
 }
