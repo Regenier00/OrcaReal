@@ -21,7 +21,11 @@ import {
   PRODUCTS_OTHER_DESCRIBE_QUESTION,
   PRODUCTS_OTHER_MATCHES_QUESTION,
 } from '@/features/experience/catalog/sectorProducts'
-import { searchSectorProducts, toQuestionOptions } from '@/features/experience/sectorProductSearch'
+import {
+  MAX_SECTOR_PRODUCT_QUERY_LENGTH,
+  searchSectorProducts,
+  toQuestionOptions,
+} from '@/features/experience/sectorProductSearch'
 import { readStoredCompanyLocation } from '@/features/company/onboardingFlag'
 import { markTourPending } from '@/features/tour/storage'
 import { QuestionCard } from '@/components/experience/QuestionCard'
@@ -89,9 +93,18 @@ export function ExperienceWizardPage() {
     })
   }, [catalog, segmentCode, answers])
 
+  const productSearchSegmentCode = ctx?.segmentCode
+  const productSearchExtraSegmentsKey = ctx?.extraSegmentCodes.join('|') ?? ''
+  const productSearchQuery =
+    current?.optionSource === 'sector_products_query' &&
+    typeof answers.products_other_describe === 'string'
+      ? answers.products_other_describe
+      : null
+
   useEffect(() => {
-    if (!current || !ctx) {
+    if (!current || !productSearchSegmentCode) {
       setSmartOptions(null)
+      setLoadingProducts(false)
       return
     }
     if (
@@ -99,35 +112,52 @@ export function ExperienceWizardPage() {
       current.optionSource !== 'sector_products_query'
     ) {
       setSmartOptions(null)
+      setLoadingProducts(false)
       return
     }
 
+    // Digitar em "Outro" atualiza answers/ctx; não rebuscar na tela de produtos
+    // (só a tela de matches usa o texto como query). Evita RPC a cada tecla,
+    // rate limit e desmontagem do input.
+    const segmentCodes = [
+      productSearchSegmentCode,
+      ...productSearchExtraSegmentsKey.split('|').filter(Boolean),
+    ]
+    const optionSource = current.optionSource
     let mounted = true
     setLoadingProducts(true)
-    const query =
-      current.optionSource === 'sector_products_query' &&
-      typeof answers.products_other_describe === 'string'
-        ? answers.products_other_describe
-        : null
 
     void searchSectorProducts({
-      segmentCodes: [ctx.segmentCode, ...ctx.extraSegmentCodes],
-      query,
+      segmentCodes,
+      query: productSearchQuery,
       companyId: activeCompany?.id ?? null,
-    }).then((products) => {
-      if (!mounted) return
-      setSmartOptions(
-        toQuestionOptions(products, {
-          includeOther: current.optionSource === 'sector_products',
-        })
-      )
-      setLoadingProducts(false)
     })
+      .then((products) => {
+        if (!mounted) return
+        setSmartOptions(
+          toQuestionOptions(products, {
+            includeOther: optionSource === 'sector_products',
+          })
+        )
+        setLoadingProducts(false)
+      })
+      .catch(() => {
+        if (!mounted) return
+        setSmartOptions(null)
+        setLoadingProducts(false)
+      })
 
     return () => {
       mounted = false
     }
-  }, [current, ctx, answers.products_other_describe, activeCompany?.id])
+  }, [
+    current?.code,
+    current?.optionSource,
+    productSearchSegmentCode,
+    productSearchExtraSegmentsKey,
+    productSearchQuery,
+    activeCompany?.id,
+  ])
 
   if (loading && !activeCompany) {
     return <FullPageStatus title="Carregando..." />
@@ -381,46 +411,49 @@ export function ExperienceWizardPage() {
           current.optionSource === 'sector_products_query') ? (
           <p className="text-sm text-mist">Buscando produtos nas fontes do ramo...</p>
         ) : (
-          <>
-            <QuestionCard
-              question={current}
-              options={options}
-              value={answers[current.code] ?? null}
-              onChange={handleAnswerChange}
-            />
-            {current.code === PRODUCTS_OFFERED_QUESTION &&
-            (Array.isArray(answers[PRODUCTS_OFFERED_QUESTION])
-              ? answers[PRODUCTS_OFFERED_QUESTION]
-              : []
-            ).includes('outro') ? (
-              <div className="mt-5 border-t border-paper-muted pt-5">
-                <Input
-                  label="Descreva o produto ou serviço"
-                  hint="Com a descrição, buscamos nas fontes do seu ramo opções relacionadas."
-                  placeholder="Ex.: café especial, consultoria tributária..."
-                  value={
-                    typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'string' ||
-                    typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'number'
-                      ? String(answers[PRODUCTS_OTHER_DESCRIBE_QUESTION])
-                      : ''
-                  }
-                  onChange={(event) => {
-                    setError('')
-                    const nextValue = event.target.value
-                    setAnswers((currentAnswers) => {
-                      const next: ExperienceAnswers = {
-                        ...currentAnswers,
-                        [PRODUCTS_OTHER_DESCRIBE_QUESTION]: nextValue,
-                      }
-                      delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
-                      return next
-                    })
-                  }}
-                />
-              </div>
-            ) : null}
-          </>
+          <QuestionCard
+            question={current}
+            options={options}
+            value={answers[current.code] ?? null}
+            onChange={handleAnswerChange}
+          />
         )}
+        {current.code === PRODUCTS_OFFERED_QUESTION &&
+        (Array.isArray(answers[PRODUCTS_OFFERED_QUESTION])
+          ? answers[PRODUCTS_OFFERED_QUESTION]
+          : []
+        ).includes('outro') ? (
+          <div className="mt-5 border-t border-paper-muted pt-5">
+            <Input
+              label="Descreva o produto ou serviço"
+              hint="Com a descrição, buscamos nas fontes do seu ramo opções relacionadas."
+              placeholder="Ex.: café especial, consultoria tributária..."
+              maxLength={MAX_SECTOR_PRODUCT_QUERY_LENGTH}
+              autoComplete="off"
+              value={
+                typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'string' ||
+                typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'number'
+                  ? String(answers[PRODUCTS_OTHER_DESCRIBE_QUESTION])
+                  : ''
+              }
+              onChange={(event) => {
+                setError('')
+                const nextValue = event.target.value.slice(
+                  0,
+                  MAX_SECTOR_PRODUCT_QUERY_LENGTH
+                )
+                setAnswers((currentAnswers) => {
+                  const next: ExperienceAnswers = {
+                    ...currentAnswers,
+                    [PRODUCTS_OTHER_DESCRIBE_QUESTION]: nextValue,
+                  }
+                  delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
+                  return next
+                })
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
       {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}

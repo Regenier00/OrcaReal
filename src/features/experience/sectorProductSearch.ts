@@ -7,7 +7,8 @@ import {
 } from '@/features/experience/catalog/sectorProducts'
 import type { QuestionOption } from '@/features/experience/types'
 
-const MAX_QUERY_LENGTH = 120
+/** Alinhado ao sanitize do RPC `search_sector_products` (máx. 120). */
+export const MAX_SECTOR_PRODUCT_QUERY_LENGTH = 120
 const MAX_SEGMENTS = 8
 const MAX_LIMIT = 40
 
@@ -38,7 +39,7 @@ function sanitizeQuery(query?: string | null): string | null {
   if (query == null) return null
   const cleaned = query.replace(/[\u0000-\u001F\u007F]/g, '').trim()
   if (!cleaned) return null
-  return cleaned.slice(0, MAX_QUERY_LENGTH)
+  return cleaned.slice(0, MAX_SECTOR_PRODUCT_QUERY_LENGTH)
 }
 
 /** Busca produtos nas fontes do ramo (+ outras operações). Fallback local se RPC falhar. */
