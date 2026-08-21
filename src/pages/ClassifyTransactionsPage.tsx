@@ -5,7 +5,7 @@ import {
   applyTransactionSuggestions,
   classifyActualTransactions,
   listActualTransactions,
-  listCompanyBudgetDestinations,
+  listBudgetedDestinations,
   listDestinationMatchPatterns,
 } from '@/features/actual/actualService'
 import {
@@ -17,7 +17,7 @@ import {
 } from '@/features/actual/model'
 import {
   enrichTransactionSuggestion,
-  allowsNewDestinationName,
+  usesCostCenterDestinations,
   type ClassificationSuggestionContext,
 } from '@/features/actual/destinationSuggestions'
 import type {
@@ -77,15 +77,31 @@ function withClientSuggestions(
 ): ActualTransaction[] {
   return items.map((item) => {
     if (item.status !== 'pending' && item.status !== 'ignored') return item
-    if (item.suggested_money_group || item.suggested_destination_name) return item
     const enriched = enrichTransactionSuggestion(item, context)
-    if (!enriched.moneyGroup && !enriched.destinationName) return item
+    if (!enriched.moneyGroup && !enriched.destinationName) {
+      if (!item.suggested_money_group && !item.suggested_destination_name) {
+        return item
+      }
+      // Remove sugestão cujo destino não está no orçamento atual.
+      return {
+        ...item,
+        suggested_money_group: null,
+        suggested_destination_id: null,
+        suggested_destination_name: null,
+        suggestion_source: null,
+      }
+    }
     return {
       ...item,
       suggested_money_group: enriched.moneyGroup,
       suggested_destination_id: enriched.destinationId,
       suggested_destination_name: enriched.destinationName,
-      suggestion_source: enriched.source === 'context' ? 'rule' : enriched.source,
+      suggestion_source:
+        enriched.source === 'context'
+          ? 'rule'
+          : enriched.source === 'history' || enriched.source === 'rule'
+            ? enriched.source
+            : item.suggestion_source,
     }
   })
 }
@@ -101,6 +117,8 @@ export function ClassifyTransactionsPage() {
   const [search, setSearch] = useState('')
   const [moneyGroup, setMoneyGroup] = useState<MoneyGroup | ''>('')
   const [destinationKey, setDestinationKey] = useState('')
+  const [includeUnbudgeted, setIncludeUnbudgeted] = useState(false)
+  const [newDestinationName, setNewDestinationName] = useState('')
   const [nextType, setNextType] = useState<ActualTransactionType | ''>('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -125,7 +143,7 @@ export function ClassifyTransactionsPage() {
         status,
         search,
       }),
-      listCompanyBudgetDestinations(companyId).catch(() => [] as BudgetDestination[]),
+      listBudgetedDestinations(companyId).catch(() => [] as BudgetDestination[]),
       listDestinationMatchPatterns(companyId),
     ])
       .then(([nextItems, nextDestinations, patterns]) => {
@@ -174,6 +192,10 @@ export function ClassifyTransactionsPage() {
         : destinations,
     [destinations, moneyGroup]
   )
+
+  const newDestinationLabel = usesCostCenterDestinations(moneyGroup)
+    ? 'centro de custo'
+    : 'destino'
 
   useEffect(() => {
     if (!notice) return
@@ -250,6 +272,13 @@ export function ClassifyTransactionsPage() {
   }, [items])
 
   const resolveDestination = () => {
+    if (includeUnbudgeted) {
+      const name = newDestinationName.trim()
+      return {
+        destinationId: null as string | null,
+        destinationName: name || null,
+      }
+    }
     if (!destinationKey) return { destinationId: null, destinationName: null }
     const byId = destinations.find((item) => item.id === destinationKey)
     if (byId) {
@@ -266,7 +295,7 @@ export function ClassifyTransactionsPage() {
         status,
         search,
       }),
-      listCompanyBudgetDestinations(company.id).catch(() => [] as BudgetDestination[]),
+      listBudgetedDestinations(company.id).catch(() => [] as BudgetDestination[]),
       listDestinationMatchPatterns(company.id),
     ])
     const context: ClassificationSuggestionContext = {
@@ -313,6 +342,12 @@ export function ClassifyTransactionsPage() {
       setError('Informe o grupo (Receitas, Custos, Despesas ou Investimentos) para apropriar.')
       return
     }
+    if (nextStatus === 'classified' && includeUnbudgeted && !newDestinationName.trim()) {
+      setError(
+        `Informe o nome do ${newDestinationLabel} não orçado para incluir no orçamento.`,
+      )
+      return
+    }
     const destination = resolveDestination()
     setBusy(true)
     try {
@@ -322,11 +357,15 @@ export function ClassifyTransactionsPage() {
         moneyGroup: moneyGroup || null,
         destinationId: destination.destinationId,
         destinationName: destination.destinationName,
+        includeUnbudgeted:
+          nextStatus === 'classified' ? includeUnbudgeted : false,
         status: nextStatus,
         type: nextType || null,
       })
       await reload()
       setSelected([])
+      setIncludeUnbudgeted(false)
+      setNewDestinationName('')
       setError('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Não foi possível classificar.')
@@ -389,7 +428,7 @@ export function ClassifyTransactionsPage() {
     <ActualPageShell
       title="Realizados não apropriados"
       tourId="actual-classify"
-      description="Apropriar significa dizer a qual grupo e destino o lançamento pertence. O sistema aprende com as classificações confirmadas e usa fornecedores, descrições e o cadastro da empresa para sugerir."
+      description="Apropriar significa dizer a qual grupo e destino do orçamento o lançamento pertence. Só aparecem destinos e centros de custo já orçados; se for algo não previsto, use a opção de incluir no orçamento."
       actions={
         <div className="flex flex-wrap gap-2">
           <Link to={ACTUAL_PATHS.import}>
@@ -446,6 +485,8 @@ export function ClassifyTransactionsPage() {
             onChange={(event) => {
               setMoneyGroup(event.target.value as MoneyGroup | '')
               setDestinationKey('')
+              setNewDestinationName('')
+              setIncludeUnbudgeted(false)
             }}
           >
             <option value="">Selecionar</option>
@@ -459,13 +500,18 @@ export function ClassifyTransactionsPage() {
             label="Destino"
             hint={
               moneyGroup === 'cost' || moneyGroup === 'expense'
-                ? 'Centros de custo cadastrados'
+                ? 'Centros de custo já incluídos no orçamento'
                 : moneyGroup === 'revenue' || moneyGroup === 'investment'
-                  ? 'Mesmos destinos do orçamento'
-                  : 'Do orçamento (receita/investimento) ou centros de custo'
+                  ? 'Destinos já incluídos no orçamento'
+                  : 'Somente o que já está no orçamento'
             }
-            value={destinationKey}
-            onChange={(event) => setDestinationKey(event.target.value)}
+            value={includeUnbudgeted ? '' : destinationKey}
+            onChange={(event) => {
+              setIncludeUnbudgeted(false)
+              setNewDestinationName('')
+              setDestinationKey(event.target.value)
+            }}
+            disabled={includeUnbudgeted}
           >
             <option value="">Sem destino específico</option>
             {destinationsForGroup.map((item) => (
@@ -512,22 +558,55 @@ export function ClassifyTransactionsPage() {
             </Button>
           </div>
         </div>
-        {moneyGroup && allowsNewDestinationName(moneyGroup) ? (
-          <div className="mt-3">
-            <Input
-              label="Ou informe um destino novo"
-              hint="Só para receitas e investimentos — deve alinhar com o orçamento"
-              value={
-                destinationsForGroup.some((item) => item.id === destinationKey)
-                  ? ''
-                  : destinationKey
-              }
-              onChange={(event) =>
-                setDestinationKey(event.target.value.toLocaleUpperCase('pt-BR'))
-              }
-              placeholder="Ex.: VENDA DE SOJA"
-              className="text-sm tracking-wide"
-            />
+        {moneyGroup ? (
+          <div className="mt-4 space-y-3">
+            <label className="flex items-start gap-3 text-sm text-ink">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={includeUnbudgeted}
+                onChange={(event) => {
+                  const checked = event.target.checked
+                  setIncludeUnbudgeted(checked)
+                  if (checked) {
+                    setDestinationKey('')
+                  } else {
+                    setNewDestinationName('')
+                  }
+                }}
+              />
+              <span>
+                Incluir {newDestinationLabel} não orçado
+                <span className="mt-0.5 block text-xs text-mist">
+                  Cadastra no orçamento ativo (valor zero) e apropria neste destino.
+                  Use só quando o lançamento não estava previsto.
+                </span>
+              </span>
+            </label>
+            {includeUnbudgeted ? (
+              <Input
+                label={
+                  usesCostCenterDestinations(moneyGroup)
+                    ? 'Novo centro de custo'
+                    : 'Novo destino'
+                }
+                hint={
+                  usesCostCenterDestinations(moneyGroup)
+                    ? 'Será criado como centro de custo e incluído no orçamento'
+                    : 'Será incluído no orçamento ativo para não perder o realizado'
+                }
+                value={newDestinationName}
+                onChange={(event) =>
+                  setNewDestinationName(event.target.value.toLocaleUpperCase('pt-BR'))
+                }
+                placeholder={
+                  usesCostCenterDestinations(moneyGroup)
+                    ? 'Ex.: LOGÍSTICA'
+                    : 'Ex.: VENDA DE SOJA'
+                }
+                className="text-sm tracking-wide"
+              />
+            ) : null}
           </div>
         ) : null}
       </section>
