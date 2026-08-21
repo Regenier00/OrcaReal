@@ -3,6 +3,7 @@
  * que é o que o gateway exige no erro "No API key found in request".
  */
 function withApiKeyQuery(input: string, apiKey: string): string {
+  if (!/^https?:\/\//i.test(input)) return input
   const url = new URL(input)
   if (!url.searchParams.get('apikey')?.trim()) {
     url.searchParams.set('apikey', apiKey)
@@ -46,6 +47,11 @@ try {
   })
 
   assert(calls.length === 2, 'duas chamadas')
+  assert(
+    withApiKeyQuery('https//broken.supabase.co/auth/v1/token', key) ===
+      'https//broken.supabase.co/auth/v1/token',
+    'não reescreve URL relativa/malformada',
+  )
   assert(
     calls.every((item) => item.apikey === key),
     'header apikey sempre forçado',
