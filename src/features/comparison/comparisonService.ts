@@ -7,7 +7,8 @@ import { listClassifiedErpSlices } from '@/features/erp/erpService'
 import { getCompanyBudget, listCompanyBudgets } from '@/features/budget/budgetService'
 import type { LoadedBudget } from '@/features/budget/model'
 import type { ClassifiedActualSlice, LoadedActual } from '@/features/actual/model'
-import type { SystemIndicator } from '@/types/database'
+import type { MoneyGroup, SystemIndicator } from '@/types/database'
+import type { ComparisonRow, ComparisonSummary } from '@/features/comparison/model'
 
 export interface ComparisonPair {
   budget: LoadedBudget
@@ -80,4 +81,98 @@ export async function listSystemIndicators(): Promise<SystemIndicator[]> {
   }
 
   return (data ?? []) as SystemIndicator[]
+}
+
+
+export interface BudgetVsActualMonth {
+  key: string
+  label: string
+  year: number
+  month: number
+}
+
+export interface BudgetVsActualPresentation {
+  companyId: string
+  budgetId: string
+  moneyGroup: MoneyGroup
+  monthKey: string
+  startDate: string
+  endDate: string
+  months: BudgetVsActualMonth[]
+  hasRealized: boolean
+  summary: ComparisonSummary
+  rows: ComparisonRow[]
+}
+
+/** Orçado × Realizado por grupo — agregação e regras no Postgres. */
+export async function loadBudgetVsActualByMoneyGroup(input: {
+  companyId: string
+  budgetId: string
+  moneyGroup: MoneyGroup
+  monthKey?: string
+}): Promise<BudgetVsActualPresentation> {
+  const { data, error } = await supabase.rpc('get_budget_vs_actual_by_money_group', {
+    p_company_id: input.companyId,
+    p_budget_id: input.budgetId,
+    p_money_group: input.moneyGroup,
+    p_month_key: input.monthKey ?? 'all',
+  })
+
+  if (error) {
+    console.error('Erro ao carregar Orçado × Realizado:', error)
+    throw new Error(error.message || 'Não foi possível carregar a comparação.')
+  }
+
+  const payload = (data ?? {}) as Record<string, unknown>
+  const summaryRaw = (payload.summary ?? {}) as Record<string, unknown>
+  const budget = Number(summaryRaw.budget ?? 0)
+  const actual = Number(summaryRaw.actual ?? 0)
+  const variance = Number(summaryRaw.variance ?? actual - budget)
+  const variancePctRaw = summaryRaw.variance_pct
+  const variancePct =
+    variancePctRaw == null || variancePctRaw === ''
+      ? Number.NaN
+      : Number(variancePctRaw)
+
+  const rowsRaw = Array.isArray(payload.rows) ? payload.rows : []
+  const rows: ComparisonRow[] = rowsRaw.map((row) => {
+    const item = (row ?? {}) as Record<string, unknown>
+    const rowBudget = Number(item.budget ?? 0)
+    const rowActual = Number(item.actual ?? 0)
+    const rowVariance = Number(item.variance ?? rowActual - rowBudget)
+    const rowPct = item.variance_pct
+    return {
+      key: String(item.key ?? item.label ?? ''),
+      label: String(item.label ?? 'Sem destino'),
+      budget: rowBudget,
+      actual: rowActual,
+      variance: rowVariance,
+      variancePct:
+        rowPct == null || rowPct === '' ? Number.NaN : Number(rowPct),
+    }
+  })
+
+  const monthsRaw = Array.isArray(payload.months) ? payload.months : []
+  const months: BudgetVsActualMonth[] = monthsRaw.map((month) => {
+    const item = (month ?? {}) as Record<string, unknown>
+    return {
+      key: String(item.key ?? ''),
+      label: String(item.label ?? item.key ?? ''),
+      year: Number(item.year ?? 0),
+      month: Number(item.month ?? 0),
+    }
+  })
+
+  return {
+    companyId: String(payload.company_id ?? input.companyId),
+    budgetId: String(payload.budget_id ?? input.budgetId),
+    moneyGroup: (payload.money_group as MoneyGroup) ?? input.moneyGroup,
+    monthKey: String(payload.month_key ?? input.monthKey ?? 'all'),
+    startDate: String(payload.start_date ?? ''),
+    endDate: String(payload.end_date ?? ''),
+    months,
+    hasRealized: Boolean(payload.has_realized),
+    summary: { budget, actual, variance, variancePct },
+    rows,
+  }
 }

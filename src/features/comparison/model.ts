@@ -7,6 +7,7 @@ import type { ClassifiedActualSlice } from '@/features/actual/model'
 import {
   classifiedAmountForComparison,
   isComparisonCategory,
+  isComparisonMoneyGroup,
 } from '@/features/comparison/classified'
 
 export type ComparisonMonthKey = 'all' | string
@@ -117,7 +118,7 @@ export function buildComparisonLines(
     item: LoadedBudgetItem,
     side: 'budget' | 'actual'
   ) => {
-    if (item.moneyGroup === 'revenue') return
+    if (item.moneyGroup && !isComparisonMoneyGroup(item.moneyGroup)) return
     const key = structureKey(item)
     const names = itemLabel(item)
     const current = map.get(key) ?? createLine({
@@ -197,7 +198,11 @@ export function addClassifiedActualsToLines(
   const monthKeys = new Set(months.map((month) => month.key))
 
   for (const slice of slices) {
-    const amount = classifiedAmountForComparison(slice.type, slice.amount)
+    const amount = classifiedAmountForComparison(
+      slice.type,
+      slice.amount,
+      slice.moneyGroup
+    )
     if (!slice.costCenterId || !monthKeys.has(slice.monthKey) || amount === 0) continue
 
     let target = findClassifiedTarget(next, slice)
