@@ -112,6 +112,7 @@ export function ExperienceWizardPage() {
     void searchSectorProducts({
       segmentCodes: [ctx.segmentCode, ...ctx.extraSegmentCodes],
       query,
+      companyId: activeCompany?.id ?? null,
     }).then((products) => {
       if (!mounted) return
       setSmartOptions(
@@ -125,7 +126,7 @@ export function ExperienceWizardPage() {
     return () => {
       mounted = false
     }
-  }, [current, ctx, answers.products_other_describe])
+  }, [current, ctx, answers.products_other_describe, activeCompany?.id])
 
   if (loading && !activeCompany) {
     return <FullPageStatus title="Carregando..." />
