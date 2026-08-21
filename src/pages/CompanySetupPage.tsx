@@ -3,10 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import { setupCompanyEnvironment } from '@/features/company/companyService'
 import { clearCompanyOnboardingFlag } from '@/features/company/onboardingFlag'
-import {
-  DEFAULT_COST_CENTER_NAMES,
-  DEFAULT_DEPARTMENT_NAMES,
-} from '@/features/company/defaultDepartments'
+import { DEFAULT_DEPARTMENT_NAMES } from '@/features/company/defaultDepartments'
 import {
   isSegmentCode,
   type SegmentCode,
@@ -37,7 +34,7 @@ export function CompanySetupPage() {
       segmentCode,
       customSegment: companyProfile?.custom_segment ?? '',
       departments: DEFAULT_DEPARTMENT_NAMES,
-      costCenters: DEFAULT_COST_CENTER_NAMES,
+      costCenters: [],
     }
   }, [activeCompany, companyProfile, segmentCode])
 
@@ -86,8 +83,9 @@ export function CompanySetupPage() {
         Configure seu ambiente
       </h1>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-mist sm:text-base">
-        Defina o essencial para começar. Nada aqui é obrigatório — você pode
-        ajustar departamentos e centros de custo depois.
+        A empresa nasce sem centros de custo. Aplique as sugestões ou importe a
+        sua lista para liberar a criação do orçamento — você também pode fazer
+        isso depois em Empresa → Centros de custo.
       </p>
 
       <div className="mt-8">
