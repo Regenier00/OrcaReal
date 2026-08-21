@@ -312,11 +312,9 @@ export function ImportStatementPage() {
                     label: 'Não apropriados',
                     value: String(current.pending_count),
                     hint:
-                      current.duplicate_count > 0
-                        ? `${current.duplicate_count} duplicidade(s) ignorada(s)`
-                        : current.error_count > 0
-                          ? `${current.error_count} erro(s)`
-                          : undefined,
+                      current.error_count > 0
+                        ? `${current.error_count} erro(s)`
+                        : undefined,
                   },
                 ]}
               />

@@ -1,6 +1,6 @@
 export function completedStatementMessage(item: {
   transaction_count: number
-  duplicate_count: number
+  duplicate_count?: number
 }) {
   const success = 'Extrato importado com sucesso'
   if (item.transaction_count === 1) {
@@ -8,9 +8,6 @@ export function completedStatementMessage(item: {
   }
   if (item.transaction_count > 1) {
     return `${success}. ${item.transaction_count} lançamentos lidos.`
-  }
-  if (item.duplicate_count > 0) {
-    return `${success}. Nenhum lançamento novo — as duplicidades foram ignoradas.`
   }
   return `${success}.`
 }
