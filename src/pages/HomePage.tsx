@@ -41,8 +41,8 @@ export function HomePage() {
           </h1>
 
           <p className="animate-fade-up-late mt-4 max-w-xl text-base leading-relaxed text-mist sm:text-lg">
-            Plataforma de análise financeira focada em Orçado × Realizado —
-            experimente antes de criar conta.
+            Você define quanto pretende gastar. O sistema acompanha automaticamente
+            onde o dinheiro está indo e mostra onde você está fugindo do planejado.
           </p>
 
           <div className="animate-fade-up-late mt-7 flex flex-wrap items-center gap-3">
