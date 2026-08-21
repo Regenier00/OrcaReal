@@ -118,9 +118,13 @@ export function mapAuthError(message: string): string {
   if (
     normalized.includes('failed to fetch') ||
     normalized.includes('networkerror') ||
-    normalized.includes('supabaseurl is required')
+    normalized.includes('supabaseurl is required') ||
+    normalized.includes('err_name_not_resolved') ||
+    normalized.includes('name_not_resolved') ||
+    normalized.includes('getaddrinfo') ||
+    normalized.includes('enotfound')
   ) {
-    return 'Não foi possível conectar ao servidor de autenticação. Verifique a configuração.'
+    return 'Não foi possível alcançar o Supabase (DNS/rede). Confira se VITE_SUPABASE_URL está como https://SEU_REF.supabase.co (com ://), abra essa URL no navegador e reinicie o npm run dev. VPN, adblock ou DNS local também podem bloquear.'
   }
 
   if (isMissingApiKeyMessage(normalized)) {

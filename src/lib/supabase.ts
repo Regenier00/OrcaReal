@@ -73,14 +73,19 @@ export function getSupabaseRuntimeInfo(): {
 
 function withApiKeyQuery(input: RequestInfo | URL, apiKey: string): RequestInfo | URL {
   try {
-    const url =
+    const raw =
       typeof input === 'string'
-        ? new URL(input, typeof window !== 'undefined' ? window.location.href : undefined)
+        ? input
         : input instanceof URL
-          ? new URL(input.toString())
-          : new URL(input.url)
+          ? input.toString()
+          : input.url
 
-    // Só reforça em URLs do projeto Supabase (REST/Storage/Auth/Functions).
+    // Nunca resolve URL relativa contra o origin do app — isso transformava
+    // "https//projeto.supabase.co/..." em "http://localhost/.../https//..." e
+    // quebrava auth com ERR_NAME_NOT_RESOLVED / Failed to fetch.
+    if (!/^https?:\/\//i.test(raw)) return input
+
+    const url = new URL(raw)
     if (!/supabase\.(co|in)|localhost|127\.0\.0\.1/i.test(url.hostname)) {
       return input
     }

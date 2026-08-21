@@ -88,4 +88,14 @@ assert(
   'sem config continua pedindo .env'
 )
 
+assert(
+  mapAuthError('Failed to fetch').includes('DNS/rede'),
+  'traduz falha de rede/DNS do login'
+)
+
+assert(
+  mapAuthError('net::ERR_NAME_NOT_RESOLVED').includes('https://SEU_REF.supabase.co'),
+  'traduz ERR_NAME_NOT_RESOLVED com orientação de URL'
+)
+
 console.log('authErrors tests ok')
