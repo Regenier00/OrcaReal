@@ -147,7 +147,11 @@ assert(
 )
 assert(
   QUESTIONS.some((question) => question.code === 'products_other_describe'),
-  'fluxo Outro pede descrição do produto'
+  'descrição de Outro existe no catálogo para o perfil econômico'
+)
+assert(
+  QUESTIONS.find((question) => question.code === 'products_other_describe')?.showWhen == null,
+  'descrição de Outro não é passo separado: campo na mesma tela'
 )
 
 const alreadyTracks = [

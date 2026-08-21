@@ -14,8 +14,12 @@ import {
   OTHER_PRODUCT_OPTION,
   productOptionLabel,
   productOptionValue,
+  PRODUCTS_OTHER_DESCRIBE_QUESTION,
 } from '@/features/experience/catalog/sectorProducts'
 import { isRetiredQuestion } from '@/features/experience/retiredQuestions'
+
+/** Coletadas embutidas em outra pergunta — não viram passo próprio no wizard. */
+const INLINE_ONLY_QUESTION_CODES = new Set([PRODUCTS_OTHER_DESCRIBE_QUESTION])
 
 export function applicableQuestions(
   catalog: ExperienceCatalog,
@@ -28,6 +32,7 @@ export function applicableQuestions(
     .filter((question) => {
       if (!options?.includeContinuous && question.continuous) return false
       if (isRetiredQuestion(question)) return false
+      if (INLINE_ONLY_QUESTION_CODES.has(question.code)) return false
       if (question.segmentCode && !segments.has(question.segmentCode)) return false
       return evaluateCondition(question.showWhen, ctx)
     })
