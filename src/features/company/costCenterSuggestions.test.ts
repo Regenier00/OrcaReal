@@ -25,7 +25,23 @@ assert(
 
 assert(
   DEFAULT_COST_CENTER_NAMES.includes('Administração Geral'),
-  'sugestões devem incluir Administração Geral'
+  'sugestões gerais incluem Administração Geral'
 )
+
+// Catálogo setorial (experience) que antes era aplicado automaticamente.
+const experienceSeedExample = [
+  'Clientes',
+  'Comissões',
+  'Horas',
+  'Operação',
+  'Projetos',
+  'Terceirizados',
+]
+for (const name of experienceSeedExample) {
+  assert(
+    !DEFAULT_COST_CENTER_NAMES.includes(name),
+    `${name} não deve nascer automaticamente nas sugestões gerais`
+  )
+}
 
 console.log('costCenterSuggestions.test.ts: ok')

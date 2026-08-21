@@ -43,7 +43,10 @@ export function CompanySetupForm({
   const [nameError, setNameError] = useState('')
   const [segmentError, setSegmentError] = useState('')
 
-  const suggestions = useMemo(() => structureSuggestionsFor(), [])
+  const suggestions = useMemo(
+    () => structureSuggestionsFor([segmentCode]),
+    [segmentCode]
+  )
 
   const toggleDepartment = (value: string) => {
     setDepartments((current) =>

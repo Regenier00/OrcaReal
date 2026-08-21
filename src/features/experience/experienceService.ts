@@ -181,7 +181,9 @@ export async function applyCompanyExperience(input: {
     }),
     p_dashboard: input.experience.dashboard,
     p_categories: input.experience.extraCategories,
-    p_cost_centers: input.experience.extraCostCenters.map((name) => ({ name })),
+    // Centros de custo não são criados automaticamente: o usuário aplica
+    // sugestões ou importa a própria lista em Empresa → Centros de custo.
+    p_cost_centers: [],
     p_departments: input.experience.extraDepartments,
     p_complete: input.complete ?? true,
   })

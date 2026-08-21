@@ -19,7 +19,7 @@ import {
   updateCompanySettings,
 } from '@/features/company/companyService'
 import { importCostCentersFromXlsx } from '@/features/company/costCenterImportService'
-import { DEFAULT_COST_CENTER_NAMES } from '@/features/company/defaultDepartments'
+import { structureSuggestionsFor } from '@/features/company/structureSuggestions'
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
 import { SEGMENT_OPTIONS, isOtherSegment, segmentLabel } from '@/features/company/segmentOptions'
 import {
@@ -52,6 +52,7 @@ import type {
   CompanySettings,
   CostCenter,
   Department,
+  Segment,
 } from '@/types/database'
 
 type Tab =
@@ -179,6 +180,8 @@ export function CompanyPage() {
             key={activeCompany.id}
             companyId={activeCompany.id}
             canEdit={isAdmin}
+            segments={segments}
+            primarySegmentId={companyProfile?.segment_id ?? null}
           />
         ) : null}
         {tab === 'classificacao' ? (
@@ -583,9 +586,13 @@ function DepartmentsTab({
 function CostCentersTab({
   companyId,
   canEdit,
+  segments,
+  primarySegmentId,
 }: {
   companyId: string
   canEdit: boolean
+  segments: Segment[]
+  primarySegmentId: string | null
 }) {
   const [items, setItems] = useState<CostCenter[]>([])
   const [name, setName] = useState('')
@@ -595,6 +602,45 @@ function CostCentersTab({
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
   const [applyingSuggestions, setApplyingSuggestions] = useState(false)
+  const [operationSegmentIds, setOperationSegmentIds] = useState<string[]>([])
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
+
+  const segmentById = useMemo(
+    () => new Map(segments.map((item) => [item.id, item.code])),
+    [segments]
+  )
+
+  const suggestionCodes = useMemo(() => {
+    const ids = [
+      ...(primarySegmentId ? [primarySegmentId] : []),
+      ...operationSegmentIds,
+    ]
+    return [
+      ...new Set(
+        ids
+          .map((id) => segmentById.get(id))
+          .filter((code): code is string => Boolean(code))
+      ),
+    ]
+  }, [primarySegmentId, operationSegmentIds, segmentById])
+
+  const suggestions = useMemo(
+    () => structureSuggestionsFor(suggestionCodes),
+    [suggestionCodes]
+  )
+
+  const existingNames = useMemo(
+    () => new Set(items.map((item) => item.name.toLowerCase())),
+    [items]
+  )
+
+  const availableSuggestions = useMemo(
+    () =>
+      suggestions.costCenters.filter(
+        (item) => !existingNames.has(item.toLowerCase())
+      ),
+    [suggestions.costCenters, existingNames]
+  )
 
   const reload = useCallback(async () => {
     const result = await listCostCenters(companyId)
@@ -608,13 +654,23 @@ function CostCentersTab({
 
   useEffect(() => {
     let mounted = true
-    void listCostCenters(companyId).then((result) => {
+    void Promise.all([
+      listCostCenters(companyId),
+      listCompanyOperations(companyId),
+    ]).then(([centersResult, operationsResult]) => {
       if (!mounted) return
-      if (!result.ok) {
-        setError(result.message)
+      if (!centersResult.ok) {
+        setError(centersResult.message)
       } else {
         setError('')
-        setItems(result.data)
+        setItems(centersResult.data)
+      }
+      if (operationsResult.ok) {
+        setOperationSegmentIds(
+          operationsResult.data
+            .map((row) => String(row.segment_id ?? ''))
+            .filter(Boolean)
+        )
       }
       setLoading(false)
     })
@@ -645,17 +701,34 @@ function CostCentersTab({
     await reload()
   }
 
+  const toggleSuggestion = (value: string) => {
+    setSelectedSuggestions((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    )
+  }
+
   const handleApplySuggestions = async () => {
     if (!canEdit || applyingSuggestions) return
+    const names =
+      selectedSuggestions.length > 0
+        ? selectedSuggestions
+        : availableSuggestions
+    if (names.length === 0) {
+      setError('Selecione ao menos uma sugestão para aplicar.')
+      return
+    }
     setApplyingSuggestions(true)
     setError('')
     setImportMessage('')
-    const result = await applyCostCenterSuggestions({ companyId })
+    const result = await applyCostCenterSuggestions({ companyId, names })
     setApplyingSuggestions(false)
     if (!result.ok) {
       setError(result.message)
       return
     }
+    setSelectedSuggestions([])
     setImportMessage(
       `${result.data.length} centro(s) de custo aplicados a partir das sugestões.`,
     )
@@ -704,55 +777,115 @@ function CostCentersTab({
         Centros de custo
       </h2>
       <p className="mt-1 text-sm text-mist">
-        A empresa nasce sem centros de custo. Defina os destinos com as
-        sugestões ou importando sua planilha — sem isso, o orçamento não pode
-        ser criado. O código é gerado automaticamente (001, 002…), salvo quando
-        a planilha informa um código.
+        A empresa inicia com zero centros de custo. Escolha as sugestões abaixo
+        ou importe a sua planilha — sem isso, não é possível criar orçamento. O
+        código é gerado automaticamente (001, 002…), salvo quando a planilha
+        informa um código.
       </p>
 
       {canEdit ? (
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+        <div className="mt-5 space-y-4">
           <div className="rounded-2xl border border-paper-muted bg-white p-4">
-            <p className="font-medium text-ink">Sugestões de centro de custo</p>
-            <p className="mt-1 text-sm text-mist">
-              Aplica a lista padrão ({DEFAULT_COST_CENTER_NAMES.length} centros)
-              para você começar o orçamento rapidamente.
-            </p>
-            <Button
-              type="button"
-              className="mt-4"
-              disabled={applyingSuggestions || importing}
-              onClick={() => void handleApplySuggestions()}
-            >
-              {applyingSuggestions ? 'Aplicando...' : 'Aplicar sugestões'}
-            </Button>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="font-medium text-ink">Sugestões de centro de custo</p>
+                <p className="mt-1 text-sm text-mist">
+                  Padrões gerais
+                  {suggestions.segmentCostCenters.length > 0
+                    ? ' e do seu ramo'
+                    : ''}
+                  . Selecione os que deseja e aplique — nada é criado até você
+                  confirmar.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={
+                    applyingSuggestions ||
+                    importing ||
+                    availableSuggestions.length === 0
+                  }
+                  onClick={() => setSelectedSuggestions(availableSuggestions)}
+                >
+                  Selecionar todos
+                </Button>
+                <Button
+                  type="button"
+                  disabled={
+                    applyingSuggestions ||
+                    importing ||
+                    availableSuggestions.length === 0
+                  }
+                  onClick={() => void handleApplySuggestions()}
+                >
+                  {applyingSuggestions
+                    ? 'Aplicando...'
+                    : selectedSuggestions.length > 0
+                      ? `Aplicar selecionados (${selectedSuggestions.length})`
+                      : 'Aplicar sugestões'}
+                </Button>
+              </div>
+            </div>
+
+            {availableSuggestions.length === 0 ? (
+              <p className="mt-4 text-sm text-mist">
+                Todas as sugestões já estão cadastradas.
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {availableSuggestions.map((item) => {
+                  const selected = selectedSuggestions.includes(item)
+                  return (
+                    <button
+                      key={item}
+                      type="button"
+                      onClick={() => toggleSuggestion(item)}
+                      className={cn(
+                        'rounded-full border px-3 py-1.5 text-sm transition',
+                        selected
+                          ? 'border-brand bg-brand text-white'
+                          : 'border-paper-muted bg-white text-ink-soft hover:border-brand'
+                      )}
+                    >
+                      {item}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div className="rounded-2xl border border-paper-muted bg-white p-4">
-            <p className="font-medium text-ink">Importar meus centros de custo</p>
-            <p className="mt-1 text-sm text-mist">
-              Colunas: Nome (obrigatório), Código e Descrição (opcionais).
-              Aceita somente XLSX (máx. 5 MB).
-            </p>
-            <div className="mt-4">
-              <input
-                id="cost-center-xlsx-input"
-                type="file"
-                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                className="sr-only"
-                disabled={importing || applyingSuggestions}
-                onChange={(event) => void handleImport(event)}
-              />
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={importing || applyingSuggestions}
-                onClick={() => {
-                  document.getElementById('cost-center-xlsx-input')?.click()
-                }}
-              >
-                {importing ? 'Importando...' : 'Importar XLSX'}
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-medium text-ink">Importar meus centros de custo</p>
+                <p className="mt-1 text-sm text-mist">
+                  Colunas: Nome (obrigatório), Código e Descrição (opcionais).
+                  Aceita somente XLSX (máx. 5 MB).
+                </p>
+              </div>
+              <div>
+                <input
+                  id="cost-center-xlsx-input"
+                  type="file"
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className="sr-only"
+                  disabled={importing || applyingSuggestions}
+                  onChange={(event) => void handleImport(event)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={importing || applyingSuggestions}
+                  onClick={() => {
+                    document.getElementById('cost-center-xlsx-input')?.click()
+                  }}
+                >
+                  {importing ? 'Importando...' : 'Importar XLSX'}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -764,7 +897,7 @@ function CostCentersTab({
 
       {isEmpty ? (
         <p className="mt-4 text-sm text-mist">
-          Nenhum centro de custo cadastrado ainda. Aplique as sugestões ou
+          Nenhum centro de custo cadastrado ainda. Escolha as sugestões ou
           importe a sua lista para liberar o orçamento.
         </p>
       ) : (

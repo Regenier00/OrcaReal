@@ -97,7 +97,7 @@ export function BudgetsPage() {
           </Link>
         ) : hasCostCenters === false ? (
           <Link to={COMPANY_COST_CENTERS_PATH}>
-            <Button>Cadastrar centros de custo</Button>
+            <Button>Definir centros de custo</Button>
           </Link>
         ) : null}
       </div>
