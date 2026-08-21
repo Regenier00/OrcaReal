@@ -9,6 +9,12 @@ import type {
 import { SEGMENT_OPTIONS } from '@/features/company/segmentOptions'
 import { EMPLOYEE_COUNT_QUESTION, parseEmployeeCount } from '@/features/experience/employeeCount'
 import { operationIndicatorOptionsFor } from '@/features/experience/catalog/operationModels'
+import {
+  searchSectorProductsLocal,
+  OTHER_PRODUCT_OPTION,
+  productOptionLabel,
+  productOptionValue,
+} from '@/features/experience/catalog/sectorProducts'
 import { isRetiredQuestion } from '@/features/experience/retiredQuestions'
 
 export function applicableQuestions(
@@ -62,6 +68,23 @@ export function questionProgress(
   return { current: answered, total: questions.length }
 }
 
+function sectorProductOptions(
+  ctx: EvaluationContext,
+  query?: string | null,
+  includeOther = true
+): QuestionOption[] {
+  const products = searchSectorProductsLocal(
+    [ctx.segmentCode, ...ctx.extraSegmentCodes],
+    query
+  )
+  const options = products.map((item) => ({
+    value: productOptionValue(item),
+    label: productOptionLabel(item),
+  }))
+  if (includeOther) options.push({ ...OTHER_PRODUCT_OPTION })
+  return options
+}
+
 export function resolveQuestionOptions(
   question: ExperienceQuestion,
   catalog: ExperienceCatalog,
@@ -85,6 +108,16 @@ export function resolveQuestionOptions(
     return operationIndicatorOptionsFor(
       Array.isArray(modelValue) ? modelValue[0] : modelValue != null ? String(modelValue) : null
     )
+  }
+
+  if (question.optionSource === 'sector_products') {
+    return sectorProductOptions(ctx, null, true)
+  }
+
+  if (question.optionSource === 'sector_products_query') {
+    const describe = ctx.answers.products_other_describe
+    const query = typeof describe === 'string' ? describe : null
+    return sectorProductOptions(ctx, query, false)
   }
 
   return question.options ?? []

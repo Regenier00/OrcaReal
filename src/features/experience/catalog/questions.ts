@@ -100,6 +100,49 @@ const common: ExperienceQuestion[] = [
     },
     80
   ),
+  q(
+    {
+      code: 'products_offered',
+      prompt: 'Qual produto ou tipo de serviço a empresa vende?',
+      helpText:
+        'As opções vêm do ramo e das outras operações, com base nas fontes setoriais. Pode marcar mais de um. Se não encontrar, marque Outro.',
+      answerType: 'multiple',
+      optionSource: 'sector_products',
+      mapsTo: 'fact.products_offered',
+    },
+    90
+  ),
+  q(
+    {
+      code: 'products_other_describe',
+      prompt: 'Descreva o produto ou serviço que a empresa vende',
+      helpText:
+        'Com a descrição, buscamos novamente nas fontes do seu ramo opções relacionadas.',
+      answerType: 'text',
+      mapsTo: 'fact.products_other_describe',
+      showWhen: { includes: { answer: 'products_offered', value: 'outro' } },
+    },
+    91
+  ),
+  q(
+    {
+      code: 'products_other_matches',
+      prompt: 'Encontramos estas opções relacionadas. Quais se encaixam?',
+      helpText:
+        'Selecione as que correspondem à descrição. Se nenhuma servir, pule e usamos o texto informado.',
+      answerType: 'multiple',
+      optionSource: 'sector_products_query',
+      mapsTo: 'fact.products_other_matches',
+      optional: true,
+      showWhen: {
+        all: [
+          { includes: { answer: 'products_offered', value: 'outro' } },
+          { not: { answerMissing: 'products_other_describe' } },
+        ],
+      },
+    },
+    92
+  ),
 ]
 
 const agro: ExperienceQuestion[] = [
@@ -137,23 +180,10 @@ const commerce: ExperienceQuestion[] = [
     },
     110
   ),
-  q(
-    {
-      code: 'com_products',
-      segmentCode: 'commerce',
-      prompt: 'Quais produtos ou mercadorias a empresa vende?',
-      helpText:
-        'Separe por vírgula. Usamos isso para sugerir destinos de receita no orçamento.',
-      answerType: 'text',
-      mapsTo: 'fact.products_sold',
-    },
-    120
-  ),
 ]
 
 const industry: ExperienceQuestion[] = [
   q({ code: 'ind_type', segmentCode: 'industry', prompt: 'Qual é o tipo de indústria?', options: opts('Alimentos', 'Metalúrgica', 'Química', 'Têxtil', 'Móveis', 'Outra'), mapsTo: 'fact.industry_type' }, 110),
-  q({ code: 'ind_products', segmentCode: 'industry', prompt: 'Quais produtos são fabricados?', answerType: 'text', mapsTo: 'fact.manufactured_products' }, 120),
 ]
 
 const construction: ExperienceQuestion[] = [
@@ -166,50 +196,14 @@ const transport: ExperienceQuestion[] = [
 
 const food: ExperienceQuestion[] = [
   q({ code: 'food_type', segmentCode: 'food', prompt: 'Qual é o tipo de estabelecimento?', options: opts('Restaurante', 'Lanchonete', 'Padaria', 'Dark kitchen', 'Buffet', 'Outro'), mapsTo: 'fact.food_type' }, 110),
-  q(
-    {
-      code: 'food_products',
-      segmentCode: 'food',
-      prompt: 'Quais são os principais produtos ou pratos vendidos?',
-      helpText: 'Separe por vírgula. Ex.: marmitas, lanches, bolos.',
-      answerType: 'text',
-      mapsTo: 'fact.food_products',
-      optional: true,
-    },
-    120
-  ),
   q({ code: 'food_delivery', segmentCode: 'food', prompt: 'A empresa trabalha com delivery?', options: YES_NO, mapsTo: 'fact.has_delivery' }, 130),
 ]
 
-const services: ExperienceQuestion[] = [
-  q(
-    {
-      code: 'srv_type',
-      segmentCode: 'services',
-      prompt: 'Quais serviços a empresa presta?',
-      helpText: 'Separe por vírgula se houver mais de um. Ex.: consultoria, manutenção, instalação.',
-      answerType: 'text',
-      mapsTo: 'fact.service_type',
-    },
-    110
-  ),
-]
+const services: ExperienceQuestion[] = []
 
 const tech: ExperienceQuestion[] = [
   q({ code: 'tech_type', segmentCode: 'tech', prompt: 'Qual é o tipo da empresa?', options: opts('SaaS', 'Software sob demanda', 'Consultoria de TI', 'Produto digital'), mapsTo: 'fact.tech_type' }, 110),
   q({ code: 'tech_offer', segmentCode: 'tech', prompt: 'A empresa vende produtos ou serviços?', options: opts('Produtos', 'Serviços'), mapsTo: 'fact.offer_type' }, 120),
-  q(
-    {
-      code: 'tech_products',
-      segmentCode: 'tech',
-      prompt: 'Quais produtos ou serviços a empresa oferece?',
-      helpText: 'Separe por vírgula. Ex.: ERP, app mobile, consultoria.',
-      answerType: 'text',
-      mapsTo: 'fact.tech_products',
-      optional: true,
-    },
-    125
-  ),
   q({ code: 'tech_model', segmentCode: 'tech', prompt: 'O modelo é SaaS ou projetos?', options: opts('SaaS', 'Projetos', 'Híbrido'), mapsTo: 'fact.delivery_model' }, 130),
   q({ code: 'tech_recurring', segmentCode: 'tech', prompt: 'A empresa possui receita recorrente?', options: YES_NO, mapsTo: 'fact.has_recurring_revenue' }, 140),
 ]
@@ -265,18 +259,6 @@ const media: ExperienceQuestion[] = [
       mapsTo: 'fact.media_type',
     },
     110
-  ),
-  q(
-    {
-      code: 'media_products',
-      segmentCode: 'media',
-      prompt: 'Quais produtos ou serviços de mídia a empresa oferecece?',
-      helpText: 'Separe por vírgula. Ex.: podcast, vídeo, anúncios digitais.',
-      answerType: 'text',
-      mapsTo: 'fact.media_products',
-      optional: true,
-    },
-    120
   ),
 ]
 

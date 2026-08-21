@@ -16,6 +16,12 @@ import {
   resolveQuestionOptions,
 } from '@/features/experience/questionnaire'
 import { structureFor } from '@/features/experience/catalog'
+import {
+  PRODUCTS_OFFERED_QUESTION,
+  PRODUCTS_OTHER_DESCRIBE_QUESTION,
+  PRODUCTS_OTHER_MATCHES_QUESTION,
+} from '@/features/experience/catalog/sectorProducts'
+import { searchSectorProducts, toQuestionOptions } from '@/features/experience/sectorProductSearch'
 import { readStoredCompanyLocation } from '@/features/company/onboardingFlag'
 import { markTourPending } from '@/features/tour/storage'
 import { QuestionCard } from '@/components/experience/QuestionCard'
@@ -26,6 +32,7 @@ import type {
   ExperienceAnswers,
   ExperienceCatalog,
   ExperienceQuestion,
+  QuestionOption,
 } from '@/features/experience/types'
 
 export function ExperienceWizardPage() {
@@ -39,6 +46,8 @@ export function ExperienceWizardPage() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [ready, setReady] = useState(false)
+  const [smartOptions, setSmartOptions] = useState<QuestionOption[] | null>(null)
+  const [loadingProducts, setLoadingProducts] = useState(false)
 
   const segmentCode = useMemo<SegmentCode>(() => {
     const matched = segments.find((item) => item.id === companyProfile?.segment_id)
@@ -79,6 +88,45 @@ export function ExperienceWizardPage() {
     })
   }, [catalog, segmentCode, answers])
 
+  useEffect(() => {
+    if (!current || !ctx) {
+      setSmartOptions(null)
+      return
+    }
+    if (
+      current.optionSource !== 'sector_products' &&
+      current.optionSource !== 'sector_products_query'
+    ) {
+      setSmartOptions(null)
+      return
+    }
+
+    let mounted = true
+    setLoadingProducts(true)
+    const query =
+      current.optionSource === 'sector_products_query' &&
+      typeof answers.products_other_describe === 'string'
+        ? answers.products_other_describe
+        : null
+
+    void searchSectorProducts({
+      segmentCodes: [ctx.segmentCode, ...ctx.extraSegmentCodes],
+      query,
+    }).then((products) => {
+      if (!mounted) return
+      setSmartOptions(
+        toQuestionOptions(products, {
+          includeOther: current.optionSource === 'sector_products',
+        })
+      )
+      setLoadingProducts(false)
+    })
+
+    return () => {
+      mounted = false
+    }
+  }, [current, ctx, answers.products_other_describe])
+
   if (loading && !activeCompany) {
     return <FullPageStatus title="Carregando..." />
   }
@@ -92,9 +140,12 @@ export function ExperienceWizardPage() {
   }
 
   const progress = questionProgress(catalog, ctx)
-  const options = current
-    ? resolveQuestionOptions(current, catalog, ctx)
-    : []
+  const fallbackOptions = current ? resolveQuestionOptions(current, catalog, ctx) : []
+  const options =
+    current?.optionSource === 'sector_products' ||
+    current?.optionSource === 'sector_products_query'
+      ? (smartOptions ?? fallbackOptions)
+      : fallbackOptions
 
   const persist = async (nextAnswers: ExperienceAnswers) => {
     await saveExperienceProgress({
@@ -202,6 +253,39 @@ export function ExperienceWizardPage() {
     setCurrent(previous)
   }
 
+  const handleAnswerChange = (value: string | number | string[]) => {
+    if (!current) return
+    setError('')
+    setAnswers((currentAnswers) => {
+      const next: ExperienceAnswers = {
+        ...currentAnswers,
+        [current.code]: value,
+      }
+      if (
+        current.code === 'operation_model' &&
+        String(currentAnswers.operation_model ?? '') !== String(value)
+      ) {
+        delete next.operation_priorities
+      }
+      if (current.code === 'extra_segments') {
+        delete next[PRODUCTS_OFFERED_QUESTION]
+        delete next[PRODUCTS_OTHER_DESCRIBE_QUESTION]
+        delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
+      }
+      if (current.code === PRODUCTS_OFFERED_QUESTION) {
+        const selected = Array.isArray(value) ? value.map(String) : [String(value)]
+        if (!selected.includes('outro')) {
+          delete next[PRODUCTS_OTHER_DESCRIBE_QUESTION]
+          delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
+        }
+      }
+      if (current.code === PRODUCTS_OTHER_DESCRIBE_QUESTION) {
+        delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
+      }
+      return next
+    })
+  }
+
   if (!started) {
     return (
       <div className="rounded-2xl border border-paper-muted bg-white px-6 py-10 sm:px-10">
@@ -279,27 +363,18 @@ export function ExperienceWizardPage() {
       ) : null}
 
       <div className="mt-8 rounded-2xl border border-paper-muted bg-white p-5 sm:p-7">
-        <QuestionCard
-          question={current}
-          options={options}
-          value={answers[current.code] ?? null}
-          onChange={(value) => {
-            setError('')
-            setAnswers((currentAnswers) => {
-              const next = {
-                ...currentAnswers,
-                [current.code]: value,
-              }
-              if (
-                current.code === 'operation_model' &&
-                String(currentAnswers.operation_model ?? '') !== String(value)
-              ) {
-                delete next.operation_priorities
-              }
-              return next
-            })
-          }}
-        />
+        {loadingProducts &&
+        (current.optionSource === 'sector_products' ||
+          current.optionSource === 'sector_products_query') ? (
+          <p className="text-sm text-mist">Buscando produtos nas fontes do ramo...</p>
+        ) : (
+          <QuestionCard
+            question={current}
+            options={options}
+            value={answers[current.code] ?? null}
+            onChange={handleAnswerChange}
+          />
+        )}
       </div>
 
       {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
@@ -319,7 +394,11 @@ export function ExperienceWizardPage() {
               Pular
             </Button>
           ) : null}
-          <Button type="button" disabled={saving} onClick={() => void handleContinue()}>
+          <Button
+            type="button"
+            disabled={saving || loadingProducts}
+            onClick={() => void handleContinue()}
+          >
             {saving ? 'Salvando...' : 'Continuar'}
           </Button>
         </div>

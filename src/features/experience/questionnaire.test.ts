@@ -122,18 +122,33 @@ for (const code of [
 assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
 assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 assert(mixedCodes.has('com_channel'), 'comércio ainda deve perguntar o canal de venda')
-assert(mixedCodes.has('com_products'), 'comércio deve coletar produtos para o perfil econômico')
+assert(mixedCodes.has('products_offered'), 'cadastro coleta produtos via busca por ramo')
+assert(
+  RETIRED_QUESTION_CODES.has('com_products'),
+  'com_products deve estar aposentada: produtos vêm da busca inteligente'
+)
 
 const foodCodes = new Set(
   QUESTIONS.filter((question) => question.segmentCode === 'food').map((q) => q.code)
 )
-assert(foodCodes.has('food_products'), 'alimentação deve coletar produtos para o perfil econômico')
+assert(!foodCodes.has('food_products'), 'alimentação não duplica texto livre de produtos')
+assert(foodCodes.has('food_type'), 'alimentação ainda pergunta o tipo de estabelecimento')
 
 const mediaCodes = new Set(
   QUESTIONS.filter((question) => question.segmentCode === 'media').map((q) => q.code)
 )
 assert(mediaCodes.has('media_type'), 'mídia deve coletar o tipo de operação')
-assert(mediaCodes.has('media_products'), 'mídia deve coletar produtos/serviços')
+assert(!mediaCodes.has('media_products'), 'mídia não duplica texto livre de produtos')
+
+const productsQuestion = QUESTIONS.find((question) => question.code === 'products_offered')
+assert(
+  productsQuestion?.optionSource === 'sector_products',
+  'produtos usam busca inteligente por ramo e outras operações'
+)
+assert(
+  QUESTIONS.some((question) => question.code === 'products_other_describe'),
+  'fluxo Outro pede descrição do produto'
+)
 
 const alreadyTracks = [
   'tracks_unit_costs',

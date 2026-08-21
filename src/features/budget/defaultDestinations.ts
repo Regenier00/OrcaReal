@@ -1,5 +1,6 @@
 import type { MoneyGroup } from './model.ts'
 import { parseRevenueModelValues } from '../experience/catalog/revenueModels.ts'
+import { resolveProductLabels } from '../experience/catalog/sectorProducts.ts'
 
 export interface BudgetDestinationContext {
   segmentCode: string | null | undefined
@@ -171,6 +172,9 @@ function factIncludes(values: string[], ...needles: string[]): boolean {
 /** Lista de produtos/serviços informados no cadastro (texto livre ou opções). */
 export function productsFromFacts(facts: Record<string, unknown>): string[] {
   const keys = [
+    'products_offered',
+    'products_other_matches',
+    'products_other_describe',
     'products_sold',
     'manufactured_products',
     'service_type',
@@ -184,16 +188,26 @@ export function productsFromFacts(facts: Record<string, unknown>): string[] {
     'sold_products',
     'tech_products',
     'food_products',
+    'media_products',
   ]
   const names: string[] = []
   for (const key of keys) {
     for (const item of asList(fact(facts, key))) {
       const lower = item.toLowerCase()
       if (lower === 'outra' || lower === 'outro' || lower === 'outros') continue
-      names.push(humanizeFactLabel(item))
+      names.push(humanizeProductFact(item))
     }
   }
   return uniqueNames(names)
+}
+
+function humanizeProductFact(value: string): string {
+  // Códigos da busca inteligente: "commerce:vestuario" → "Vestuário e calçados"
+  if (value.includes(':')) {
+    const [label] = resolveProductLabels([value])
+    if (label && label !== value) return label
+  }
+  return humanizeFactLabel(value)
 }
 
 function revenueFromModels(models: string[]): string[] {
@@ -250,18 +264,21 @@ function revenueFromModels(models: string[]): string[] {
 }
 
 function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): string[] {
+  const offered = productsFromFacts(facts)
   switch (segmentCode) {
     case 'agro': {
       const crops = asList(fact(facts, 'crops'))
       if (crops.length > 0) {
         return crops.map((crop) => `Venda de ${humanizeFactLabel(crop)}`)
       }
+      if (offered.length > 0) return offered.map((item) => `Venda de ${item}`)
       return ['Venda de produção agrícola']
     }
     case 'livestock': {
       const kinds = asList(fact(facts, 'livestock_kind'))
       if (factIncludes(kinds, 'leite')) return ['Venda de leite', 'Venda de animais']
       if (factIncludes(kinds, 'corte')) return ['Venda de animais']
+      if (offered.length > 0) return offered.map((item) => `Venda de ${item}`)
       return ['Venda de animais', 'Venda de produção pecuária']
     }
     case 'fishing': {
@@ -269,19 +286,18 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       if (species.length > 0) {
         return species.map((item) => `Venda de ${humanizeFactLabel(item)}`)
       }
+      if (offered.length > 0) return offered.map((item) => `Venda de ${item}`)
       return ['Venda de produção aquícola']
     }
     case 'commerce': {
-      const products = asList(fact(facts, 'products_sold'))
-      if (products.length > 0) {
-        return products.map((item) => `Venda de ${humanizeFactLabel(item)}`)
+      if (offered.length > 0) {
+        return offered.map((item) => `Venda de ${item}`)
       }
       return ['Vendas de mercadorias']
     }
     case 'industry': {
-      const products = asList(fact(facts, 'manufactured_products'))
-      if (products.length > 0) {
-        return products.map((item) => `Venda de ${humanizeFactLabel(item)}`)
+      if (offered.length > 0) {
+        return offered.map((item) => `Venda de ${item}`)
       }
       return ['Venda de produtos fabricados']
     }
@@ -290,9 +306,11 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       if (works.length > 0) {
         return works.map((item) => `Obras · ${humanizeFactLabel(item)}`)
       }
+      if (offered.length > 0) return offered
       return ['Receita de contratos de obra']
     }
     case 'transport_logistics':
+      if (offered.length > 0) return offered
       return ['Fretes prestados']
     case 'food': {
       const names: string[] = []
@@ -300,16 +318,14 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       for (const item of foodType) {
         if (!factIncludes([item], 'outro')) names.push(humanizeFactLabel(item))
       }
-      const products = asList(fact(facts, 'food_products'))
-      for (const item of products) names.push(`Venda de ${humanizeFactLabel(item)}`)
+      for (const item of offered) names.push(`Venda de ${item}`)
       if (names.length === 0) names.push('Vendas de alimentos')
       if (yes(facts, 'has_delivery')) names.push('Delivery')
       return names
     }
     case 'services': {
-      const services = asList(fact(facts, 'service_type'))
-      if (services.length > 0) {
-        return services.map((item) => `Serviços · ${humanizeFactLabel(item)}`)
+      if (offered.length > 0) {
+        return offered.map((item) => `Serviços · ${item}`)
       }
       return ['Receita de serviços']
     }
@@ -322,10 +338,9 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
       if (factIncludes(delivery, 'projetos', 'hibrido')) {
         names.push('Receita de projetos')
       }
-      const products = asList(fact(facts, 'tech_products'))
-      for (const item of products) names.push(`Venda de ${humanizeFactLabel(item)}`)
+      for (const item of offered) names.push(`Venda de ${item}`)
       const offer = asList(fact(facts, 'offer_type'))
-      if (factIncludes(offer, 'produtos') && products.length === 0) {
+      if (factIncludes(offer, 'produtos') && offered.length === 0) {
         names.push('Venda de produtos digitais')
       }
       if (factIncludes(offer, 'servicos')) names.push('Prestação de serviços de TI')

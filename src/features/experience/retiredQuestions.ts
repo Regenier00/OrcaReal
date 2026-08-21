@@ -122,6 +122,12 @@ export const RETIRED_QUESTION_CODES = new Set([
   'pro_clients',
   'pub_units',
   'oth_costs',
+  'com_products',
+  'food_products',
+  'ind_products',
+  'tech_products',
+  'media_products',
+  'srv_type',
 ])
 
 export const RETIRED_QUESTION_PROMPTS = new Set([
