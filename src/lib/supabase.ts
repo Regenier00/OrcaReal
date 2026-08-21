@@ -73,14 +73,19 @@ export function getSupabaseRuntimeInfo(): {
 
 function withApiKeyQuery(input: RequestInfo | URL, apiKey: string): RequestInfo | URL {
   try {
-    const url =
+    const raw =
       typeof input === 'string'
-        ? new URL(input, typeof window !== 'undefined' ? window.location.href : undefined)
+        ? input
         : input instanceof URL
-          ? new URL(input.toString())
-          : new URL(input.url)
+          ? input.toString()
+          : input.url
 
-    // Só reforça em URLs do projeto Supabase (REST/Storage/Auth/Functions).
+    // Nunca resolve URL relativa contra o origin do app — isso transformava
+    // "https//projeto.supabase.co/..." em "http://localhost/.../https//..." e
+    // quebrava auth com ERR_NAME_NOT_RESOLVED / Failed to fetch.
+    if (!/^https?:\/\//i.test(raw)) return input
+
+    const url = new URL(raw)
     if (!/supabase\.(co|in)|localhost|127\.0\.0\.1/i.test(url.hostname)) {
       return input
     }
@@ -97,13 +102,35 @@ function withApiKeyQuery(input: RequestInfo | URL, apiKey: string): RequestInfo 
 }
 
 /**
+ * Junta headers do Request (quando o input já é Request) com os do init.
+ * Se só usássemos `init?.headers`, o fetch substituiria os headers do Request
+ * e perderia Content-Type/Authorization — o PostgREST então vê body vazio e
+ * responde PGRST202 "function without parameters".
+ */
+function mergeFetchHeaders(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+): Headers {
+  const headers = new Headers()
+  if (typeof Request !== 'undefined' && input instanceof Request) {
+    input.headers.forEach((value, key) => {
+      headers.set(key, value)
+    })
+  }
+  new Headers(init?.headers).forEach((value, key) => {
+    headers.set(key, value)
+  })
+  return headers
+}
+
+/**
  * O gateway do Supabase responde "No API key found in request" sem `apikey`
  * no header ou na query. Auth/Storage às vezes montam headers sem a chave;
  * forçamos header + query em todo fetch do cliente.
  */
 function fetchWithApiKey(apiKey: string): typeof fetch {
   return (input, init) => {
-    const headers = new Headers(init?.headers)
+    const headers = mergeFetchHeaders(input, init)
     // Sempre sobrescreve — evita apikey vazio/"undefined" deixado por wrappers.
     headers.set('apikey', apiKey)
     const nextInput = withApiKeyQuery(input, apiKey)

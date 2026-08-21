@@ -2,6 +2,7 @@ import {
   clientSupabaseEnvFromImportMeta,
   looksLikeClientApiKey,
   looksLikeHttpUrl,
+  normalizeSupabaseUrl,
   resolveSupabaseCredentials,
   unwrapEnvValue,
 } from './supabaseEnv.ts'
@@ -18,6 +19,18 @@ const SAMPLE_PUBLISHABLE = 'sb_publishable_abc123_xyz789'
 assert(unwrapEnvValue('  "abc"  ') === 'abc', 'remove aspas duplas e espaços')
 assert(unwrapEnvValue("'abc'") === 'abc', 'remove aspas simples')
 assert(unwrapEnvValue('Bearer eyJ.abc.sig') === 'eyJ.abc.sig', 'remove prefixo Bearer')
+assert(
+  unwrapEnvValue('https//abcdefghijklmnop.supabase.co') === SAMPLE_URL,
+  'corrige typo https// sem os dois pontos'
+)
+assert(
+  unwrapEnvValue(`\u200B${SAMPLE_URL}\uFEFF`) === SAMPLE_URL,
+  'remove caracteres invisíveis que quebram DNS'
+)
+assert(
+  normalizeSupabaseUrl('https//abcdefghijklmnop.supabase.co/auth/v1') === SAMPLE_URL,
+  'normaliza typo e remove path colado por engano'
+)
 
 assert(looksLikeHttpUrl(SAMPLE_URL), 'aceita URL https do projeto')
 assert(looksLikeHttpUrl('http://127.0.0.1:54321'), 'aceita URL local do CLI')
@@ -85,6 +98,14 @@ assert(
     VITE_SUPABASE_PUBLISHABLE_KEY: `'${SAMPLE_PUBLISHABLE}'`,
   }).key === SAMPLE_PUBLISHABLE,
   'aceita valores colados com aspas'
+)
+
+assert(
+  resolveSupabaseCredentials({
+    VITE_SUPABASE_URL: 'https//abcdefghijklmnop.supabase.co',
+    VITE_SUPABASE_PUBLISHABLE_KEY: SAMPLE_PUBLISHABLE,
+  }).url === SAMPLE_URL,
+  'resolve URL mesmo com typo https//'
 )
 
 assert(

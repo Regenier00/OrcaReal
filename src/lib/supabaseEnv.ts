@@ -8,6 +8,8 @@ function asString(value: unknown): string | undefined {
 /** Remove aspas copiadas do dashboard e o prefixo Bearer colado por engano. */
 export function unwrapEnvValue(value: string): string {
   let trimmed = value.trim()
+  // Caracteres invisíveis colados do dashboard/Slack quebram o DNS.
+  trimmed = trimmed.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, '')
   if (
     (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2)
@@ -17,12 +19,36 @@ export function unwrapEnvValue(value: string): string {
   if (/^bearer\s+/i.test(trimmed)) {
     trimmed = trimmed.replace(/^bearer\s+/i, '').trim()
   }
+  // Typo comum: "https//host" sem os dois pontos → DNS impossível.
+  trimmed = trimmed.replace(/^(https?):\/(?!\/)/i, '$1://')
+  trimmed = trimmed.replace(/^(https?)\/\//i, '$1://')
   return trimmed
 }
 
 export function looksLikeHttpUrl(value: string): boolean {
-  return /^https?:\/\/[^\s]+$/i.test(value)
+  if (!/^https?:\/\/[^\s]+$/i.test(value)) return false
+  try {
+    const url = new URL(value)
+    return Boolean(url.hostname)
+  } catch {
+    return false
+  }
 }
+
+/** Normaliza Project URL do dashboard (trailing slash, typo https//, etc.). */
+export function normalizeSupabaseUrl(value: string): string {
+  const unwrapped = unwrapEnvValue(value)
+  if (!looksLikeHttpUrl(unwrapped)) return ''
+  try {
+    const url = new URL(unwrapped)
+    url.hash = ''
+    // Mantém só a origem do projeto — path/query no .env costuma ser engano.
+    return url.origin
+  } catch {
+    return ''
+  }
+}
+
 
 function decodeBase64Url(value: string): string {
   try {
@@ -86,11 +112,12 @@ export function resolveSupabaseCredentials(env: Record<string, unknown>): {
   url: string
   key: string
 } {
+  const rawUrl = firstRealValue(
+    URL_KEYS.map((name) => env[name]),
+    (value) => Boolean(normalizeSupabaseUrl(value)) && !PLACEHOLDER_PATTERN.test(value)
+  )
   return {
-    url: firstRealValue(
-      URL_KEYS.map((name) => env[name]),
-      (value) => looksLikeHttpUrl(value) && !PLACEHOLDER_PATTERN.test(value)
-    ),
+    url: rawUrl ? normalizeSupabaseUrl(rawUrl) : '',
     key: firstRealValue(
       API_KEY_KEYS.map((name) => env[name]),
       looksLikeClientApiKey
