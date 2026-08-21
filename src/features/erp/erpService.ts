@@ -3,6 +3,11 @@ import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
 import {
+  assertCanImportWithChartAccounts,
+  companyHasChartAccounts,
+  CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE,
+} from '@/features/erp/chartAccountGate'
+import {
   erpFileTypeFromName,
   isAcceptedErpFile,
   MAX_ERP_FILE_BYTES,
@@ -172,6 +177,14 @@ export async function pollErpImport(
   return last
 }
 
+function mapErpImportCreateError(error: { message?: string } | null) {
+  const message = error?.message ?? ''
+  if (message.includes('classificação das contas contábeis')) {
+    return CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE
+  }
+  return 'Não foi possível iniciar a importação.'
+}
+
 export async function uploadAndProcessErpImport(input: {
   companyId: string
   file: File
@@ -186,6 +199,8 @@ export async function uploadAndProcessErpImport(input: {
   if (input.file.size === 0) {
     throw new Error('O arquivo enviado está vazio.')
   }
+
+  assertCanImportWithChartAccounts(await companyHasChartAccounts(input.companyId))
 
   const bytes = new Uint8Array(await input.file.arrayBuffer())
   const fileHash = await sha256Hex(bytes)
@@ -208,7 +223,7 @@ export async function uploadAndProcessErpImport(input: {
 
   if (createError || !created) {
     console.error('Erro ao criar importação ERP:', createError)
-    throw new Error('Não foi possível iniciar a importação.')
+    throw new Error(mapErpImportCreateError(createError))
   }
 
   const row = mapImport(created as ErpImport)
