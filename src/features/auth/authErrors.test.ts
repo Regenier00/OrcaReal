@@ -60,6 +60,22 @@ assert(
   'mapSupabaseError usa fallback sem message'
 )
 
+assert(
+  mapSupabaseError({
+    message: 'invalid reference to FROM-clause entry for table "e"',
+  }).includes('centros de custo'),
+  'traduz erro SQL do link de centros no import ERP'
+)
+
+assert(
+  mapSupabaseError({
+    code: 'PGRST202',
+    message:
+      'Could not find the function public.import_erp_entries without parameters in the schema cache',
+  }).includes('schema cache'),
+  'traduz PGRST202 da RPC import_erp_entries'
+)
+
 const enriched = enrichSupabaseError(
   'No API key found in request',
   {
@@ -86,6 +102,16 @@ assert(
     keyFingerprint: null,
   }) === MISSING_API_KEY_REQUEST_MESSAGE,
   'sem config continua pedindo .env'
+)
+
+assert(
+  mapAuthError('Failed to fetch').includes('DNS/rede'),
+  'traduz falha de rede/DNS do login'
+)
+
+assert(
+  mapAuthError('net::ERR_NAME_NOT_RESOLVED').includes('https://SEU_REF.supabase.co'),
+  'traduz ERR_NAME_NOT_RESOLVED com orientação de URL'
 )
 
 console.log('authErrors tests ok')
