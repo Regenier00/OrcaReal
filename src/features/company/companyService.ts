@@ -7,6 +7,7 @@ import {
 } from '@/features/company/defaultDepartments'
 import { parseBrandColor, ORCAREAL_BRAND_COLOR } from '@/lib/brandColor'
 import { parseEmployeeCount } from '@/features/experience/employeeCount'
+import type { SegmentCode } from '@/features/company/segmentOptions'
 import type {
   Company,
   CompanyMember,

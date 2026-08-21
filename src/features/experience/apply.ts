@@ -227,8 +227,39 @@ export function buildProfileSummary(
   if (Array.isArray(facts.crops) && facts.crops.length > 0) {
     parts.push(`Culturas: ${facts.crops.join(', ')}`)
   }
+  const products = productSummary(facts)
+  if (products) parts.push(`Produtos/serviços: ${products}`)
 
   return parts.join(' · ')
+}
+
+function productSummary(facts: Record<string, unknown>): string | null {
+  const keys = [
+    'products_sold',
+    'manufactured_products',
+    'food_products',
+    'tech_products',
+    'media_products',
+    'service_type',
+    'beauty_services',
+    'auto_services',
+  ] as const
+  const values: string[] = []
+  for (const key of keys) {
+    const raw = facts[key]
+    if (Array.isArray(raw)) {
+      values.push(...raw.map(String).map((item) => item.trim()).filter(Boolean))
+    } else if (typeof raw === 'string' && raw.trim()) {
+      values.push(
+        ...raw
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    }
+  }
+  const uniqueValues = unique(values)
+  return uniqueValues.length > 0 ? uniqueValues.join(', ') : null
 }
 
 function revenueSummary(value: string | null): string | null {

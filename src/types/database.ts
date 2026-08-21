@@ -64,6 +64,86 @@ export interface CompanyProfile {
   updated_at: string
 }
 
+export interface SectorDataSourceView {
+  code: string
+  name: string
+  organization: string
+  url: string | null
+  segment_code: string
+  priority: number
+  selection_reason: string
+  reliability_tier: number
+}
+
+export interface SectorKnowledgeItemView {
+  code: string
+  name: string
+  description: string | null
+  segment_code: string
+  metadata: Record<string, unknown>
+  source_code: string | null
+}
+
+export type SectorKnowledgeBucket = Record<string, SectorKnowledgeItemView[]>
+
+export interface SectorBenchmarkView {
+  metric_code: string
+  metric_name: string
+  segment_code: string
+  subramo_code: string | null
+  geography: string
+  period_label: string | null
+  value_numeric: number | null
+  value_text: string | null
+  unit: string | null
+  sample_notes: string | null
+  source_code: string
+  source_name: string
+  external_ref: string | null
+  fetched_at: string | null
+}
+
+export interface SectorIntelligence {
+  company_id: string
+  segment_code: string
+  extra_segments: string[]
+  subramo: string | null
+  activity: string | null
+  location_state: string | null
+  location_city: string | null
+  company_size: string | null
+  products_services: string[]
+  revenue_model: string | null
+  operation_model: string | null
+  business_model_summary: string | null
+  selected_sources: SectorDataSourceView[]
+  knowledge: SectorKnowledgeBucket
+  benchmarks: SectorBenchmarkView[]
+  benchmarks_available: boolean
+  refreshed_at: string | null
+}
+
+export interface CompanyEconomicProfile {
+  id: string
+  company_id: string
+  segment_code: string | null
+  subramo: string | null
+  activity: string | null
+  location_state: string | null
+  location_city: string | null
+  company_size: string | null
+  products_services: string[] | null
+  revenue_model: string | null
+  operation_model: string | null
+  business_model_summary: string | null
+  profile_snapshot: Record<string, unknown>
+  knowledge_snapshot: SectorKnowledgeBucket
+  selected_source_codes: string[]
+  refreshed_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface Department {
   id: string
   company_id: string

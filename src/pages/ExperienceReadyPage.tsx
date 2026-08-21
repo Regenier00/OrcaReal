@@ -8,6 +8,7 @@ import {
   listEnabledCompanyIndicators,
 } from '@/features/experience/experienceService'
 import { segmentLabel } from '@/features/company/segmentOptions'
+import { SectorIntelligencePanel } from '@/components/company/SectorIntelligencePanel'
 import { Button } from '@/components/ui/Button'
 import { FullPageStatus } from '@/components/ui/FullPageStatus'
 import { markTourPending } from '@/features/tour/storage'
@@ -124,6 +125,12 @@ export function ExperienceReadyPage() {
           />
         </div>
       )}
+
+      {activeCompany ? (
+        <div className="mt-8 rounded-2xl border border-paper-muted bg-white px-4 py-5 sm:px-6">
+          <SectorIntelligencePanel key={activeCompany.id} companyId={activeCompany.id} compact />
+        </div>
+      ) : null}
 
       <div className="mt-8 flex flex-wrap gap-3">
         <Link to="/app" state={{ startTour: true }}>
