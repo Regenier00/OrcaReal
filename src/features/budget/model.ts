@@ -44,6 +44,22 @@ export const MONEY_GROUP_LABEL: Record<MoneyGroup, string> = {
   investment: 'Investimentos',
 }
 
+/** Custos e despesas usam os centros de custo do usuário como destinos. */
+export const COST_CENTER_MONEY_GROUPS: ReadonlyArray<MoneyGroup> = [
+  'cost',
+  'expense',
+]
+
+/** Receitas e investimentos usam destinos sugeridos/definidos no orçamento. */
+export const BUDGET_DEFINED_MONEY_GROUPS: ReadonlyArray<MoneyGroup> = [
+  'revenue',
+  'investment',
+]
+
+export function usesCostCenterDestinations(moneyGroup: MoneyGroup | '' | null | undefined) {
+  return moneyGroup === 'cost' || moneyGroup === 'expense'
+}
+
 export interface DraftBudgetItem {
   localId: string
   moneyGroup: MoneyGroup | ''

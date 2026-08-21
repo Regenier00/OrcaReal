@@ -17,6 +17,7 @@ import {
 } from '@/features/actual/model'
 import {
   enrichTransactionSuggestion,
+  allowsNewDestinationName,
   type ClassificationSuggestionContext,
 } from '@/features/actual/destinationSuggestions'
 import type {
@@ -456,7 +457,13 @@ export function ClassifyTransactionsPage() {
           </Select>
           <Select
             label="Destino"
-            hint="Do orçamento ou digite um novo ao confirmar"
+            hint={
+              moneyGroup === 'cost' || moneyGroup === 'expense'
+                ? 'Centros de custo cadastrados'
+                : moneyGroup === 'revenue' || moneyGroup === 'investment'
+                  ? 'Mesmos destinos do orçamento'
+                  : 'Do orçamento (receita/investimento) ou centros de custo'
+            }
             value={destinationKey}
             onChange={(event) => setDestinationKey(event.target.value)}
           >
@@ -505,10 +512,11 @@ export function ClassifyTransactionsPage() {
             </Button>
           </div>
         </div>
-        {moneyGroup ? (
+        {moneyGroup && allowsNewDestinationName(moneyGroup) ? (
           <div className="mt-3">
             <Input
               label="Ou informe um destino novo"
+              hint="Só para receitas e investimentos — deve alinhar com o orçamento"
               value={
                 destinationsForGroup.some((item) => item.id === destinationKey)
                   ? ''
@@ -517,7 +525,7 @@ export function ClassifyTransactionsPage() {
               onChange={(event) =>
                 setDestinationKey(event.target.value.toLocaleUpperCase('pt-BR'))
               }
-              placeholder="Ex.: COMBUSTÍVEL"
+              placeholder="Ex.: VENDA DE SOJA"
               className="text-sm tracking-wide"
             />
           </div>

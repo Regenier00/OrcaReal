@@ -9,6 +9,7 @@ import {
   lineTotal,
   MONEY_GROUP_LABEL,
   MONEY_GROUPS,
+  usesCostCenterDestinations,
 } from '@/features/budget/model'
 import { normalizeDestinationName } from '@/features/budget/defaultDestinations'
 import {
@@ -73,6 +74,8 @@ interface DestinationEditorProps {
   draft: DraftBudget
   months: BudgetMonth[]
   moneyGroup: MoneyGroup
+  /** Centros de custo da empresa — usados como destinos de custos/despesas. */
+  costCenterNames?: string[]
   onChangeItems: (items: DraftBudgetItem[]) => void
 }
 
@@ -80,6 +83,7 @@ export function DestinationEditor({
   draft,
   months,
   moneyGroup,
+  costCenterNames = [],
   onChangeItems,
 }: DestinationEditorProps) {
   const [name, setName] = useState('')
@@ -92,6 +96,17 @@ export function DestinationEditor({
   const allocated = groupAllocatedTotal(draft.items, moneyGroup, months)
   const remaining = groupRemaining(draft, moneyGroup, months)
   const label = MONEY_GROUP_LABEL[moneyGroup]
+  const fromCostCenters = usesCostCenterDestinations(moneyGroup)
+
+  const availableCostCenters = useMemo(() => {
+    if (!fromCostCenters) return []
+    const used = new Set(
+      items.map((item) => normalizeDestinationName(item.destinationName))
+    )
+    return costCenterNames.filter(
+      (center) => !used.has(normalizeDestinationName(center))
+    )
+  }, [fromCostCenters, costCenterNames, items])
 
   const replaceGroupItems = (nextGroupItems: DraftBudgetItem[]) => {
     const others = draft.items.filter((item) => item.moneyGroup !== moneyGroup)
@@ -101,8 +116,23 @@ export function DestinationEditor({
   const addDestination = () => {
     const trimmed = normalizeDestinationName(name)
     if (!trimmed) {
-      setError('Informe o nome do destino.')
+      setError(
+        fromCostCenters
+          ? 'Selecione um centro de custo.'
+          : 'Informe o nome do destino.'
+      )
       return
+    }
+    if (fromCostCenters) {
+      const allowed = costCenterNames.some(
+        (center) => normalizeDestinationName(center) === trimmed
+      )
+      if (!allowed) {
+        setError(
+          'Para custos e despesas, o destino precisa ser um centro de custo cadastrado.'
+        )
+        return
+      }
     }
     if (amount <= 0) {
       setError('Informe um valor maior que zero para o destino.')
@@ -144,6 +174,7 @@ export function DestinationEditor({
   }
 
   const updateDestinationName = (localId: string, nextName: string) => {
+    if (fromCostCenters) return
     replaceGroupItems(
       items.map((item) =>
         item.localId === localId
@@ -199,8 +230,9 @@ export function DestinationEditor({
             Quanto vai para cada destino?
           </h2>
           <p className="mt-1 max-w-xl text-sm text-mist">
-            Sugestões com base no cadastro da empresa. Você pode excluir, renomear
-            ou adicionar novos destinos.
+            {fromCostCenters
+              ? 'Para custos e despesas, os destinos são os centros de custo que você cadastrou. O sistema não inventa novos destinos nesses grupos.'
+              : 'Sugestões com base no cadastro da empresa — as mesmas que o realizado usará na apropriação. Você pode excluir, renomear ou adicionar destinos.'}
           </p>
         </div>
         <div className="rounded-xl bg-white/80 px-4 py-3 text-sm shadow-sm">
@@ -224,15 +256,33 @@ export function DestinationEditor({
       </div>
 
       <div className="mt-6 grid gap-3 md:grid-cols-[1fr_160px_auto]">
-        <Input
-          label="Nome do destino"
-          value={name}
-          onChange={(event) =>
-            setName(event.target.value.toLocaleUpperCase('pt-BR'))
-          }
-          placeholder="Ex.: INSUMOS"
-          className="text-sm tracking-wide"
-        />
+        {fromCostCenters ? (
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium text-ink">Centro de custo</span>
+            <select
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              className="rounded-xl border border-paper-muted bg-white px-3.5 py-2.5 text-sm tracking-wide text-ink outline-none focus:border-navy-bright focus:ring-2 focus:ring-navy-bright/20"
+            >
+              <option value="">Selecione…</option>
+              {availableCostCenters.map((center) => (
+                <option key={center} value={normalizeDestinationName(center)}>
+                  {normalizeDestinationName(center)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <Input
+            label="Nome do destino"
+            value={name}
+            onChange={(event) =>
+              setName(event.target.value.toLocaleUpperCase('pt-BR'))
+            }
+            placeholder="Ex.: VENDA DE SOJA"
+            className="text-sm tracking-wide"
+          />
+        )}
         <MoneyInput
           label="Valor no período"
           value={amount}
@@ -240,7 +290,12 @@ export function DestinationEditor({
           className="!rounded-xl !px-3.5 !py-2.5 !text-base"
         />
         <div className="flex items-end">
-          <Button type="button" onClick={addDestination} className="w-full md:w-auto">
+          <Button
+            type="button"
+            onClick={addDestination}
+            className="w-full md:w-auto"
+            disabled={fromCostCenters && availableCostCenters.length === 0}
+          >
             Adicionar destino
           </Button>
         </div>
@@ -248,6 +303,12 @@ export function DestinationEditor({
 
       {error ? (
         <p className="mt-3 text-sm text-danger">{error}</p>
+      ) : null}
+
+      {fromCostCenters && costCenterNames.length === 0 ? (
+        <p className="mt-3 text-sm text-danger">
+          Cadastre centros de custo em Empresa para usá-los como destinos.
+        </p>
       ) : null}
 
       {remaining > 0 && items.length > 0 ? (
@@ -261,8 +322,9 @@ export function DestinationEditor({
       <div className="mt-6 flex flex-col gap-3">
         {items.length === 0 ? (
           <p className="rounded-xl border border-dashed border-paper-muted bg-white/70 px-4 py-8 text-center text-sm text-mist">
-            Nenhum destino ainda. Adicione o primeiro para começar a distribuir os{' '}
-            {formatMoney(planned)} de {label}.
+            {fromCostCenters
+              ? `Nenhum centro de custo no orçamento ainda. Adicione os centros cadastrados para distribuir os ${formatMoney(planned)} de ${label}.`
+              : `Nenhum destino ainda. Adicione o primeiro para começar a distribuir os ${formatMoney(planned)} de ${label}.`}
           </p>
         ) : (
           items.map((item) => (
@@ -270,14 +332,23 @@ export function DestinationEditor({
               key={item.localId}
               className="grid gap-3 rounded-xl border border-paper-muted bg-white/80 p-3 md:grid-cols-[1fr_160px_auto]"
             >
-              <Input
-                label="Destino"
-                value={item.destinationName}
-                onChange={(event) =>
-                  updateDestinationName(item.localId, event.target.value)
-                }
-                className="text-sm tracking-wide"
-              />
+              {fromCostCenters ? (
+                <div className="flex flex-col gap-1.5 text-sm">
+                  <span className="font-medium text-ink">Centro de custo</span>
+                  <p className="rounded-xl border border-paper-muted bg-paper/40 px-3.5 py-2.5 text-sm tracking-wide text-ink">
+                    {item.destinationName}
+                  </p>
+                </div>
+              ) : (
+                <Input
+                  label="Destino"
+                  value={item.destinationName}
+                  onChange={(event) =>
+                    updateDestinationName(item.localId, event.target.value)
+                  }
+                  className="text-sm tracking-wide"
+                />
+              )}
               <MoneyInput
                 label="Valor"
                 value={lineTotal(item, months)}
