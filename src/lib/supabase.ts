@@ -55,10 +55,12 @@ function createSupabaseClient(): SupabaseClient {
     if (supabaseUrl && supabaseAnonKey) {
       return createConfiguredClient(supabaseUrl, supabaseAnonKey)
     }
-    return createClient(FALLBACK_URL, FALLBACK_KEY)
+    // Mesmo no fallback, envia `apikey` — o gateway responde
+    // "No API key found in request" se o header faltar.
+    return createConfiguredClient(FALLBACK_URL, FALLBACK_KEY)
   } catch (error) {
     console.error('Não foi possível iniciar o cliente Supabase:', error)
-    return createClient(FALLBACK_URL, FALLBACK_KEY)
+    return createConfiguredClient(FALLBACK_URL, FALLBACK_KEY)
   }
 }
 

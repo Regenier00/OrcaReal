@@ -48,7 +48,12 @@ Deno.serve(async (req) => {
   if (!authHeader) return json(401, { error: 'Usuário não autenticado' })
 
   const client = createClient(supabaseUrl, supabaseAnon, {
-    global: { headers: { Authorization: authHeader } },
+    global: {
+      headers: {
+        Authorization: authHeader,
+        apikey: supabaseAnon,
+      },
+    },
   })
 
   const {

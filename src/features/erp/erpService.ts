@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase'
+import { mapSupabaseError, MISSING_API_KEY_REQUEST_MESSAGE } from '@/features/auth/authErrors'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
@@ -182,6 +183,8 @@ function mapErpImportCreateError(error: { message?: string } | null) {
   if (message.includes('classificação das contas contábeis')) {
     return CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE
   }
+  const mapped = mapSupabaseError(error, 'Não foi possível iniciar a importação.')
+  if (mapped === MISSING_API_KEY_REQUEST_MESSAGE) return mapped
   return 'Não foi possível iniciar a importação.'
 }
 
@@ -190,6 +193,9 @@ export async function uploadAndProcessErpImport(input: {
   file: File
   userId: string
 }): Promise<ErpImport> {
+  if (!isSupabaseConfigured) {
+    throw new Error(MISSING_API_KEY_REQUEST_MESSAGE)
+  }
   if (!isAcceptedErpFile(input.file.name)) {
     throw new Error('Envie um arquivo XLSX ou CSV.')
   }
@@ -289,12 +295,10 @@ export async function deleteErpImport(companyId: string, importId: string) {
 }
 
 function mapErpDeleteError(error: unknown) {
-  const message =
-    error && typeof error === 'object' && 'message' in error
-      ? String((error as { message: unknown }).message ?? '')
-      : error instanceof Error
-        ? error.message
-        : ''
+  const mapped = mapSupabaseError(error, '')
+  if (mapped === MISSING_API_KEY_REQUEST_MESSAGE) return mapped
+
+  const message = mapped
   const normalized = message.toLowerCase()
 
   if (normalized.includes('apenas administradores')) {
@@ -308,7 +312,8 @@ function mapErpDeleteError(error: unknown) {
   }
   if (
     normalized.includes('usuário não autenticado') ||
-    normalized.includes('not authenticated')
+    normalized.includes('not authenticated') ||
+    normalized.includes('sessão expirou')
   ) {
     return 'Sua sessão expirou. Entre novamente para continuar.'
   }
@@ -398,7 +403,9 @@ export async function classifyErpEntries(input: {
 
   if (error) {
     console.error('Erro ao classificar lançamentos ERP:', error)
-    throw new Error(error.message || 'Não foi possível classificar os lançamentos.')
+    throw new Error(
+      mapSupabaseError(error, 'Não foi possível classificar os lançamentos.'),
+    )
   }
   return Number(data ?? 0)
 }

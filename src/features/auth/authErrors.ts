@@ -1,5 +1,5 @@
 export const MISSING_API_KEY_REQUEST_MESSAGE =
-  'O servidor de autenticação não recebeu a chave da API. Confira VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY) no .env, salve e reinicie o npm run dev.'
+  'O Supabase não recebeu a chave da API (apikey). Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY) no .env ou nas variáveis de build, salve e reinicie o npm run dev (ou faça um novo deploy).'
 
 function extractAuthMessage(message: string): string {
   const trimmed = message.trim()
@@ -16,10 +16,32 @@ function extractAuthMessage(message: string): string {
   return message
 }
 
+/** Lê `message` de Error, Postgrest/Storage ou JSON cru do gateway. */
+export function readErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message
+  if (error && typeof error === 'object' && 'message' in error) {
+    const message = (error as { message: unknown }).message
+    if (typeof message === 'string') return message
+    if (message != null) return String(message)
+  }
+  return ''
+}
+
+/** Traduz erros do Supabase (auth, REST, storage, RPC) para mensagem amigável. */
+export function mapSupabaseError(
+  error: unknown,
+  fallback = 'Não foi possível concluir a operação. Tente novamente.',
+): string {
+  const message = readErrorMessage(error).trim()
+  if (!message) return fallback
+  const mapped = mapAuthError(message)
+  return mapped.trim() || fallback
+}
+
 export function mapAuthError(message: string): string {
   const extracted = extractAuthMessage(message)
   const normalized = extracted.toLowerCase()
-
   if (
     normalized.includes('already registered') ||
     normalized.includes('user already')

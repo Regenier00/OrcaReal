@@ -1,5 +1,6 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { mapSupabaseError, MISSING_API_KEY_REQUEST_MESSAGE } from '@/features/auth/authErrors'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import { canDeleteImportedStatements, canImportErp } from '@/features/actual/permissions'
@@ -10,6 +11,7 @@ import {
   deleteErpImport,
   uploadAndProcessErpImport,
 } from '@/features/erp/erpService'
+import { isSupabaseConfigured } from '@/lib/supabase'
 import {
   ACCEPTED_ERP_ACCEPT,
   completedErpMessage,
@@ -61,9 +63,10 @@ export function ImportErpPage() {
         setHasChartAccounts(null)
         setLoadedGateFor(companyId)
         setError(
-          err instanceof Error
-            ? err.message
-            : 'Não foi possível verificar a classificação.',
+          mapSupabaseError(
+            err,
+            'Não foi possível verificar a classificação.',
+          ),
         )
       })
     return () => {
@@ -98,6 +101,10 @@ export function ImportErpPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
+    if (!isSupabaseConfigured) {
+      setError(MISSING_API_KEY_REQUEST_MESSAGE)
+      return
+    }
     if (!canUpload) {
       setError(
         'Defina a classificação das contas contábeis antes de importar.',
@@ -118,10 +125,15 @@ export function ImportErpPage() {
       })
       setCurrent(finished)
       if (finished.status === 'failed') {
-        setError(finished.error_message || 'Falha ao processar o arquivo.')
+        setError(
+          mapSupabaseError(
+            finished.error_message,
+            'Falha ao processar o arquivo.',
+          ),
+        )
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha na importação.')
+      setError(mapSupabaseError(err, 'Falha na importação.'))
     } finally {
       setBusy(false)
     }
@@ -139,7 +151,7 @@ export function ImportErpPage() {
       setError('')
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Não foi possível excluir a importação.',
+        mapSupabaseError(err, 'Não foi possível excluir a importação.'),
       )
     } finally {
       setDeleting(false)

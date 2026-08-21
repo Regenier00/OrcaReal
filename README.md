@@ -14,7 +14,7 @@ A home, as funcionalidades e a demonstração em `/demo` abrem sem Supabase. **L
 
 ## Autenticação (Supabase)
 
-O erro *Configuração de autenticação ausente* (ou *No API key found in request*) aparece quando o front não encontra a URL e a chave pública do Supabase, ou quando a chave não é enviada no header `apikey`.
+O erro *Configuração de autenticação ausente* (ou *No API key found in request*) aparece quando o front não encontra a URL e a chave pública do Supabase, ou quando a chave não é enviada no header `apikey`. Isso também bloqueia **importação de ERP/extrato**, storage e RPCs — não só o login.
 
 1. No [dashboard](https://supabase.com/dashboard) abra o projeto → **Connect** (Vite) ou **Settings → API Keys**.
 2. Cole no `.env` (na raiz do repositório):

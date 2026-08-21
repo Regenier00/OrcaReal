@@ -3,6 +3,7 @@ import {
   ERP_IMPORT_STATUS_LABEL,
   ERP_PATHS,
 } from '@/features/erp/model'
+import { mapSupabaseError } from '@/features/auth/authErrors'
 import type { ErpImport } from '@/types/database'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
@@ -16,6 +17,10 @@ export function ErpImportSummary({
   onDelete?: () => void
   canDelete?: boolean
 }) {
+  const errorMessage = item.error_message
+    ? mapSupabaseError(item.error_message, item.error_message)
+    : null
+
   return (
     <div className="rounded-xl bg-white p-5 ring-1 ring-paper-muted">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -74,8 +79,8 @@ export function ErpImportSummary({
         </p>
       )}
 
-      {item.error_message && (
-        <p className="mt-3 text-sm text-red-700">{item.error_message}</p>
+      {errorMessage && (
+        <p className="mt-3 text-sm text-red-700">{errorMessage}</p>
       )}
 
       {item.warnings?.length > 0 && (
