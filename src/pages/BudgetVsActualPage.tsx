@@ -58,9 +58,10 @@ export function BudgetVsActualPage() {
             Orçado × Realizado
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            Só as saídas apropriadas entram na linha do centro de custo. Entradas
-            ficam nos cards de receita e nos indicadores. Sem orçamento naquela
-            linha, o orçado fica zerado e o realizado aparece mesmo assim.
+            Só custos e despesas apropriados entram na linha do centro de custo.
+            Receitas e investimentos ficam nos cards e nos indicadores. Sem
+            orçamento naquela linha, o orçado fica zerado e o realizado aparece
+            mesmo assim.
           </p>
         </div>
         <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
@@ -84,12 +85,13 @@ export function BudgetVsActualPage() {
       {!data.hasRealized ? (
         <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-5 py-6">
           <p className="font-display text-lg font-semibold text-ink">
-            Ainda não há saídas apropriadas neste recorte
+            Ainda não há custos ou despesas apropriados neste recorte
           </p>
           <p className="mt-1 max-w-xl text-sm text-mist">
-            Apropie as saídas do extrato para vê-las no centro de custo. As
-            entradas alimentam a receita e os indicadores, não esta comparação.
-            Se não houver orçamento naquela linha, o orçado fica R$ 0.
+            Apropie custos e despesas do extrato para vê-los no centro de custo.
+            Receitas e investimentos alimentam os cards e os indicadores, não
+            esta comparação. Se não houver orçamento naquela linha, o orçado
+            fica R$ 0.
           </p>
         </div>
       ) : null}
