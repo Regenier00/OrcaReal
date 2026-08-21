@@ -7,6 +7,10 @@ import {
 } from '@/features/experience/catalog/sectorProducts'
 import type { QuestionOption } from '@/features/experience/types'
 
+const MAX_QUERY_LENGTH = 120
+const MAX_SEGMENTS = 8
+const MAX_LIMIT = 40
+
 function asRemoteProducts(value: unknown): SectorProductOption[] {
   if (!Array.isArray(value)) return []
   const result: SectorProductOption[] = []
@@ -30,27 +34,41 @@ function asRemoteProducts(value: unknown): SectorProductOption[] {
   return result
 }
 
+function sanitizeQuery(query?: string | null): string | null {
+  if (query == null) return null
+  const cleaned = query.replace(/[\u0000-\u001F\u007F]/g, '').trim()
+  if (!cleaned) return null
+  return cleaned.slice(0, MAX_QUERY_LENGTH)
+}
+
 /** Busca produtos nas fontes do ramo (+ outras operações). Fallback local se RPC falhar. */
 export async function searchSectorProducts(input: {
   segmentCodes: string[]
   query?: string | null
   limit?: number
+  companyId?: string | null
 }): Promise<SectorProductOption[]> {
-  const segments = input.segmentCodes.map((code) => code.trim()).filter(Boolean)
-  if (segments.length === 0) return []
+  const segments = [
+    ...new Set(input.segmentCodes.map((code) => code.trim().toLowerCase()).filter(Boolean)),
+  ].slice(0, MAX_SEGMENTS)
+  const query = sanitizeQuery(input.query)
+  const limit = Math.max(1, Math.min(input.limit ?? 40, MAX_LIMIT))
+
+  if (segments.length === 0 && !input.companyId) return []
 
   const { data, error } = await supabase.rpc('search_sector_products', {
     p_segment_codes: segments,
-    p_query: input.query?.trim() || null,
-    p_limit: input.limit ?? 40,
+    p_query: query,
+    p_limit: limit,
+    p_company_id: input.companyId ?? null,
   })
 
   if (!error) {
     const remote = asRemoteProducts(data)
-    if (remote.length > 0) return remote
+    if (remote.length > 0 || query == null) return remote
   }
 
-  return searchSectorProductsLocal(segments, input.query, input.limit ?? 40)
+  return searchSectorProductsLocal(segments, query, limit)
 }
 
 export function toQuestionOptions(

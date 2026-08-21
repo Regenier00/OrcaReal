@@ -14,6 +14,19 @@ function assert(condition: unknown, message: string): asserts condition {
 
 assert(SECTOR_PRODUCT_CATALOG.length > 50, 'catálogo local precisa de produtos por ramo')
 
+// Contratos de segurança espelhados no client (defesa em profundidade)
+assert(typeof searchSectorProductsLocal === 'function', 'fallback local existe')
+const longQuery = 'a'.repeat(200)
+const capped = searchSectorProductsLocal(['tech'], longQuery)
+assert(Array.isArray(capped), 'query longa não quebra a busca local')
+
+const injection = searchSectorProductsLocal(['commerce'], '%_; DROP TABLE--')
+assert(Array.isArray(injection), 'texto malicioso é tratado como literal na busca local')
+assert(
+  injection.every((item) => item.segmentCode === 'commerce'),
+  'payload não altera o filtro de ramo'
+)
+
 const agro = searchSectorProductsLocal(['agro'])
 assert(agro.some((item) => item.code === 'soja'), 'agro sugere soja')
 assert(agro.every((item) => item.segmentCode === 'agro'), 'busca agro não mistura ramos')
