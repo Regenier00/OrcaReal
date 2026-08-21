@@ -47,6 +47,7 @@ import {
 } from '@/components/budget/DestinationWizard'
 import { formatMoney } from '@/features/budget/money'
 import { listCompanyOperations } from '@/features/experience/experienceService'
+import { listCostCenters } from '@/features/company/companyService'
 import { companyHasCostCenters } from '@/features/company/costCenterGate'
 import { CostCentersRequired } from '@/components/company/CostCentersRequired'
 
@@ -141,6 +142,7 @@ export function BudgetWizardPage() {
   const [activeGroupIndex, setActiveGroupIndex] = useState(0)
   const [suggestionsSeeded, setSuggestionsSeeded] = useState(false)
   const [hasCostCenters, setHasCostCenters] = useState<boolean | null>(isEdit ? true : null)
+  const [costCenterNames, setCostCenterNames] = useState<string[]>([])
   const fetchKey = company ? `${company.id}:${id ?? 'new'}` : null
 
   const destinationContext = useMemo<BudgetDestinationContext>(() => {
@@ -158,8 +160,9 @@ export function BudgetWizardPage() {
       customSegment: companyProfile?.custom_segment ?? null,
       employeeCount: companyProfile?.employee_count ?? null,
       profileFacts: facts,
+      costCenterNames,
     }
-  }, [companyProfile, segments])
+  }, [companyProfile, segments, costCenterNames])
 
   useEffect(() => {
     if (!company || companyLoading) return
@@ -168,8 +171,15 @@ export function BudgetWizardPage() {
     let mounted = true
 
     const load = async () => {
+      const centersResult = await listCostCenters(companyId)
+      if (!mounted) return
+      const centers = centersResult.ok
+        ? centersResult.data.filter((item) => item.is_active !== false).map((item) => item.name)
+        : []
+      setCostCenterNames(centers)
+
       if (!id) {
-        const centersReady = await companyHasCostCenters(companyId)
+        const centersReady = centers.length > 0 || (await companyHasCostCenters(companyId))
         if (!mounted) return
         setHasCostCenters(centersReady)
         if (!centersReady) {
@@ -222,6 +232,7 @@ export function BudgetWizardPage() {
 
       const context: BudgetDestinationContext = {
         ...destinationContext,
+        costCenterNames: centers,
         extraSegmentCodes: uniqueCodes([
           ...(destinationContext.extraSegmentCodes ?? []),
           ...extraCodes,
@@ -612,6 +623,7 @@ export function BudgetWizardPage() {
             draft={draft}
             months={months}
             moneyGroup={currentGroup}
+            costCenterNames={costCenterNames}
             onChangeItems={(items) => setDraft((current) => ({ ...current, items }))}
           />
 

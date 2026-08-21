@@ -11,17 +11,9 @@ export interface BudgetDestinationContext {
   customSegment?: string | null
   employeeCount?: number | null
   profileFacts?: Record<string, unknown>
+  /** Centros de custo da empresa — únicos destinos de custos e despesas. */
+  costCenterNames?: string[]
 }
-
-const BASE_EXPENSES = [
-  'Administrativo',
-  'Aluguel',
-  'Energia',
-  'Internet',
-  'Contabilidade',
-  'Marketing',
-  'Serviços',
-] as const
 
 const BASE_INVESTMENTS = [
   'Máquinas e equipamentos',
@@ -446,119 +438,6 @@ function segmentRevenue(segmentCode: string, facts: Record<string, unknown>): st
   }
 }
 
-function segmentCosts(segmentCode: string, facts: Record<string, unknown>): string[] {
-  switch (segmentCode) {
-    case 'agro': {
-      const names = ['Mão de obra da produção', 'Fretes', 'Manutenção']
-      const inputs = asList(fact(facts, 'main_inputs'))
-      if (inputs.length > 0) {
-        names.unshift(...inputs.map((item) => humanizeFactLabel(item)))
-      } else {
-        names.unshift('Insumos agrícolas')
-      }
-      if (factIncludes(asList(fact(facts, 'land_tenure')), 'arrendada')) {
-        names.push('Arrendamento')
-      }
-      if (yes(facts, 'third_party_services')) names.push('Serviços de terceiros')
-      if (yes(facts, 'own_machinery')) names.push('Maquinário e manutenção')
-      return names
-    }
-    case 'livestock':
-      return [
-        'Alimentação animal',
-        'Medicamentos',
-        'Pastagem',
-        'Mão de obra da produção',
-        'Compra de animais',
-        'Manutenção',
-      ]
-    case 'fishing': {
-      const names = ['Alevinos', 'Mão de obra', 'Energia da produção', 'Manutenção']
-      if (yes(facts, 'feed_is_relevant')) names.unshift('Ração')
-      else names.unshift('Insumos da produção')
-      return names
-    }
-    case 'commerce': {
-      const names = ['CMV / mercadorias', 'Fretes', 'Mão de obra operacional', 'Manutenção']
-      const channel = asList(fact(facts, 'sales_channel'))
-      if (factIncludes(channel, 'ecommerce', 'marketplace', 'e_commerce', 'online')) {
-        names.push('Taxas de marketplace / e-commerce')
-      }
-      return names
-    }
-    case 'industry':
-      return [
-        'Matéria-prima',
-        'Mão de obra direta',
-        'Custos indiretos de fabricação',
-        'Manutenção',
-        'Fretes',
-      ]
-    case 'construction':
-      return ['Materiais de obra', 'Mão de obra da obra', 'Terceirizados', 'Equipamentos', 'Fretes']
-    case 'transport_logistics': {
-      const vehicle = asList(fact(facts, 'vehicle_type'))[0]
-      return [
-        'Combustível',
-        'Manutenção da frota',
-        'Pedágios',
-        'Motoristas',
-        vehicle ? `Operação · ${humanizeFactLabel(vehicle)}` : 'Operação da frota',
-      ]
-    }
-    case 'food': {
-      const names = [
-        'CMV alimentos',
-        'Embalagem',
-        'Mão de obra da cozinha',
-        'Desperdício',
-      ]
-      if (yes(facts, 'has_delivery')) names.push('Custos de delivery')
-      return names
-    }
-    case 'services':
-      return ['Custo de projetos', 'Mão de obra operacional', 'Terceirizados']
-    case 'tech':
-      return ['Infraestrutura de TI', 'Pessoal técnico', 'Ferramentas e licenças']
-    case 'health':
-      return ['Materiais e medicamentos', 'Profissionais clínicos', 'Manutenção']
-    case 'education':
-      return ['Material didático', 'Pessoal docente', 'Estrutura de salas']
-    case 'real_estate':
-      return ['Manutenção de imóveis', 'Condomínio', 'Impostos sobre imóveis']
-    case 'automotive':
-      return ['Peças', 'Mão de obra da oficina', 'Insumos de serviços']
-    case 'energy':
-      return ['Custos operacionais de energia', 'Manutenção', 'Equipamentos']
-    case 'mining':
-      return ['Custo de extração', 'Beneficiamento', 'Transporte mineral', 'Combustível']
-    case 'hospitality':
-      return ['Custos de hospedagem', 'Alimentos e bebidas', 'Mão de obra operacional']
-    case 'beauty':
-      return ['Produtos de beleza', 'Profissionais', 'Insumos de estética']
-    case 'media':
-      return ['Produção de mídia', 'Terceirizados', 'Mão de obra operacional']
-    case 'marketing':
-      return ['Mídia e produção', 'Atendimento', 'Terceirizados']
-    case 'entertainment':
-      return ['Custo de eventos', 'Produção', 'Estrutura']
-    case 'sports':
-      return ['Custo da estrutura', 'Professores / instrutores', 'Manutenção']
-    case 'environment':
-      return ['Custos operacionais ambientais', 'Equipamentos', 'Destinação']
-    case 'financial':
-      return ['Operação', 'Comissões pagas', 'Mão de obra operacional']
-    case 'professional':
-      return ['Custo de projetos', 'Horas técnicas', 'Terceirizados']
-    case 'public_admin':
-      return ['Pessoal', 'Custeio', 'Operação das unidades']
-    case 'other':
-      return ['Mão de obra operacional', 'Insumos', 'Fretes', 'Manutenção']
-    default:
-      return ['Mão de obra operacional', 'Insumos', 'Fretes', 'Manutenção']
-  }
-}
-
 function segmentInvestments(
   segmentCode: string,
   facts: Record<string, unknown>
@@ -605,21 +484,11 @@ function segmentInvestments(
   return extra
 }
 
-function operationCostExtras(operationModel: string | null | undefined): string[] {
-  if (!operationModel) return []
-  const value = operationModel.toLowerCase()
-  if (value.includes('arrend')) return ['Arrendamento / aluguel operacional']
-  if (value.includes('terceir')) return ['Serviços de terceiros']
-  if (value.includes('franquia')) return ['Taxas e royalties de franquia']
-  if (value.includes('mista')) {
-    return ['Arrendamento / aluguel operacional', 'Serviços de terceiros']
-  }
-  return []
-}
-
 /**
- * Gera destinos sugeridos (editáveis) para os 4 grupos do orçamento,
- * com base no segmento, modelos de receita/operação e respostas do cadastro.
+ * Gera destinos para os 4 grupos do orçamento.
+ * Receitas e investimentos: sugestões editáveis a partir do cadastro.
+ * Custos e despesas: apenas os centros de custo definidos pelo usuário
+ * (o sistema não inventa destinos nesses grupos).
  */
 export function suggestBudgetDestinations(
   context: BudgetDestinationContext
@@ -653,29 +522,7 @@ export function suggestBudgetDestinations(
       : '',
   ])
 
-  const cost = uniqueNames([
-    ...segmentCosts(segmentCode, facts),
-    ...operationCostExtras(context.operationModel),
-    ...extraSegments.flatMap((code) => segmentCosts(code, facts)),
-    context.employeeCount && context.employeeCount > 0 ? 'Folha da operação' : '',
-  ])
-
-  const expense = uniqueNames([
-    ...BASE_EXPENSES,
-    ...extraSegments.flatMap((code) => {
-      if (code === 'hospitality') return ['Comissões de plataformas']
-      if (code === 'food') return ['Taxas de delivery']
-      if (code === 'beauty') return ['Comissões de profissionais']
-      if (code === 'education') return ['Pessoal docente']
-      return []
-    }),
-    yes(facts, 'platform_commissions') ? 'Comissões de plataformas' : '',
-    yes(facts, 'has_delivery') && segmentCode !== 'food' ? 'Taxas de delivery' : '',
-    context.employeeCount && context.employeeCount > 0 ? 'Folha administrativa' : '',
-    context.customSegment?.trim()
-      ? `Despesas · ${humanizeFactLabel(context.customSegment)}`
-      : '',
-  ])
+  const costCenters = uniqueNames(context.costCenterNames ?? [])
 
   const investment = uniqueNames([
     ...BASE_INVESTMENTS,
@@ -685,8 +532,8 @@ export function suggestBudgetDestinations(
 
   return {
     revenue: revenue.length > 0 ? revenue : ['Receitas operacionais'],
-    cost: cost.length > 0 ? cost : ['Custos operacionais'],
-    expense,
+    cost: costCenters,
+    expense: costCenters,
     investment,
   }
 }

@@ -1,4 +1,5 @@
 import {
+  allowsNewDestinationName,
   enrichTransactionSuggestion,
   type ClassificationSuggestionContext,
 } from './destinationSuggestions.ts'
@@ -8,9 +9,10 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 const destinations = [
-  { id: 'd1', moneyGroup: 'cost' as const, name: 'COMBUSTíVEL' },
+  { id: 'd1', moneyGroup: 'cost' as const, name: 'COMBUSTÍVEL' },
   { id: 'd2', moneyGroup: 'expense' as const, name: 'ENERGIA' },
   { id: 'd3', moneyGroup: 'revenue' as const, name: 'VENDA DE SOJA' },
+  { id: 'd4', moneyGroup: 'investment' as const, name: 'VEÍCULOS' },
 ]
 
 const patterns = [
@@ -65,6 +67,19 @@ const byKeyword = enrichTransactionSuggestion(
 assert(byKeyword.moneyGroup === 'cost', 'palavra-chave posto → custo')
 assert(byKeyword.destinationId === 'd1', 'casa com destino combustível do orçamento')
 
+const inventedCost = enrichTransactionSuggestion(
+  {
+    id: '3b',
+    description: 'PAGTO FRETE EXPRESSO',
+  },
+  context
+)
+assert(inventedCost.moneyGroup === 'cost', 'palavra-chave frete → custo')
+assert(
+  inventedCost.destinationName == null,
+  'não inventa destino de custo sem centro de custo'
+)
+
 const byProduct = enrichTransactionSuggestion(
   {
     id: '4',
@@ -75,5 +90,24 @@ const byProduct = enrichTransactionSuggestion(
 )
 assert(byProduct.moneyGroup === 'revenue', 'produto do cadastro → receita')
 assert(byProduct.destinationId === 'd3', 'casa com venda de soja')
+
+const inventedRevenue = enrichTransactionSuggestion(
+  {
+    id: '5',
+    description: 'TED CLIENTE CAFÉ ESPECIAL',
+    type: 'income',
+  },
+  context
+)
+assert(inventedRevenue.moneyGroup === 'revenue', 'produto conhecido → receita')
+assert(
+  inventedRevenue.destinationName == null,
+  'não inventa destino de receita fora do orçamento'
+)
+
+assert(allowsNewDestinationName('revenue'), 'receita pode ter destino novo no orçamento')
+assert(allowsNewDestinationName('investment'), 'investimento pode ter destino novo')
+assert(!allowsNewDestinationName('cost'), 'custo não cria destino inventado')
+assert(!allowsNewDestinationName('expense'), 'despesa não cria destino inventado')
 
 console.log('destination suggestion tests ok')

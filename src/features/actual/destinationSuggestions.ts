@@ -42,6 +42,14 @@ export interface EnrichedSuggestion {
   label: string | null
 }
 
+function usesCostCenterDestinations(moneyGroup: MoneyGroup | '' | null | undefined) {
+  return moneyGroup === 'cost' || moneyGroup === 'expense'
+}
+
+export function allowsNewDestinationName(moneyGroup: MoneyGroup | '' | null | undefined) {
+  return moneyGroup === 'revenue' || moneyGroup === 'investment'
+}
+
 const KEYWORD_RULES: Array<{
   patterns: RegExp[]
   moneyGroup: MoneyGroup
@@ -152,6 +160,11 @@ function matchPattern(
   return contains ?? null
 }
 
+/**
+ * Só sugere destino se ele já existir no catálogo do grupo
+ * (orçamento para receita/investimento; centros de custo para custo/despesa).
+ * Nunca inventa nome de destino.
+ */
 function contextSuggestion(
   input: TransactionSuggestionInput,
   context: ClassificationSuggestionContext
@@ -166,18 +179,27 @@ function contextSuggestion(
       rule.moneyGroup,
       rule.destinationHints
     )
+    // Custos/despesas: só casa com centro de custo já cadastrado.
+    // Receitas/investimentos: só casa com destino já definido no orçamento.
+    if (!destination) {
+      return {
+        moneyGroup: rule.moneyGroup,
+        destinationId: null,
+        destinationName: null,
+        source: 'context',
+        label: labelForGroup(rule.moneyGroup),
+      }
+    }
     return {
       moneyGroup: rule.moneyGroup,
-      destinationId: destination?.id ?? null,
-      destinationName: destination?.name ?? rule.destinationHints[0] ?? null,
+      destinationId: destination.id,
+      destinationName: destination.name,
       source: 'context',
-      label: destination
-        ? `${labelForGroup(rule.moneyGroup)} › ${destination.name}`
-        : `${labelForGroup(rule.moneyGroup)} › ${rule.destinationHints[0]}`,
+      label: `${labelForGroup(rule.moneyGroup)} › ${destination.name}`,
     }
   }
 
-  // Produtos/serviços do cadastro → receita
+  // Produtos/serviços do cadastro → receita, se o destino existir no orçamento
   const products = productsFromFacts(context.profileFacts ?? {})
   for (const product of products) {
     const productKey = normalize(product)
@@ -188,18 +210,25 @@ function contextSuggestion(
       `Venda de ${product}`,
       `Serviços · ${product}`,
     ])
+    if (!destination) {
+      return {
+        moneyGroup: 'revenue',
+        destinationId: null,
+        destinationName: null,
+        source: 'context',
+        label: 'Receitas',
+      }
+    }
     return {
       moneyGroup: 'revenue',
-      destinationId: destination?.id ?? null,
-      destinationName: destination?.name ?? `Venda de ${product}`,
+      destinationId: destination.id,
+      destinationName: destination.name,
       source: 'context',
-      label: destination
-        ? `Receitas › ${destination.name}`
-        : `Receitas › Venda de ${product}`,
+      label: `Receitas › ${destination.name}`,
     }
   }
 
-  // Destinos do orçamento cujo nome aparece na descrição
+  // Destinos já cadastrados cujo nome aparece na descrição
   const ranked = context.destinations
     .map((destination) => {
       const nameKey = normalize(destination.name)
@@ -228,39 +257,88 @@ function labelForGroup(moneyGroup: MoneyGroup) {
   return 'Investimentos'
 }
 
+function suggestionFromKnownFields(
+  moneyGroup: MoneyGroup | null | undefined,
+  destinationId: string | null | undefined,
+  destinationName: string | null | undefined,
+  source: EnrichedSuggestion['source'],
+  destinations: BudgetDestinationRef[]
+): EnrichedSuggestion {
+  const group = moneyGroup ?? null
+  let resolvedId = destinationId ?? null
+  let resolvedName = destinationName ?? null
+
+  // Só preenche destino se existir no catálogo do grupo (evita inventar).
+  if (group && resolvedName) {
+    const match =
+      destinations.find(
+        (item) =>
+          item.moneyGroup === group &&
+          (item.id === resolvedId ||
+            normalize(item.name) === normalize(resolvedName))
+      ) ?? null
+    if (match) {
+      resolvedId = match.id
+      resolvedName = match.name
+    } else if (usesCostCenterDestinations(group)) {
+      // Custos/despesas: não sugere destino inventado.
+      resolvedId = null
+      resolvedName = null
+    } else {
+      // Receita/investimento: só aceita destino já do orçamento.
+      const byName = destinations.find(
+        (item) =>
+          item.moneyGroup === group &&
+          normalize(item.name) === normalize(resolvedName)
+      )
+      if (!byName) {
+        resolvedId = null
+        resolvedName = null
+      }
+    }
+  }
+
+  return {
+    moneyGroup: group,
+    destinationId: resolvedId,
+    destinationName: resolvedName,
+    source,
+    label:
+      group && resolvedName
+        ? `${labelForGroup(group)} › ${resolvedName}`
+        : group
+          ? labelForGroup(group)
+          : resolvedName ?? null,
+  }
+}
+
 /**
  * Enriquece sugestões: histórico confirmado > padrões aprendidos > contexto da empresa/orçamento.
+ * Destinos sugeridos sempre vêm do catálogo (orçamento ou centros de custo) — nunca inventados.
  */
 export function enrichTransactionSuggestion(
   input: TransactionSuggestionInput,
   context: ClassificationSuggestionContext
 ): EnrichedSuggestion {
   if (input.suggested_money_group || input.suggested_destination_name) {
-    const moneyGroup = input.suggested_money_group
-    const destinationName = input.suggested_destination_name
-    return {
-      moneyGroup: moneyGroup ?? null,
-      destinationId: input.suggested_destination_id ?? null,
-      destinationName: destinationName ?? null,
-      source: input.suggestion_source ?? 'history',
-      label:
-        moneyGroup && destinationName
-          ? `${labelForGroup(moneyGroup)} › ${destinationName}`
-          : moneyGroup
-            ? labelForGroup(moneyGroup)
-            : destinationName ?? null,
-    }
+    return suggestionFromKnownFields(
+      input.suggested_money_group,
+      input.suggested_destination_id,
+      input.suggested_destination_name,
+      input.suggestion_source ?? 'history',
+      context.destinations
+    )
   }
 
   const patterned = matchPattern(context.patterns, input.description, input.counterparty)
   if (patterned) {
-    return {
-      moneyGroup: patterned.moneyGroup,
-      destinationId: patterned.destinationId,
-      destinationName: patterned.destinationName,
-      source: 'history',
-      label: `${labelForGroup(patterned.moneyGroup)} › ${patterned.destinationName}`,
-    }
+    return suggestionFromKnownFields(
+      patterned.moneyGroup,
+      patterned.destinationId,
+      patterned.destinationName,
+      'history',
+      context.destinations
+    )
   }
 
   const fromContext = contextSuggestion(input, context)
