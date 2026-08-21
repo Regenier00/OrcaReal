@@ -1153,8 +1153,8 @@ function testCompletedStatementMessage() {
   )
   assert(
     completedStatementMessage({ transaction_count: 0, duplicate_count: 3 }) ===
-      'Extrato importado com sucesso. Nenhum lançamento novo — as duplicidades foram ignoradas.',
-    'sucesso só com duplicidades',
+      'Extrato importado com sucesso.',
+    'sucesso sem lançamentos (duplicados não são mais descartados no import)',
   )
   assert(
     completedStatementMessage({ transaction_count: 0, duplicate_count: 0 }) ===

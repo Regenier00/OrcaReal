@@ -64,8 +64,8 @@ export function ErpImportSummary({
           <dd className="font-semibold text-ink">{item.pending_count}</dd>
         </div>
         <div>
-          <dt className="text-xs text-ink-soft">Duplicados</dt>
-          <dd className="font-semibold text-ink">{item.duplicate_count}</dd>
+          <dt className="text-xs text-ink-soft">Erros</dt>
+          <dd className="font-semibold text-ink">{item.error_count}</dd>
         </div>
       </dl>
 

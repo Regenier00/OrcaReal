@@ -83,16 +83,13 @@ export function erpImportStepIndex(status: ErpImportStatus) {
 
 export function completedErpMessage(input: {
   inserted: number
-  duplicates: number
+  duplicates?: number
   errors: number
   pending: number
 }) {
   const parts = [
     `${input.inserted} lançamento${input.inserted === 1 ? '' : 's'} importado${input.inserted === 1 ? '' : 's'}`,
   ]
-  if (input.duplicates > 0) {
-    parts.push(`${input.duplicates} duplicado${input.duplicates === 1 ? '' : 's'} ignorado${input.duplicates === 1 ? '' : 's'}`)
-  }
   if (input.errors > 0) {
     parts.push(`${input.errors} com erro`)
   }
