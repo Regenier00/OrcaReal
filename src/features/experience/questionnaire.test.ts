@@ -103,7 +103,6 @@ assert(
 
 for (const code of [
   'com_type',
-  'com_products',
   'com_categories',
   'com_ticket',
   'com_volume',
@@ -123,6 +122,18 @@ for (const code of [
 assert(mixedCodes.has('pec_type'), 'pecuária ainda deve perguntar o tipo')
 assert(mixedCodes.has('agro_crops'), 'agronegócio ainda deve perguntar as culturas')
 assert(mixedCodes.has('com_channel'), 'comércio ainda deve perguntar o canal de venda')
+assert(mixedCodes.has('com_products'), 'comércio deve coletar produtos para o perfil econômico')
+
+const foodCodes = new Set(
+  QUESTIONS.filter((question) => question.segmentCode === 'food').map((q) => q.code)
+)
+assert(foodCodes.has('food_products'), 'alimentação deve coletar produtos para o perfil econômico')
+
+const mediaCodes = new Set(
+  QUESTIONS.filter((question) => question.segmentCode === 'media').map((q) => q.code)
+)
+assert(mediaCodes.has('media_type'), 'mídia deve coletar o tipo de operação')
+assert(mediaCodes.has('media_products'), 'mídia deve coletar produtos/serviços')
 
 const alreadyTracks = [
   'tracks_unit_costs',

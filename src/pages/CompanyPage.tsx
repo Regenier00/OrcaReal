@@ -40,6 +40,7 @@ import { CompanyLogoAvatar } from '@/components/company/CompanyLogoAvatar'
 import { CompanyBrandColorField } from '@/components/company/CompanyBrandColorField'
 import { ChartAccountsTab } from '@/components/company/ChartAccountsTab'
 import { OperationalPrioritiesEditor } from '@/components/company/OperationalPrioritiesEditor'
+import { SectorIntelligencePanel } from '@/components/company/SectorIntelligencePanel'
 import { canClassifyErp } from '@/features/actual/permissions'
 import { useTour } from '@/features/tour/useTour'
 import { SKIP_TOUR_LABEL } from '@/features/tour/storage'
@@ -1025,6 +1026,14 @@ function CompanyExperienceTab({
         canEdit={canEdit}
         operationModel={operationModel}
       />
+
+      <div className="rounded-2xl border border-paper-muted bg-white px-4 py-5">
+        <SectorIntelligencePanel
+          key={companyId}
+          companyId={companyId}
+          canRefresh={canEdit}
+        />
+      </div>
 
       <form
         onSubmit={(event) => void handleSaveEmployeeCount(event)}

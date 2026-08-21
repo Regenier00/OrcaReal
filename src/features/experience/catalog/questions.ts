@@ -249,7 +249,36 @@ const beauty: ExperienceQuestion[] = [
   q({ code: 'beau_services', segmentCode: 'beauty', prompt: 'Quais serviços são oferecidos?', options: opts('Cabelo', 'Estética', 'Unhas', 'Barbearia', 'Outros'), mapsTo: 'fact.beauty_services' }, 110),
 ]
 
-const media: ExperienceQuestion[] = []
+const media: ExperienceQuestion[] = [
+  q(
+    {
+      code: 'media_type',
+      segmentCode: 'media',
+      prompt: 'Qual é o tipo de operação de mídia?',
+      options: opts(
+        'Conteúdo',
+        'Publicidade',
+        'Jornalismo',
+        'Produção audiovisual',
+        'Outro'
+      ),
+      mapsTo: 'fact.media_type',
+    },
+    110
+  ),
+  q(
+    {
+      code: 'media_products',
+      segmentCode: 'media',
+      prompt: 'Quais produtos ou serviços de mídia a empresa oferecece?',
+      helpText: 'Separe por vírgula. Ex.: podcast, vídeo, anúncios digitais.',
+      answerType: 'text',
+      mapsTo: 'fact.media_products',
+      optional: true,
+    },
+    120
+  ),
+]
 
 const marketing: ExperienceQuestion[] = [
   q({ code: 'mkt_recurring', segmentCode: 'marketing', prompt: 'Há contratos recorrentes?', options: YES_NO, mapsTo: 'fact.has_recurring_contracts' }, 110),
