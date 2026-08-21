@@ -1,4 +1,11 @@
-import { supabase } from '@/lib/supabase'
+import {
+  API_KEY_STRIPPED_MESSAGE,
+  enrichSupabaseError,
+  INVALID_API_KEY_MESSAGE,
+  mapSupabaseError,
+  MISSING_API_KEY_REQUEST_MESSAGE,
+} from '@/features/auth/authErrors'
+import { supabase, isSupabaseConfigured, getSupabaseRuntimeInfo } from '@/lib/supabase'
 import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
@@ -182,6 +189,18 @@ function mapErpImportCreateError(error: { message?: string } | null) {
   if (message.includes('classificação das contas contábeis')) {
     return CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE
   }
+  const mapped = enrichSupabaseError(
+    error,
+    getSupabaseRuntimeInfo(),
+    'Não foi possível iniciar a importação.',
+  )
+  if (
+    mapped === MISSING_API_KEY_REQUEST_MESSAGE ||
+    mapped === INVALID_API_KEY_MESSAGE ||
+    mapped.startsWith(API_KEY_STRIPPED_MESSAGE)
+  ) {
+    return mapped
+  }
   return 'Não foi possível iniciar a importação.'
 }
 
@@ -190,6 +209,9 @@ export async function uploadAndProcessErpImport(input: {
   file: File
   userId: string
 }): Promise<ErpImport> {
+  if (!isSupabaseConfigured) {
+    throw new Error(MISSING_API_KEY_REQUEST_MESSAGE)
+  }
   if (!isAcceptedErpFile(input.file.name)) {
     throw new Error('Envie um arquivo XLSX ou CSV.')
   }
@@ -237,26 +259,23 @@ export async function uploadAndProcessErpImport(input: {
     })
 
   if (uploadError) {
+    // O arquivo já está em memória para processErpFile. Não derruba a
+    // importação se só o Storage falhar (ex.: bucket/política), desde que
+    // REST/RPC sigam ok.
+    console.warn(
+      'Upload Storage do ERP falhou; seguindo com processamento local:',
+      uploadError,
+    )
+  } else {
     await supabase
       .from('erp_imports')
       .update({
-        status: 'failed',
-        error_message: 'Falha no upload do arquivo.',
+        file_path: path,
         updated_at: new Date().toISOString(),
       })
       .eq('id', row.id)
       .eq('company_id', input.companyId)
-    throw new Error('Falha no upload do arquivo.')
   }
-
-  await supabase
-    .from('erp_imports')
-    .update({
-      file_path: path,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', row.id)
-    .eq('company_id', input.companyId)
 
   // Processamento local em lotes — evita timeout no frontend em volumes altos.
   await processErpFile({
@@ -289,12 +308,10 @@ export async function deleteErpImport(companyId: string, importId: string) {
 }
 
 function mapErpDeleteError(error: unknown) {
-  const message =
-    error && typeof error === 'object' && 'message' in error
-      ? String((error as { message: unknown }).message ?? '')
-      : error instanceof Error
-        ? error.message
-        : ''
+  const mapped = mapSupabaseError(error, '')
+  if (mapped === MISSING_API_KEY_REQUEST_MESSAGE) return mapped
+
+  const message = mapped
   const normalized = message.toLowerCase()
 
   if (normalized.includes('apenas administradores')) {
@@ -308,7 +325,8 @@ function mapErpDeleteError(error: unknown) {
   }
   if (
     normalized.includes('usuário não autenticado') ||
-    normalized.includes('not authenticated')
+    normalized.includes('not authenticated') ||
+    normalized.includes('sessão expirou')
   ) {
     return 'Sua sessão expirou. Entre novamente para continuar.'
   }
@@ -398,7 +416,9 @@ export async function classifyErpEntries(input: {
 
   if (error) {
     console.error('Erro ao classificar lançamentos ERP:', error)
-    throw new Error(error.message || 'Não foi possível classificar os lançamentos.')
+    throw new Error(
+      mapSupabaseError(error, 'Não foi possível classificar os lançamentos.'),
+    )
   }
   return Number(data ?? 0)
 }
