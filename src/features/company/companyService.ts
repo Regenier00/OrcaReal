@@ -373,6 +373,25 @@ export async function createCostCenter(input: {
   return { ok: true, data: data as CostCenter }
 }
 
+export async function applyCostCenterSuggestions(input: {
+  companyId: string
+  names?: string[]
+}): Promise<ServiceResult<CostCenter[]>> {
+  const { data, error } = await supabase.rpc(
+    'apply_company_cost_center_suggestions',
+    {
+      p_company_id: input.companyId,
+      p_names: input.names?.map((name) => name.trim()).filter(Boolean) ?? null,
+    }
+  )
+
+  if (error) return fail(error)
+  return {
+    ok: true,
+    data: sortCostCentersByDefault((data as CostCenter[]) ?? []),
+  }
+}
+
 export async function deleteCostCenter(
   costCenterId: string
 ): Promise<ServiceResult<true>> {

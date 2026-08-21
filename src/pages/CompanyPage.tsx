@@ -10,6 +10,7 @@ import {
   listCompanyMembers,
   listCostCenters,
   listDepartments,
+  applyCostCenterSuggestions,
   updateCompanyData,
   updateCompanyEmployeeCount,
   updateCompanyLogo,
@@ -18,6 +19,7 @@ import {
   updateCompanySettings,
 } from '@/features/company/companyService'
 import { importCostCentersFromXlsx } from '@/features/company/costCenterImportService'
+import { DEFAULT_COST_CENTER_NAMES } from '@/features/company/defaultDepartments'
 import { cnpjValidationMessage, formatCnpj } from '@/features/company/cnpj'
 import { SEGMENT_OPTIONS, isOtherSegment, segmentLabel } from '@/features/company/segmentOptions'
 import {
@@ -592,6 +594,7 @@ function CostCentersTab({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [importing, setImporting] = useState(false)
+  const [applyingSuggestions, setApplyingSuggestions] = useState(false)
 
   const reload = useCallback(async () => {
     const result = await listCostCenters(companyId)
@@ -642,6 +645,23 @@ function CostCentersTab({
     await reload()
   }
 
+  const handleApplySuggestions = async () => {
+    if (!canEdit || applyingSuggestions) return
+    setApplyingSuggestions(true)
+    setError('')
+    setImportMessage('')
+    const result = await applyCostCenterSuggestions({ companyId })
+    setApplyingSuggestions(false)
+    if (!result.ok) {
+      setError(result.message)
+      return
+    }
+    setImportMessage(
+      `${result.data.length} centro(s) de custo aplicados a partir das sugestões.`,
+    )
+    await reload()
+  }
+
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -676,56 +696,76 @@ function CostCentersTab({
 
   if (loading) return <p className="text-sm text-mist">Carregando centros de custo...</p>
 
+  const isEmpty = items.length === 0
+
   return (
     <div>
       <h2 className="font-display text-xl font-semibold text-navy">
         Centros de custo
       </h2>
       <p className="mt-1 text-sm text-mist">
-        O código é gerado automaticamente na ordem de criação (001, 002…), salvo
-        quando a planilha informa um código. Os centros importados definem os
-        destinos e a apropriação do realizado.
+        A empresa nasce sem centros de custo. Defina os destinos com as
+        sugestões ou importando sua planilha — sem isso, o orçamento não pode
+        ser criado. O código é gerado automaticamente (001, 002…), salvo quando
+        a planilha informa um código.
       </p>
 
       {canEdit ? (
-        <div className="mt-5 rounded-2xl border border-paper-muted bg-white p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-medium text-ink">Importar planilha XLSX</p>
-              <p className="mt-1 text-sm text-mist">
-                Colunas: Nome (obrigatório), Código e Descrição (opcionais).
-                Aceita somente XLSX (máx. 5 MB). Duplicatas são resolvidas no
-                servidor.
-              </p>
-            </div>
-            <div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-2xl border border-paper-muted bg-white p-4">
+            <p className="font-medium text-ink">Sugestões de centro de custo</p>
+            <p className="mt-1 text-sm text-mist">
+              Aplica a lista padrão ({DEFAULT_COST_CENTER_NAMES.length} centros)
+              para você começar o orçamento rapidamente.
+            </p>
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={applyingSuggestions || importing}
+              onClick={() => void handleApplySuggestions()}
+            >
+              {applyingSuggestions ? 'Aplicando...' : 'Aplicar sugestões'}
+            </Button>
+          </div>
+
+          <div className="rounded-2xl border border-paper-muted bg-white p-4">
+            <p className="font-medium text-ink">Importar meus centros de custo</p>
+            <p className="mt-1 text-sm text-mist">
+              Colunas: Nome (obrigatório), Código e Descrição (opcionais).
+              Aceita somente XLSX (máx. 5 MB).
+            </p>
+            <div className="mt-4">
               <input
                 id="cost-center-xlsx-input"
                 type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="sr-only"
-                disabled={importing}
+                disabled={importing || applyingSuggestions}
                 onChange={(event) => void handleImport(event)}
               />
               <Button
                 type="button"
-                disabled={importing}
+                variant="secondary"
+                disabled={importing || applyingSuggestions}
                 onClick={() => {
                   document.getElementById('cost-center-xlsx-input')?.click()
                 }}
               >
-                {importing ? 'Importando...' : 'Escolher XLSX'}
+                {importing ? 'Importando...' : 'Importar XLSX'}
               </Button>
             </div>
           </div>
-          {importMessage ? (
-            <p className="mt-3 text-sm text-ok">{importMessage}</p>
-          ) : null}
         </div>
       ) : null}
 
-      {items.length === 0 ? (
+      {importMessage ? (
+        <p className="mt-3 text-sm text-ok">{importMessage}</p>
+      ) : null}
+
+      {isEmpty ? (
         <p className="mt-4 text-sm text-mist">
-          Nenhum centro de custo cadastrado ainda.
+          Nenhum centro de custo cadastrado ainda. Aplique as sugestões ou
+          importe a sua lista para liberar o orçamento.
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-paper-muted">

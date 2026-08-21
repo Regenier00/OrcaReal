@@ -15,10 +15,10 @@ export function CostCentersRequired({
       </h2>
       <p className="mt-2 max-w-xl text-sm text-mist">
         {message ??
-          'Sem centros de custo cadastrados, o orçamento fica sem destino. Cadastre ao menos um centro de custo na empresa antes de criar um orçamento.'}
+          'Sem centros de custo cadastrados, o orçamento fica sem destino. Aplique as sugestões ou importe sua lista em Empresa → Centros de custo antes de criar um orçamento.'}
       </p>
       <Link to={COMPANY_COST_CENTERS_PATH} className="mt-5 inline-block">
-        <Button>Cadastrar centros de custo</Button>
+        <Button>Definir centros de custo</Button>
       </Link>
     </div>
   )

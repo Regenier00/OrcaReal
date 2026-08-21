@@ -45,11 +45,6 @@ export function CompanySetupForm({
 
   const suggestions = useMemo(() => structureSuggestionsFor(), [])
 
-  const applySuggestions = () => {
-    setDepartments(suggestions.departments)
-    setCostCenters(suggestions.costCenters)
-  }
-
   const toggleDepartment = (value: string) => {
     setDepartments((current) =>
       current.includes(value)
@@ -128,11 +123,15 @@ export function CompanySetupForm({
               Departamentos
             </h2>
             <p className="mt-1 text-sm text-mist">
-              A empresa já nasce com estes departamentos padrão. Você pode
-              manter, incluir outros ou ignorar nesta etapa.
+              Selecione os departamentos iniciais ou use as sugestões. Nada é
+              aplicado até você salvar.
             </p>
           </div>
-          <Button type="button" variant="secondary" onClick={applySuggestions}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setDepartments(suggestions.departments)}
+          >
             Usar sugestões
           </Button>
         </div>
@@ -178,13 +177,31 @@ export function CompanySetupForm({
       </section>
 
       <section className="rounded-2xl border border-paper-muted bg-white p-5">
-        <h2 className="font-display text-lg font-semibold text-navy">
-          Centros de custo
-        </h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-navy">
+              Centros de custo
+            </h2>
             <p className="mt-1 text-sm text-mist">
-          Cada departamento já nasce com o centro de custo correspondente. O
-          código (001, 002…) é gerado automaticamente.
-        </p>
+              A empresa nasce sem centros de custo. Aplique as sugestões abaixo
+              ou importe sua planilha depois em Empresa → Centros de custo. Sem
+              ao menos um centro, o orçamento não pode ser criado.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setCostCenters(suggestions.costCenters)}
+          >
+            Sugestões de centro de custo
+          </Button>
+        </div>
+
+        {costCenters.length === 0 ? (
+          <p className="mt-4 text-sm text-mist">
+            Nenhum centro selecionado. Use as sugestões ou adicione os seus.
+          </p>
+        ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {suggestions.costCenters.map((item) => {
