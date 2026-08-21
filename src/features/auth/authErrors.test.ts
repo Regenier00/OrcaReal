@@ -1,4 +1,8 @@
 import {
+  API_KEY_STRIPPED_MESSAGE,
+  describeApiKeyFailure,
+  enrichSupabaseError,
+  INVALID_API_KEY_MESSAGE,
   mapAuthError,
   mapSupabaseError,
   MISSING_API_KEY_REQUEST_MESSAGE,
@@ -22,8 +26,8 @@ assert(
 )
 
 assert(
-  mapAuthError('Invalid API key') === MISSING_API_KEY_REQUEST_MESSAGE,
-  'traduz chave inválida para o mesmo passo a passo'
+  mapAuthError('Invalid API key') === INVALID_API_KEY_MESSAGE,
+  'chave inválida não mistura com "faltou configurar .env"'
 )
 
 assert(
@@ -54,6 +58,34 @@ assert(
 assert(
   mapSupabaseError({}, 'Falha na importação.') === 'Falha na importação.',
   'mapSupabaseError usa fallback sem message'
+)
+
+const enriched = enrichSupabaseError(
+  'No API key found in request',
+  {
+    configured: true,
+    urlHost: 'abcdefghijklmnop.supabase.co',
+    keyKind: 'publishable',
+    keyFingerprint: 'sb_publishable_…xyz',
+  },
+)
+assert(
+  enriched.startsWith(API_KEY_STRIPPED_MESSAGE),
+  'com runtime configurado, explica header removido em vez de culpar só o .env'
+)
+assert(
+  enriched.includes('abcdefghijklmnop.supabase.co'),
+  'mostra o host carregado em runtime'
+)
+
+assert(
+  describeApiKeyFailure({
+    configured: false,
+    urlHost: null,
+    keyKind: 'missing',
+    keyFingerprint: null,
+  }) === MISSING_API_KEY_REQUEST_MESSAGE,
+  'sem config continua pedindo .env'
 )
 
 console.log('authErrors tests ok')

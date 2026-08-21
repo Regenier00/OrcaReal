@@ -1,6 +1,6 @@
 import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { mapSupabaseError, MISSING_API_KEY_REQUEST_MESSAGE } from '@/features/auth/authErrors'
+import { enrichSupabaseError, MISSING_API_KEY_REQUEST_MESSAGE } from '@/features/auth/authErrors'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import { canDeleteImportedStatements, canImportErp } from '@/features/actual/permissions'
@@ -11,7 +11,7 @@ import {
   deleteErpImport,
   uploadAndProcessErpImport,
 } from '@/features/erp/erpService'
-import { isSupabaseConfigured } from '@/lib/supabase'
+import { getSupabaseRuntimeInfo, isSupabaseConfigured } from '@/lib/supabase'
 import {
   ACCEPTED_ERP_ACCEPT,
   completedErpMessage,
@@ -63,8 +63,9 @@ export function ImportErpPage() {
         setHasChartAccounts(null)
         setLoadedGateFor(companyId)
         setError(
-          mapSupabaseError(
+          enrichSupabaseError(
             err,
+            getSupabaseRuntimeInfo(),
             'Não foi possível verificar a classificação.',
           ),
         )
@@ -126,14 +127,17 @@ export function ImportErpPage() {
       setCurrent(finished)
       if (finished.status === 'failed') {
         setError(
-          mapSupabaseError(
+          enrichSupabaseError(
             finished.error_message,
+            getSupabaseRuntimeInfo(),
             'Falha ao processar o arquivo.',
           ),
         )
       }
     } catch (err) {
-      setError(mapSupabaseError(err, 'Falha na importação.'))
+      setError(
+        enrichSupabaseError(err, getSupabaseRuntimeInfo(), 'Falha na importação.'),
+      )
     } finally {
       setBusy(false)
     }
@@ -151,7 +155,11 @@ export function ImportErpPage() {
       setError('')
     } catch (err) {
       setError(
-        mapSupabaseError(err, 'Não foi possível excluir a importação.'),
+        enrichSupabaseError(
+          err,
+          getSupabaseRuntimeInfo(),
+          'Não foi possível excluir a importação.',
+        ),
       )
     } finally {
       setDeleting(false)

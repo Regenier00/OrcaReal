@@ -16,6 +16,13 @@ A home, as funcionalidades e a demonstração em `/demo` abrem sem Supabase. **L
 
 O erro *Configuração de autenticação ausente* (ou *No API key found in request*) aparece quando o front não encontra a URL e a chave pública do Supabase, ou quando a chave não é enviada no header `apikey`. Isso também bloqueia **importação de ERP/extrato**, storage e RPCs — não só o login.
 
+Se o `.env` local já está correto e o erro continua:
+
+1. Confirme que reiniciou o `npm run dev` depois de salvar o `.env`.
+2. No navegador, DevTools → Network → a chamada para `*.supabase.co` deve ter header `apikey` (ou `?apikey=`).
+3. Em preview/produção, as variáveis precisam existir **no ambiente de build** (Vite embute `VITE_*` no bundle); `.env` só na sua máquina não entra no deploy.
+4. URL e chave precisam ser do **mesmo** projeto (publishable `sb_publishable_…` ou anon JWT `eyJ…`).
+
 1. No [dashboard](https://supabase.com/dashboard) abra o projeto → **Connect** (Vite) ou **Settings → API Keys**.
 2. Cole no `.env` (na raiz do repositório):
 

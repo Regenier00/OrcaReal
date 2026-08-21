@@ -1,5 +1,11 @@
-import { mapSupabaseError, MISSING_API_KEY_REQUEST_MESSAGE } from '@/features/auth/authErrors'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import {
+  API_KEY_STRIPPED_MESSAGE,
+  enrichSupabaseError,
+  INVALID_API_KEY_MESSAGE,
+  mapSupabaseError,
+  MISSING_API_KEY_REQUEST_MESSAGE,
+} from '@/features/auth/authErrors'
+import { supabase, isSupabaseConfigured, getSupabaseRuntimeInfo } from '@/lib/supabase'
 import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
@@ -183,8 +189,18 @@ function mapErpImportCreateError(error: { message?: string } | null) {
   if (message.includes('classificação das contas contábeis')) {
     return CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE
   }
-  const mapped = mapSupabaseError(error, 'Não foi possível iniciar a importação.')
-  if (mapped === MISSING_API_KEY_REQUEST_MESSAGE) return mapped
+  const mapped = enrichSupabaseError(
+    error,
+    getSupabaseRuntimeInfo(),
+    'Não foi possível iniciar a importação.',
+  )
+  if (
+    mapped === MISSING_API_KEY_REQUEST_MESSAGE ||
+    mapped === INVALID_API_KEY_MESSAGE ||
+    mapped.startsWith(API_KEY_STRIPPED_MESSAGE)
+  ) {
+    return mapped
+  }
   return 'Não foi possível iniciar a importação.'
 }
 
@@ -243,26 +259,23 @@ export async function uploadAndProcessErpImport(input: {
     })
 
   if (uploadError) {
+    // O arquivo já está em memória para processErpFile. Não derruba a
+    // importação se só o Storage falhar (ex.: bucket/política), desde que
+    // REST/RPC sigam ok.
+    console.warn(
+      'Upload Storage do ERP falhou; seguindo com processamento local:',
+      uploadError,
+    )
+  } else {
     await supabase
       .from('erp_imports')
       .update({
-        status: 'failed',
-        error_message: 'Falha no upload do arquivo.',
+        file_path: path,
         updated_at: new Date().toISOString(),
       })
       .eq('id', row.id)
       .eq('company_id', input.companyId)
-    throw new Error('Falha no upload do arquivo.')
   }
-
-  await supabase
-    .from('erp_imports')
-    .update({
-      file_path: path,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', row.id)
-    .eq('company_id', input.companyId)
 
   // Processamento local em lotes — evita timeout no frontend em volumes altos.
   await processErpFile({

@@ -1,5 +1,5 @@
-import { mapSupabaseError } from '@/features/auth/authErrors'
-import { supabase } from '@/lib/supabase'
+import { enrichSupabaseError } from '@/features/auth/authErrors'
+import { getSupabaseRuntimeInfo, supabase } from '@/lib/supabase'
 import { MAX_ERP_BATCH } from '../../../supabase/functions/_shared/erp/limits.ts'
 import { parseErpFile } from '../../../supabase/functions/_shared/erp/parse.ts'
 import type { SavedHeaderMap } from '../../../supabase/functions/_shared/erp/columns.ts'
@@ -214,8 +214,9 @@ export async function processErpFile(input: {
       warnings: parsed.warnings,
     }
   } catch (error) {
-    const message = mapSupabaseError(
+    const message = enrichSupabaseError(
       error,
+      getSupabaseRuntimeInfo(),
       'Falha ao processar o arquivo ERP.',
     )
     await updateImport(input.importId, input.companyId, {

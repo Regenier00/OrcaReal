@@ -1,6 +1,12 @@
 export const MISSING_API_KEY_REQUEST_MESSAGE =
   'O Supabase não recebeu a chave da API (apikey). Defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY (ou VITE_SUPABASE_ANON_KEY) no .env ou nas variáveis de build, salve e reinicie o npm run dev (ou faça um novo deploy).'
 
+export const INVALID_API_KEY_MESSAGE =
+  'A chave do Supabase foi rejeitada. Confira se a URL e a chave (publishable ou anon) são do mesmo projeto, sem aspas extras, e reinicie o servidor / faça um novo deploy.'
+
+export const API_KEY_STRIPPED_MESSAGE =
+  'O app tem URL/chave carregadas, mas o gateway não recebeu o header apikey. Veja no DevTools → Network se a requisição para *.supabase.co inclui o header apikey (ou parâmetro ?apikey=). Extensão, proxy ou preview sem as variáveis de build costumam causar isso.'
+
 function extractAuthMessage(message: string): string {
   const trimmed = message.trim()
   if (trimmed.startsWith('{')) {
@@ -28,6 +34,21 @@ export function readErrorMessage(error: unknown): string {
   return ''
 }
 
+function isMissingApiKeyMessage(normalized: string): boolean {
+  return (
+    normalized.includes('no api key found') ||
+    (normalized.includes('apikey') && normalized.includes('not found'))
+  )
+}
+
+function isInvalidApiKeyMessage(normalized: string): boolean {
+  return (
+    normalized.includes('invalid api key') ||
+    normalized.includes('invalid authentication credentials') ||
+    normalized.includes('invalid jwt')
+  )
+}
+
 /** Traduz erros do Supabase (auth, REST, storage, RPC) para mensagem amigável. */
 export function mapSupabaseError(
   error: unknown,
@@ -42,6 +63,7 @@ export function mapSupabaseError(
 export function mapAuthError(message: string): string {
   const extracted = extractAuthMessage(message)
   const normalized = extracted.toLowerCase()
+
   if (
     normalized.includes('already registered') ||
     normalized.includes('user already')
@@ -101,14 +123,42 @@ export function mapAuthError(message: string): string {
     return 'Não foi possível conectar ao servidor de autenticação. Verifique a configuração.'
   }
 
-  if (
-    normalized.includes('no api key found') ||
-    (normalized.includes('apikey') && normalized.includes('not found')) ||
-    normalized.includes('invalid api key') ||
-    normalized.includes('invalid authentication credentials')
-  ) {
+  if (isMissingApiKeyMessage(normalized)) {
     return MISSING_API_KEY_REQUEST_MESSAGE
   }
 
+  if (isInvalidApiKeyMessage(normalized)) {
+    return INVALID_API_KEY_MESSAGE
+  }
+
   return extracted
+}
+
+/** Mensagem de apikey enriquecida com o que o app realmente carregou em runtime. */
+export function describeApiKeyFailure(runtime: {
+  configured: boolean
+  urlHost: string | null
+  keyKind: string
+  keyFingerprint: string | null
+}): string {
+  if (!runtime.configured) return MISSING_API_KEY_REQUEST_MESSAGE
+  return `${API_KEY_STRIPPED_MESSAGE} Runtime: ${runtime.urlHost ?? 'sem-host'} · ${runtime.keyKind} · ${runtime.keyFingerprint ?? 'sem-chave'}.`
+}
+
+export function enrichSupabaseError(
+  error: unknown,
+  runtime: {
+    configured: boolean
+    urlHost: string | null
+    keyKind: string
+    keyFingerprint: string | null
+  },
+  fallback = 'Não foi possível concluir a operação. Tente novamente.',
+): string {
+  const raw = readErrorMessage(error)
+  const normalized = extractAuthMessage(raw).toLowerCase()
+  if (isMissingApiKeyMessage(normalized)) {
+    return describeApiKeyFailure(runtime)
+  }
+  return mapSupabaseError(error, fallback)
 }
