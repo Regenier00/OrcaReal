@@ -144,6 +144,7 @@ export async function loadBudgetVsActualByMoneyGroup(input: {
     return {
       key: String(item.key ?? item.label ?? ''),
       label: String(item.label ?? 'Sem destino'),
+      detail: item.detail == null || item.detail === '' ? undefined : String(item.detail),
       budget: rowBudget,
       actual: rowActual,
       variance: rowVariance,

@@ -207,12 +207,14 @@ export function BudgetWizardPage() {
           return
         }
         const nextDraft = toDraft(budget)
+        const nextMonths = monthsBetween(nextDraft.startDate, nextDraft.endDate)
         nextDraft.items = nextDraft.items.map((item) => ({
           ...item,
-          amounts: remapAmounts(
-            item.amounts,
-            monthsBetween(nextDraft.startDate, nextDraft.endDate)
-          ),
+          amounts: remapAmounts(item.amounts, nextMonths),
+          accounts: (item.accounts ?? []).map((account) => ({
+            ...account,
+            amounts: remapAmounts(account.amounts, nextMonths),
+          })),
         }))
         setDraft(nextDraft)
         loadedKeyRef.current = key
@@ -407,7 +409,7 @@ export function BudgetWizardPage() {
     )
   }
 
-  if (loading || (!isEdit && !suggestionsSeeded)) {
+  if (loading || companyLoading || !company || (!isEdit && !suggestionsSeeded)) {
     return <p className="text-sm text-mist">Carregando orçamento...</p>
   }
 
@@ -632,6 +634,7 @@ export function BudgetWizardPage() {
             draft={draft}
             months={months}
             moneyGroup={currentGroup}
+            companyId={company.id}
             costCenterNames={costCenterNames}
             onChangeItems={(items) => setDraft((current) => ({ ...current, items }))}
           />

@@ -1,7 +1,12 @@
-import type { DraftBudget, DraftBudgetItem, MoneyGroup } from '@/features/budget/model'
+import type {
+  DraftBudget,
+  DraftBudgetItem,
+  MoneyGroup,
+} from '@/features/budget/model'
 import {
   groupAllocatedTotal,
   groupItems,
+  itemIsDetailed,
   MONEY_GROUP_LABEL,
   structureKey,
 } from '@/features/budget/model'
@@ -71,6 +76,48 @@ export function validateBudgetItem(item: DraftBudgetItem): string[] {
     if (amount < 0) {
       errors.push('Valores negativos não são permitidos.')
       break
+    }
+  }
+
+  // UX: o backend é a fonte da verdade e rejeita soma inconsistente.
+  if (itemIsDetailed(item)) {
+    const accounts = item.accounts ?? []
+    if (accounts.length === 0) {
+      errors.push('Orçamento detalhado exige ao menos uma conta contábil.')
+    }
+    const seen = new Set<string>()
+    for (const account of accounts) {
+      if (!account.accountCode.trim() || !account.accountName.trim()) {
+        errors.push('Cada conta detalhada precisa de número e descrição.')
+        break
+      }
+      const codeKey = account.accountCode.trim().toLowerCase()
+      if (seen.has(codeKey)) {
+        errors.push(`A conta ${account.accountCode} está duplicada neste destino.`)
+        break
+      }
+      seen.add(codeKey)
+    }
+
+    const monthKeys = Object.keys(item.amounts)
+    if (monthKeys.length > 0) {
+      const allocated = roundMoney(
+        accounts.reduce((sum, account) => {
+          const accountTotal = monthKeys.reduce(
+            (inner, key) => inner + (account.amounts[key] ?? 0),
+            0
+          )
+          return sum + accountTotal
+        }, 0)
+      )
+      const total = roundMoney(
+        monthKeys.reduce((sum, key) => sum + (item.amounts[key] ?? 0), 0)
+      )
+      if (allocated !== total) {
+        errors.push(
+          `A soma das contas (${allocated.toFixed(2)}) deve ser igual ao total do destino (${total.toFixed(2)}).`
+        )
+      }
     }
   }
 
@@ -189,7 +236,13 @@ export function validateActualItemsForSave(draft: DraftBudget) {
   }
 
   draft.items.forEach((item, index) => {
-    const itemErrors = validateBudgetItem(item)
+    // Realizado periódico não usa detalhamento por conta neste fluxo.
+    const basic: DraftBudgetItem = {
+      ...item,
+      isDetailed: false,
+      accounts: [],
+    }
+    const itemErrors = validateBudgetItem(basic)
     for (const error of itemErrors) {
       errors.push(`Linha ${index + 1}: ${error}`)
     }

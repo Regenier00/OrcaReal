@@ -19,11 +19,18 @@ import type {
 } from '@/types/database'
 import type {
   DraftBudget,
+  DraftBudgetAccount,
   LoadedBudget,
   LoadedBudgetItem,
   LoadedGroupTotal,
 } from '@/features/budget/model'
-import { emptyGroupTotals, distributeAmounts } from '@/features/budget/model'
+import {
+  emptyGroupTotals,
+  distributeAmounts,
+  itemIsDetailed,
+  newLocalId,
+} from '@/features/budget/model'
+import type { BudgetItemAccount, BudgetItemAccountValue } from '@/types/database'
 import { monthKey, monthsBetween } from '@/features/budget/period'
 import { sum } from '@/lib/money'
 import { roundMoney } from '@/features/budget/money'
@@ -40,6 +47,10 @@ interface BudgetRow extends Budget {
   budget_group_totals: BudgetGroupTotalRow[] | null
 }
 
+interface BudgetItemAccountRow extends BudgetItemAccount {
+  month_values: Pick<BudgetItemAccountValue, 'id' | 'year' | 'month' | 'amount'>[] | null
+}
+
 interface BudgetItemRow extends BudgetItem {
   business_unit: Pick<BusinessUnit, 'id' | 'name'> | null
   department: Pick<Department, 'id' | 'name'> | null
@@ -47,6 +58,7 @@ interface BudgetItemRow extends BudgetItem {
   activity: Pick<Activity, 'id' | 'name' | 'code'> | null
   category: Pick<Category, 'id' | 'name' | 'category_type'> | null
   month_values: Pick<BudgetItemValue, 'id' | 'year' | 'month' | 'amount'>[] | null
+  accounts: BudgetItemAccountRow[] | null
 }
 
 const BUDGET_SELECT = `
@@ -82,13 +94,24 @@ const BUDGET_SELECT = `
     money_group,
     destination_id,
     destination_name,
+    is_detailed,
     sort_order,
     business_unit:business_units(id, name),
     department:departments(id, name),
     cost_center:cost_centers(id, name, code),
     activity:activities(id, name, code),
     category:categories(id, name, category_type),
-    month_values:budget_item_values(id, year, month, amount)
+    month_values:budget_item_values(id, year, month, amount),
+    accounts:budget_item_accounts(
+      id,
+      budget_item_id,
+      company_id,
+      ledger_account_id,
+      account_code,
+      account_name,
+      sort_order,
+      month_values:budget_item_account_values(id, year, month, amount)
+    )
   )
 `
 
@@ -107,7 +130,20 @@ function mapAmounts(
   return amounts
 }
 
+function mapAccounts(rows: BudgetItemAccountRow[] | null | undefined): DraftBudgetAccount[] {
+  return [...(rows ?? [])]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((row) => ({
+      localId: row.id,
+      ledgerAccountId: row.ledger_account_id ?? undefined,
+      accountCode: row.account_code,
+      accountName: row.account_name,
+      amounts: mapAmounts(row.month_values),
+    }))
+}
+
 function mapItem(row: BudgetItemRow): LoadedBudgetItem {
+  const accounts = mapAccounts(row.accounts)
   return {
     localId: row.id,
     id: row.id,
@@ -119,6 +155,8 @@ function mapItem(row: BudgetItemRow): LoadedBudgetItem {
     costCenterId: row.cost_center_id ?? '',
     activityId: row.activity_id ?? '',
     categoryId: row.category_id ?? '',
+    isDetailed: Boolean(row.is_detailed) || accounts.length > 0,
+    accounts,
     amounts: mapAmounts(row.month_values),
     businessUnitName: asSingle(row.business_unit)?.name ?? null,
     departmentName: asSingle(row.department)?.name ?? '',
@@ -253,18 +291,32 @@ function toValuesPayload(amounts: Record<string, number>) {
   })
 }
 
-function toItemsPayload(draft: DraftBudget) {
-  return draft.items.map((item) => ({
-    business_unit_id: item.businessUnitId || null,
-    department_id: item.departmentId || null,
-    cost_center_id: item.costCenterId || null,
-    activity_id: item.activityId || null,
-    category_id: item.categoryId || null,
-    money_group: item.moneyGroup || null,
-    destination_id: item.destinationId || null,
-    destination_name: item.destinationName.trim() || null,
-    values: toValuesPayload(item.amounts),
+function toAccountsPayload(accounts: DraftBudgetAccount[] | undefined) {
+  return (accounts ?? []).map((account) => ({
+    ledger_account_id: account.ledgerAccountId || null,
+    account_code: account.accountCode.trim(),
+    account_name: account.accountName.trim(),
+    values: toValuesPayload(account.amounts),
   }))
+}
+
+function toItemsPayload(draft: DraftBudget) {
+  return draft.items.map((item) => {
+    const detailed = itemIsDetailed(item)
+    return {
+      business_unit_id: item.businessUnitId || null,
+      department_id: item.departmentId || null,
+      cost_center_id: item.costCenterId || null,
+      activity_id: item.activityId || null,
+      category_id: item.categoryId || null,
+      money_group: item.moneyGroup || null,
+      destination_id: item.destinationId || null,
+      destination_name: item.destinationName.trim() || null,
+      is_detailed: detailed,
+      values: toValuesPayload(item.amounts),
+      accounts: detailed ? toAccountsPayload(item.accounts) : [],
+    }
+  })
 }
 
 function toGroupsPayload(draft: DraftBudget) {
@@ -347,6 +399,14 @@ export function toDraft(budget: LoadedBudget): DraftBudget {
       costCenterId: item.costCenterId,
       activityId: item.activityId,
       categoryId: item.categoryId,
+      isDetailed: item.isDetailed ?? false,
+      accounts: (item.accounts ?? []).map((account) => ({
+        localId: account.localId || newLocalId(),
+        ledgerAccountId: account.ledgerAccountId,
+        accountCode: account.accountCode,
+        accountName: account.accountName,
+        amounts: { ...account.amounts },
+      })),
       amounts: { ...item.amounts },
     })),
   }

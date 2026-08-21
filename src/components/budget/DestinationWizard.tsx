@@ -6,6 +6,7 @@ import {
   groupAllocatedTotal,
   groupItems,
   groupRemaining,
+  itemIsDetailed,
   lineTotal,
   MONEY_GROUP_LABEL,
   MONEY_GROUPS,
@@ -22,6 +23,7 @@ import { formatMoney, roundMoney } from '@/features/budget/money'
 import { MoneyInput } from '@/components/ui/MoneyInput'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { DetailedBudgetEditor } from '@/components/budget/DetailedBudgetEditor'
 import { cn } from '@/lib/utils'
 
 interface GroupTotalsStepProps {
@@ -74,6 +76,7 @@ interface DestinationEditorProps {
   draft: DraftBudget
   months: BudgetMonth[]
   moneyGroup: MoneyGroup
+  companyId: string
   /** Centros de custo da empresa — usados como destinos de custos/despesas. */
   costCenterNames?: string[]
   onChangeItems: (items: DraftBudgetItem[]) => void
@@ -83,6 +86,7 @@ export function DestinationEditor({
   draft,
   months,
   moneyGroup,
+  companyId,
   costCenterNames = [],
   onChangeItems,
 }: DestinationEditorProps) {
@@ -161,6 +165,12 @@ export function DestinationEditor({
     setName('')
     setAmount(0)
     setError('')
+  }
+
+  const updateDestination = (localId: string, next: DraftBudgetItem) => {
+    replaceGroupItems(
+      items.map((item) => (item.localId === localId ? next : item))
+    )
   }
 
   const updateDestinationAmount = (localId: string, total: number) => {
@@ -330,41 +340,49 @@ export function DestinationEditor({
           items.map((item) => (
             <div
               key={item.localId}
-              className="grid gap-3 rounded-xl border border-paper-muted bg-white/80 p-3 md:grid-cols-[1fr_160px_auto]"
+              className="rounded-xl border border-paper-muted bg-white/80 p-3"
             >
-              {fromCostCenters ? (
-                <div className="flex flex-col gap-1.5 text-sm">
-                  <span className="font-medium text-ink">Centro de custo</span>
-                  <p className="rounded-xl border border-paper-muted bg-paper/40 px-3.5 py-2.5 text-sm tracking-wide text-ink">
-                    {item.destinationName}
-                  </p>
-                </div>
-              ) : (
-                <Input
-                  label="Destino"
-                  value={item.destinationName}
-                  onChange={(event) =>
-                    updateDestinationName(item.localId, event.target.value)
-                  }
-                  className="text-sm tracking-wide"
+              <div className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
+                {fromCostCenters ? (
+                  <div className="flex flex-col gap-1.5 text-sm">
+                    <span className="font-medium text-ink">Centro de custo</span>
+                    <p className="rounded-xl border border-paper-muted bg-paper/40 px-3.5 py-2.5 text-sm tracking-wide text-ink">
+                      {item.destinationName}
+                    </p>
+                  </div>
+                ) : (
+                  <Input
+                    label="Destino"
+                    value={item.destinationName}
+                    onChange={(event) =>
+                      updateDestinationName(item.localId, event.target.value)
+                    }
+                    className="text-sm tracking-wide"
+                  />
+                )}
+                <MoneyInput
+                  label="Valor"
+                  value={lineTotal(item, months)}
+                  onChange={(value) => updateDestinationAmount(item.localId, value)}
+                  className="!rounded-xl !px-3.5 !py-2.5 !text-base"
                 />
-              )}
-              <MoneyInput
-                label="Valor"
-                value={lineTotal(item, months)}
-                onChange={(value) => updateDestinationAmount(item.localId, value)}
-                className="!rounded-xl !px-3.5 !py-2.5 !text-base"
-              />
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="w-full text-danger md:w-auto"
-                  onClick={() => removeDestination(item.localId)}
-                >
-                  Remover
-                </Button>
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full text-danger md:w-auto"
+                    onClick={() => removeDestination(item.localId)}
+                  >
+                    Remover
+                  </Button>
+                </div>
               </div>
+              <DetailedBudgetEditor
+                companyId={companyId}
+                item={item}
+                months={months}
+                onChange={(next) => updateDestination(item.localId, next)}
+              />
             </div>
           ))
         )}
@@ -413,16 +431,42 @@ export function DestinationReview({ draft, months }: DestinationReviewProps) {
           </div>
           <ul className="mt-3 divide-y divide-black/10">
             {group.items.map((item) => (
-              <li
-                key={item.localId}
-                className="flex items-center justify-between gap-3 py-2 text-sm"
-              >
-                <span className="text-sm tracking-wide text-ink">
-                  {item.destinationName}
-                </span>
-                <span className="font-numeric tabular-nums text-ink-soft">
-                  {formatMoney(lineTotal(item, months))}
-                </span>
+              <li key={item.localId} className="py-2 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm tracking-wide text-ink">
+                    {item.destinationName}
+                    {itemIsDetailed(item) ? (
+                      <span className="ml-2 rounded-full bg-navy/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-navy">
+                        Detalhado
+                      </span>
+                    ) : null}
+                  </span>
+                  <span className="font-numeric tabular-nums text-ink-soft">
+                    {formatMoney(lineTotal(item, months))}
+                  </span>
+                </div>
+                {itemIsDetailed(item) ? (
+                  <ul className="mt-1 space-y-0.5 pl-3 text-xs text-mist">
+                    {(item.accounts ?? []).map((account) => (
+                      <li
+                        key={account.localId}
+                        className="flex justify-between gap-2"
+                      >
+                        <span className="truncate">
+                          {account.accountCode} — {account.accountName}
+                        </span>
+                        <span className="font-numeric tabular-nums">
+                          {formatMoney(
+                            Object.values(account.amounts).reduce(
+                              (sum, value) => sum + value,
+                              0
+                            )
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>

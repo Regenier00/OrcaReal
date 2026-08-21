@@ -75,7 +75,21 @@ export function BudgetItemsTable({
                 {isDestinationItem(item) ? (
                   <>
                     <p className="font-medium text-ink">{item.destinationName}</p>
-                    <p className="mt-0.5 text-xs text-mist">{itemGroupLabel(item)}</p>
+                    <p className="mt-0.5 text-xs text-mist">
+                      {itemGroupLabel(item)}
+                      {item.isDetailed || (item.accounts?.length ?? 0) > 0
+                        ? ' · detalhado por conta'
+                        : ''}
+                    </p>
+                    {(item.accounts?.length ?? 0) > 0 ? (
+                      <ul className="mt-1 space-y-0.5 text-[11px] text-mist">
+                        {item.accounts!.map((account) => (
+                          <li key={account.localId}>
+                            {account.accountCode} — {account.accountName}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
                   </>
                 ) : (
                   <>
