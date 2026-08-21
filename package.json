@@ -20,6 +20,7 @@
     "test:greeting": "node --experimental-strip-types src/lib/greeting.test.ts",
     "test:cnpj": "node --experimental-strip-types src/features/company/cnpjLookup.test.ts",
     "test:sector-intelligence": "node --experimental-strip-types src/features/company/sectorIntelligence.test.ts",
+    "test:sector-products": "node --experimental-strip-types src/features/experience/sectorProducts.test.ts",
     "test:dashboard": "node --experimental-strip-types src/features/home/dashboardModel.test.ts",
     "test:comparison": "node --experimental-strip-types src/features/comparison/model.test.ts",
     "test:budget-destinations": "node --experimental-strip-types src/features/budget/destinationModel.test.ts",

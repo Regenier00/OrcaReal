@@ -12,6 +12,7 @@ import {
   formatSalesChannels,
   overlaySalesChannelStructure,
 } from '@/features/experience/catalog/salesChannels'
+import { resolveProductLabels } from '@/features/experience/catalog/sectorProducts'
 import { defaultUnitCodesForSegments, unitCostsForSegments } from '@/features/experience/catalog/segmentUnits'
 import { buildDashboardLayout, selectIndicators } from '@/features/experience/indicators'
 import type {
@@ -154,6 +155,7 @@ export function applyExperience(
     indicators.push(indicator)
   }
   const profile = deriveProfile(catalog.questions, ctx.answers)
+  normalizeProductFacts(profile.profile_facts)
   profile.profile_summary = buildProfileSummary(
     ctx.segmentCode,
     extraSegmentCodes,
@@ -233,8 +235,44 @@ export function buildProfileSummary(
   return parts.join(' · ')
 }
 
+function normalizeProductFacts(facts: Record<string, unknown>) {
+  const raw: string[] = []
+  for (const key of [
+    'products_offered',
+    'products_other_matches',
+    'products_other_describe',
+  ] as const) {
+    const value = facts[key]
+    if (Array.isArray(value)) raw.push(...value.map(String))
+    else if (typeof value === 'string' && value.trim()) {
+      raw.push(
+        ...value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    }
+  }
+
+  const labels = resolveProductLabels(
+    raw.filter((item) => {
+      const lower = item.toLowerCase()
+      return lower !== 'outro' && lower !== 'outra' && lower !== 'outros' && lower !== '__skipped__'
+    })
+  )
+
+  if (labels.length === 0) return
+
+  facts.products_offered = labels
+  // Lista canônica usada por destinos de orçamento e perfil econômico
+  facts.products_sold = labels
+}
+
 function productSummary(facts: Record<string, unknown>): string | null {
   const keys = [
+    'products_offered',
+    'products_other_matches',
+    'products_other_describe',
     'products_sold',
     'manufactured_products',
     'food_products',
@@ -258,8 +296,14 @@ function productSummary(facts: Record<string, unknown>): string | null {
       )
     }
   }
-  const uniqueValues = unique(values)
-  return uniqueValues.length > 0 ? uniqueValues.join(', ') : null
+  const uniqueValues = unique(
+    values.filter((item) => {
+      const lower = item.toLowerCase()
+      return lower !== 'outro' && lower !== 'outra' && lower !== 'outros'
+    })
+  )
+  if (uniqueValues.length === 0) return null
+  return resolveProductLabels(uniqueValues).join(', ')
 }
 
 function revenueSummary(value: string | null): string | null {

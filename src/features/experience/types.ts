@@ -8,7 +8,13 @@ export type DashboardSectionId =
   | 'budget_vs_actual'
   | 'profitability'
 
-export type OptionSource = 'static' | 'analysis_units' | 'segments' | 'operation_indicators'
+export type OptionSource =
+  | 'static'
+  | 'analysis_units'
+  | 'segments'
+  | 'operation_indicators'
+  | 'sector_products'
+  | 'sector_products_query'
 
 export interface QuestionOption {
   value: string

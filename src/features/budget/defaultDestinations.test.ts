@@ -83,4 +83,22 @@ assert(
   'comércio gera um destino por produto'
 )
 
+const commerceSmart = suggestBudgetDestinations({
+  segmentCode: 'commerce',
+  extraSegmentCodes: ['food'],
+  revenueModel: 'venda_de_produtos',
+  profileFacts: {
+    products_offered: ['commerce:vestuario', 'food:marmitas'],
+    products_other_describe: 'outro item ignorado se houver match',
+  },
+})
+assert(
+  commerceSmart.revenue.some((item) => /vestuário/i.test(item)),
+  'busca inteligente alimenta receita de comércio'
+)
+assert(
+  commerceSmart.revenue.some((item) => /marmitas/i.test(item)),
+  'outras operações alimentam receita com produtos do segundo ramo'
+)
+
 console.log('budget default destinations tests ok')

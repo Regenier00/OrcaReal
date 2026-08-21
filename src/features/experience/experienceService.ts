@@ -63,7 +63,14 @@ export async function loadExperienceCatalog(): Promise<ExperienceCatalog> {
       helpText: (row.help_text as string | null) ?? undefined,
       answerType: (row.answer_type as 'single' | 'multiple' | 'text' | 'number' | 'scale') ?? 'single',
       options: normalizeOptions(row.options),
-      optionSource: (row.option_source as 'static' | 'analysis_units' | 'segments' | 'operation_indicators' | null) ?? 'static',
+      optionSource: (row.option_source as
+        | 'static'
+        | 'analysis_units'
+        | 'segments'
+        | 'operation_indicators'
+        | 'sector_products'
+        | 'sector_products_query'
+        | null) ?? 'static',
       segmentCode: (row.segment_code as string | null) ?? null,
       showWhen: (row.show_when as ExperienceCatalog['questions'][number]['showWhen']) ?? undefined,
       mapsTo: (row.maps_to as string | null) ?? undefined,
