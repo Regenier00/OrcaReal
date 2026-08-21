@@ -105,7 +105,7 @@ const common: ExperienceQuestion[] = [
       code: 'products_offered',
       prompt: 'Qual produto ou tipo de serviço a empresa vende?',
       helpText:
-        'As opções vêm do ramo e das outras operações, com base nas fontes setoriais. Pode marcar mais de um. Se não encontrar, marque Outro.',
+        'As opções vêm do ramo e das outras operações, com base nas fontes setoriais. Pode marcar mais de um. Se não encontrar, marque Outro e descreva na mesma tela.',
       answerType: 'multiple',
       optionSource: 'sector_products',
       mapsTo: 'fact.products_offered',
@@ -117,10 +117,10 @@ const common: ExperienceQuestion[] = [
       code: 'products_other_describe',
       prompt: 'Descreva o produto ou serviço que a empresa vende',
       helpText:
-        'Com a descrição, buscamos novamente nas fontes do seu ramo opções relacionadas.',
+        'Preenchido na tela de produtos quando Outro é marcado. Usamos a descrição para buscar opções relacionadas.',
       answerType: 'text',
       mapsTo: 'fact.products_other_describe',
-      showWhen: { includes: { answer: 'products_offered', value: 'outro' } },
+      // Não vira passo do wizard: campo embutido em products_offered (ver INLINE_ONLY_QUESTION_CODES).
     },
     91
   ),

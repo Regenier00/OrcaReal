@@ -61,13 +61,8 @@ assert(productsQuestion, 'pergunta products_offered no catálogo')
 assert(productsQuestion?.optionSource === 'sector_products', 'products_offered usa busca setorial')
 
 const describeQ = QUESTIONS.find((item) => item.code === 'products_other_describe')
-assert(describeQ, 'fluxo Outro pede descrição')
-assert(
-  describeQ?.showWhen &&
-    'includes' in describeQ.showWhen &&
-    describeQ.showWhen.includes.value === 'outro',
-  'descrição só aparece quando Outro é marcado'
-)
+assert(describeQ, 'fluxo Outro mantém mapsTo de descrição')
+assert(!describeQ?.showWhen, 'descrição não é passo separado no wizard')
 
 const matchesQ = QUESTIONS.find((item) => item.code === 'products_other_matches')
 assert(matchesQ?.optionSource === 'sector_products_query', 'rebusca após descrição')

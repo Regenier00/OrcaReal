@@ -27,6 +27,7 @@ import { markTourPending } from '@/features/tour/storage'
 import { QuestionCard } from '@/components/experience/QuestionCard'
 import { ExperienceProgress } from '@/components/experience/ExperienceProgress'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { FullPageStatus } from '@/components/ui/FullPageStatus'
 import type {
   ExperienceAnswers,
@@ -196,6 +197,17 @@ export function ExperienceWizardPage() {
     if (missing && !current.optional) {
       setError('Escolha uma opção para continuar.')
       return
+    }
+
+    if (current.code === PRODUCTS_OFFERED_QUESTION) {
+      const selected = Array.isArray(value) ? value.map(String) : value ? [String(value)] : []
+      if (selected.includes('outro')) {
+        const describe = answers[PRODUCTS_OTHER_DESCRIBE_QUESTION]
+        if (describe == null || String(describe).trim() === '') {
+          setError('Descreva o produto ou serviço marcado como Outro.')
+          return
+        }
+      }
     }
 
     setError('')
@@ -369,12 +381,45 @@ export function ExperienceWizardPage() {
           current.optionSource === 'sector_products_query') ? (
           <p className="text-sm text-mist">Buscando produtos nas fontes do ramo...</p>
         ) : (
-          <QuestionCard
-            question={current}
-            options={options}
-            value={answers[current.code] ?? null}
-            onChange={handleAnswerChange}
-          />
+          <>
+            <QuestionCard
+              question={current}
+              options={options}
+              value={answers[current.code] ?? null}
+              onChange={handleAnswerChange}
+            />
+            {current.code === PRODUCTS_OFFERED_QUESTION &&
+            (Array.isArray(answers[PRODUCTS_OFFERED_QUESTION])
+              ? answers[PRODUCTS_OFFERED_QUESTION]
+              : []
+            ).includes('outro') ? (
+              <div className="mt-5 border-t border-paper-muted pt-5">
+                <Input
+                  label="Descreva o produto ou serviço"
+                  hint="Com a descrição, buscamos nas fontes do seu ramo opções relacionadas."
+                  placeholder="Ex.: café especial, consultoria tributária..."
+                  value={
+                    typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'string' ||
+                    typeof answers[PRODUCTS_OTHER_DESCRIBE_QUESTION] === 'number'
+                      ? String(answers[PRODUCTS_OTHER_DESCRIBE_QUESTION])
+                      : ''
+                  }
+                  onChange={(event) => {
+                    setError('')
+                    const nextValue = event.target.value
+                    setAnswers((currentAnswers) => {
+                      const next: ExperienceAnswers = {
+                        ...currentAnswers,
+                        [PRODUCTS_OTHER_DESCRIBE_QUESTION]: nextValue,
+                      }
+                      delete next[PRODUCTS_OTHER_MATCHES_QUESTION]
+                      return next
+                    })
+                  }}
+                />
+              </div>
+            ) : null}
+          </>
         )}
       </div>
 
