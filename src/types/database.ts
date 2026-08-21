@@ -322,12 +322,74 @@ export interface BudgetItem {
   money_group: MoneyGroup | null
   destination_id: string | null
   destination_name: string | null
+  is_detailed: boolean
   sort_order: number
 }
 
 export interface BudgetItemValue {
   id: string
   budget_item_id: string
+  company_id: string
+  year: number
+  month: number
+  amount: number
+}
+
+export interface CompanyLedgerAccount {
+  id: string
+  company_id: string
+  account_code: string
+  account_name: string
+  is_active: boolean
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type LedgerAccountImportStatus =
+  | 'pending'
+  | 'validating'
+  | 'parsing'
+  | 'importing'
+  | 'completed'
+  | 'failed'
+
+export interface LedgerAccountImport {
+  id: string
+  company_id: string
+  file_name: string
+  file_path: string | null
+  file_size: number | null
+  file_type: 'xlsx' | 'csv'
+  mime_type: string | null
+  file_hash: string | null
+  detected_layout: Record<string, unknown>
+  status: LedgerAccountImportStatus
+  row_count: number
+  inserted_count: number
+  updated_count: number
+  skipped_count: number
+  error_message: string | null
+  warnings: Array<{ message: string; row?: number }>
+  created_by: string | null
+  created_at: string
+  updated_at: string
+  processed_at: string | null
+}
+
+export interface BudgetItemAccount {
+  id: string
+  budget_item_id: string
+  company_id: string
+  ledger_account_id: string | null
+  account_code: string
+  account_name: string
+  sort_order: number
+}
+
+export interface BudgetItemAccountValue {
+  id: string
+  budget_item_account_id: string
   company_id: string
   year: number
   month: number
@@ -364,6 +426,8 @@ export interface ActualItem {
   money_group: MoneyGroup | null
   destination_id: string | null
   destination_name: string | null
+  account_code: string | null
+  account_name: string | null
   sort_order: number
 }
 

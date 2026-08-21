@@ -60,6 +60,14 @@ export function usesCostCenterDestinations(moneyGroup: MoneyGroup | '' | null | 
   return moneyGroup === 'cost' || moneyGroup === 'expense'
 }
 
+export interface DraftBudgetAccount {
+  localId: string
+  ledgerAccountId?: string
+  accountCode: string
+  accountName: string
+  amounts: Record<string, number>
+}
+
 export interface DraftBudgetItem {
   localId: string
   moneyGroup: MoneyGroup | ''
@@ -70,6 +78,9 @@ export interface DraftBudgetItem {
   costCenterId: string
   activityId?: string
   categoryId?: string
+  /** Quando true, a linha tem detalhamento por conta contábil. */
+  isDetailed?: boolean
+  accounts?: DraftBudgetAccount[]
   amounts: Record<string, number>
 }
 
@@ -262,6 +273,11 @@ export function duplicateItem(
     ...item,
     localId: newLocalId(),
     amounts: remapAmounts(item.amounts, months),
+    accounts: (item.accounts ?? []).map((account) => ({
+      ...account,
+      localId: newLocalId(),
+      amounts: remapAmounts(account.amounts, months),
+    })),
   }
 }
 
@@ -283,6 +299,8 @@ export function createEmptyItem(
     businessUnitId,
     departmentId: '',
     costCenterId: '',
+    isDetailed: false,
+    accounts: [],
     amounts: emptyAmounts(months),
   }
 }
@@ -300,8 +318,53 @@ export function createDestinationItem(
     businessUnitId: '',
     departmentId: '',
     costCenterId: '',
+    isDetailed: false,
+    accounts: [],
     amounts: distributeAmounts(total, months),
   }
+}
+
+export function createBudgetAccount(
+  months: BudgetMonth[],
+  accountCode: string,
+  accountName: string,
+  total: number,
+  ledgerAccountId?: string
+): DraftBudgetAccount {
+  return {
+    localId: newLocalId(),
+    ledgerAccountId,
+    accountCode: accountCode.trim(),
+    accountName: accountName.trim(),
+    amounts: distributeAmounts(total, months),
+  }
+}
+
+export function accountLineTotal(
+  account: DraftBudgetAccount,
+  months: BudgetMonth[]
+) {
+  return roundMoney(sum(months.map((month) => account.amounts[month.key] ?? 0)))
+}
+
+export function accountsAllocatedTotal(
+  item: Pick<DraftBudgetItem, 'accounts'>,
+  months: BudgetMonth[]
+) {
+  return roundMoney(
+    sum((item.accounts ?? []).map((account) => accountLineTotal(account, months)))
+  )
+}
+
+export function accountsRemaining(
+  item: DraftBudgetItem,
+  months: BudgetMonth[]
+) {
+  return roundMoney(lineTotal(item, months) - accountsAllocatedTotal(item, months))
+}
+
+export function itemIsDetailed(item: Pick<DraftBudgetItem, 'isDetailed' | 'accounts'>) {
+  return Boolean(item.isDetailed) || (item.accounts?.length ?? 0) > 0
 }
 
 export function itemDisplayName(item: DraftBudgetItem) {

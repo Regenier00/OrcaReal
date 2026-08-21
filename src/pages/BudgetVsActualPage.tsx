@@ -66,7 +66,8 @@ export function BudgetVsActualPage() {
           <p className="mt-2 max-w-2xl text-sm text-mist">
             Cada grupo financeiro tem a própria apresentação. Escolha Receitas,
             Custos, Despesas ou Investimentos para ver orçado e realizado pelos
-            destinos daquele grupo.
+            destinos daquele grupo. Destinos com orçamento detalhado aparecem
+            por conta contábil.
           </p>
         </div>
         <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
