@@ -1,7 +1,10 @@
 /**
- * Entradas/receitas e investimentos não entram no Orçado × Realizado;
- * ficam nos cards e indicadores.
+ * Filtro usado pelos indicadores (agregação legada no cliente):
+ * receitas e investimentos ficam de fora da concentração de custos.
+ * A página Orçado × Realizado usa a RPC get_budget_vs_actual_by_money_group
+ * e apresenta os quatro grupos no backend.
  */
+
 export function classifiedAmountForComparison(
   type: string,
   amount: number,

@@ -1,15 +1,17 @@
 import { Link } from 'react-router-dom'
-import { useComparisonData } from '@/features/comparison/useComparison'
+import { useBudgetVsActualData } from '@/features/comparison/useBudgetVsActual'
 import { Button } from '@/components/ui/Button'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
 import { PeriodFilter } from '@/components/comparison/PeriodFilter'
 import { ComparisonStats } from '@/components/comparison/ComparisonStats'
 import { ComparisonBudgetSelect } from '@/components/comparison/ComparisonBudgetSelect'
 import { VarianceTable } from '@/components/demo/VarianceTable'
+import { MONEY_GROUPS } from '@/features/budget/model'
+import type { MoneyGroup } from '@/types/database'
 import { cn } from '@/lib/utils'
 
 export function BudgetVsActualPage() {
-  const data = useComparisonData()
+  const data = useBudgetVsActualData()
 
   if (!data.companyLoading && !data.company) {
     return (
@@ -39,8 +41,9 @@ export function BudgetVsActualPage() {
             Crie um orçamento para comparar
           </p>
           <p className="mx-auto mt-2 max-w-md text-sm text-mist">
-            O vínculo Orçado × Realizado parte do plano. Depois você apropria os
-            lançamentos do extrato no mesmo recorte.
+            O vínculo Orçado × Realizado parte do plano por grupo (Receitas,
+            Custos, Despesas e Investimentos). Depois você apropria os
+            lançamentos no mesmo recorte.
           </p>
           <Link to="/app/orcamentos/novo" className="mt-6 inline-block">
             <Button>Novo orçamento</Button>
@@ -50,6 +53,9 @@ export function BudgetVsActualPage() {
     )
   }
 
+  const activeGroup =
+    MONEY_GROUPS.find((group) => group.id === data.moneyGroup) ?? MONEY_GROUPS[1]
+
   return (
     <div className="flex flex-col gap-6" data-tour="comparison">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -58,10 +64,9 @@ export function BudgetVsActualPage() {
             Orçado × Realizado
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-mist">
-            Só custos e despesas apropriados entram na linha do centro de custo.
-            Receitas e investimentos ficam nos cards e nos indicadores. Sem
-            orçamento naquela linha, o orçado fica zerado e o realizado aparece
-            mesmo assim.
+            Cada grupo financeiro tem a própria apresentação. Escolha Receitas,
+            Custos, Despesas ou Investimentos para ver orçado e realizado pelos
+            destinos daquele grupo.
           </p>
         </div>
         <PeriodFilter months={data.months} value={data.month} onChange={data.setMonth} />
@@ -82,43 +87,40 @@ export function BudgetVsActualPage() {
         createActualHref="/app/realizado/nao-apropriados"
       />
 
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="tablist"
+        aria-label="Grupos financeiros"
+      >
+        {MONEY_GROUPS.map((group) => (
+          <GroupToggle
+            key={group.id}
+            active={data.moneyGroup === group.id}
+            label={group.label}
+            moneyGroup={group.id}
+            onClick={() => data.setMoneyGroup(group.id)}
+          />
+        ))}
+      </div>
+
       {!data.hasRealized ? (
         <div className="rounded-2xl border border-dashed border-paper-muted bg-white px-5 py-6">
           <p className="font-display text-lg font-semibold text-ink">
-            Ainda não há custos ou despesas apropriados neste recorte
+            Ainda não há realizado em {activeGroup.label.toLowerCase()}
           </p>
           <p className="mt-1 max-w-xl text-sm text-mist">
-            Apropie custos e despesas do extrato para vê-los no centro de custo.
-            Receitas e investimentos alimentam os cards e os indicadores, não
-            esta comparação. Se não houver orçamento naquela linha, o orçado
-            fica R$ 0.
+            Apropie lançamentos deste grupo para vê-los aqui. Sem orçamento no
+            destino, o orçado fica R$ 0 e o realizado aparece mesmo assim.
           </p>
         </div>
       ) : null}
 
       <ComparisonStats summary={data.summary} />
 
-      <div className="flex flex-wrap gap-1.5">
-        <GroupToggle
-          active={data.groupBy === 'line'}
-          label="Por linha"
-          onClick={() => data.setGroupBy('line')}
-        />
-        <GroupToggle
-          active={data.groupBy === 'department'}
-          label="Por departamento"
-          onClick={() => data.setGroupBy('department')}
-        />
-        <GroupToggle
-          active={data.groupBy === 'costCenter'}
-          label="Por centro de custo"
-          onClick={() => data.setGroupBy('costCenter')}
-        />
-      </div>
-
       {data.rows.length === 0 ? (
         <p className="rounded-2xl border border-paper-muted bg-white px-5 py-8 text-center text-sm text-mist">
-          Não há linhas para comparar neste recorte.
+          Não há linhas de {activeGroup.label.toLowerCase()} para comparar neste
+          recorte.
         </p>
       ) : (
         <VarianceTable rows={data.rows} />
@@ -130,20 +132,30 @@ export function BudgetVsActualPage() {
 function GroupToggle({
   active,
   label,
+  moneyGroup,
   onClick,
 }: {
   active: boolean
   label: string
+  moneyGroup: MoneyGroup
   onClick: () => void
 }) {
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={onClick}
       className={cn(
         'rounded-full border px-3 py-1 text-xs font-medium transition',
         active
-          ? 'border-brand bg-brand text-white'
+          ? moneyGroup === 'revenue'
+            ? 'border-revenue bg-revenue text-ink'
+            : moneyGroup === 'cost'
+              ? 'border-cost bg-cost text-ink'
+              : moneyGroup === 'expense'
+                ? 'border-expense bg-expense text-ink'
+                : 'border-investment bg-investment text-white'
           : 'border-paper-muted bg-white text-ink-soft/70 hover:border-brand/30'
       )}
     >
