@@ -47,6 +47,8 @@ import {
 } from '@/components/budget/DestinationWizard'
 import { formatMoney } from '@/features/budget/money'
 import { listCompanyOperations } from '@/features/experience/experienceService'
+import { companyHasCostCenters } from '@/features/company/costCenterGate'
+import { CostCentersRequired } from '@/components/company/CostCentersRequired'
 
 const WIZARD_STEPS = [
   { id: 1, label: 'Período' },
@@ -138,6 +140,7 @@ export function BudgetWizardPage() {
   const [destinationErrors, setDestinationErrors] = useState<string[]>([])
   const [activeGroupIndex, setActiveGroupIndex] = useState(0)
   const [suggestionsSeeded, setSuggestionsSeeded] = useState(false)
+  const [hasCostCenters, setHasCostCenters] = useState<boolean | null>(isEdit ? true : null)
   const fetchKey = company ? `${company.id}:${id ?? 'new'}` : null
 
   const destinationContext = useMemo<BudgetDestinationContext>(() => {
@@ -165,6 +168,20 @@ export function BudgetWizardPage() {
     let mounted = true
 
     const load = async () => {
+      if (!id) {
+        const centersReady = await companyHasCostCenters(companyId)
+        if (!mounted) return
+        setHasCostCenters(centersReady)
+        if (!centersReady) {
+          setFetchedFor(key)
+          setSuggestionsSeeded(true)
+          setError('')
+          return
+        }
+      } else {
+        setHasCostCenters(true)
+      }
+
       if (id) {
         const budget = await getCompanyBudget(companyId, id)
         if (!mounted) return
@@ -372,6 +389,20 @@ export function BudgetWizardPage() {
 
   if (loading || (!isEdit && !suggestionsSeeded)) {
     return <p className="text-sm text-mist">Carregando orçamento...</p>
+  }
+
+  if (!isEdit && hasCostCenters === false) {
+    return (
+      <div>
+        <h1 className="font-display text-3xl font-bold text-ink">Novo orçamento</h1>
+        <p className="mt-2 max-w-xl text-sm text-mist">
+          O orçamento precisa de centros de custo para ter destino.
+        </p>
+        <div className="mt-6">
+          <CostCentersRequired />
+        </div>
+      </div>
+    )
   }
 
   return (

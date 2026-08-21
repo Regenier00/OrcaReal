@@ -87,9 +87,10 @@ export function CompanyPage() {
   } = useCompany()
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab')
-  const [tab, setTab] = useState<Tab>(
-    initialTab === 'classificacao' ? 'classificacao' : 'dados',
-  )
+  const [tab, setTab] = useState<Tab>(() => {
+    const match = TABS.find((item) => item.id === initialTab)
+    return match?.id ?? 'dados'
+  })
   const canEditChart = canClassifyErp(activeMembership?.role)
 
   if (!activeCompany) return null

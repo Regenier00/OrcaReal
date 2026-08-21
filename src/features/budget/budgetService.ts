@@ -1,4 +1,8 @@
 import { supabase } from '@/lib/supabase'
+import {
+  assertCanCreateBudget,
+  companyHasCostCenters,
+} from '@/features/company/costCenterGate'
 import type {
   Activity,
   Budget,
@@ -277,6 +281,10 @@ export async function saveCompanyBudget(
   companyId: string,
   draft: DraftBudget
 ): Promise<string> {
+  if (!draft.id) {
+    assertCanCreateBudget(await companyHasCostCenters(companyId))
+  }
+
   const { data, error } = await supabase.rpc('save_company_budget', {
     p_company_id: companyId,
     p_budget: toPayload(draft),

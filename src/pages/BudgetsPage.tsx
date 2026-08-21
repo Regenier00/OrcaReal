@@ -6,14 +6,20 @@ import type { LoadedBudget } from '@/features/budget/model'
 import { grandTotal, BUDGET_STATUS_LABEL } from '@/features/budget/model'
 import { monthsBetween, formatPeriodRange } from '@/features/budget/period'
 import { formatMoney } from '@/features/budget/money'
+import { companyHasCostCenters } from '@/features/company/costCenterGate'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { CompanyRequired } from '@/components/company/CompanyRequired'
+import {
+  COMPANY_COST_CENTERS_PATH,
+  CostCentersRequired,
+} from '@/components/company/CostCentersRequired'
 
 export function BudgetsPage() {
   const { company, loading: companyLoading } = useCompany()
   const [budgets, setBudgets] = useState<LoadedBudget[]>([])
   const [fetchedFor, setFetchedFor] = useState<string | null>(null)
+  const [hasCostCenters, setHasCostCenters] = useState<boolean | null>(null)
   const [error, setError] = useState('')
   const [pendingDelete, setPendingDelete] = useState<LoadedBudget | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -22,10 +28,11 @@ export function BudgetsPage() {
     if (!company) return
     const companyId = company.id
     let mounted = true
-    void listCompanyBudgets(companyId)
-      .then((data) => {
+    void Promise.all([listCompanyBudgets(companyId), companyHasCostCenters(companyId)])
+      .then(([data, centers]) => {
         if (!mounted) return
         setBudgets(data)
+        setHasCostCenters(centers)
         setError('')
         setFetchedFor(companyId)
       })
@@ -33,6 +40,7 @@ export function BudgetsPage() {
         if (!mounted) return
         setError(err instanceof Error ? err.message : 'Erro ao carregar orçamentos.')
         setBudgets([])
+        setHasCostCenters(null)
         setFetchedFor(companyId)
       })
 
@@ -42,6 +50,7 @@ export function BudgetsPage() {
   }, [company])
 
   const loading = company ? fetchedFor !== company.id : false
+  const canCreateBudget = hasCostCenters === true
 
   const handleDelete = async () => {
     if (!company || !pendingDelete) return
@@ -82,9 +91,15 @@ export function BudgetsPage() {
             . Cada orçamento fica isolado por empresa.
           </p>
         </div>
-        <Link to="/app/orcamentos/novo">
-          <Button>Novo orçamento</Button>
-        </Link>
+        {canCreateBudget ? (
+          <Link to="/app/orcamentos/novo">
+            <Button>Novo orçamento</Button>
+          </Link>
+        ) : hasCostCenters === false ? (
+          <Link to={COMPANY_COST_CENTERS_PATH}>
+            <Button>Cadastrar centros de custo</Button>
+          </Link>
+        ) : null}
       </div>
 
       {error ? (
@@ -95,6 +110,10 @@ export function BudgetsPage() {
 
       {loading || companyLoading ? (
         <p className="mt-8 text-sm text-mist">Carregando orçamentos...</p>
+      ) : hasCostCenters === false ? (
+        <div className="mt-8">
+          <CostCentersRequired />
+        </div>
       ) : budgets.length === 0 ? (
         <div className="mt-8 rounded-2xl border border-dashed border-paper-muted bg-white px-6 py-12 text-center">
           <p className="font-display text-xl font-semibold text-ink">
