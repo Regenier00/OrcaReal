@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useCompany } from '@/features/company/useCompany'
 import {
@@ -48,7 +48,6 @@ import {
 import { formatMoney } from '@/features/budget/money'
 import { listCompanyOperations } from '@/features/experience/experienceService'
 import { listCostCenters } from '@/features/company/companyService'
-import { companyHasCostCenters } from '@/features/company/costCenterGate'
 import { CostCentersRequired } from '@/components/company/CostCentersRequired'
 
 const WIZARD_STEPS = [
@@ -68,6 +67,10 @@ function uniqueCodes(values: string[]): string[] {
     result.push(key)
   }
   return result
+}
+
+function sameStringList(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
 }
 
 function createDraft(year = currentFiscalYear()): DraftBudget {
@@ -143,7 +146,9 @@ export function BudgetWizardPage() {
   const [suggestionsSeeded, setSuggestionsSeeded] = useState(false)
   const [hasCostCenters, setHasCostCenters] = useState<boolean | null>(isEdit ? true : null)
   const [costCenterNames, setCostCenterNames] = useState<string[]>([])
-  const fetchKey = company ? `${company.id}:${id ?? 'new'}` : null
+  const loadedKeyRef = useRef<string | null>(null)
+  const companyId = company?.id
+  const fetchKey = companyId ? `${companyId}:${id ?? 'new'}` : null
 
   const destinationContext = useMemo<BudgetDestinationContext>(() => {
     const segment = segments.find((item) => item.id === companyProfile?.segment_id)
@@ -165,9 +170,9 @@ export function BudgetWizardPage() {
   }, [companyProfile, segments, costCenterNames])
 
   useEffect(() => {
-    if (!company || companyLoading) return
-    const companyId = company.id
+    if (!companyId || companyLoading) return
     const key = `${companyId}:${id ?? 'new'}`
+    if (loadedKeyRef.current === key) return
     let mounted = true
 
     const load = async () => {
@@ -176,13 +181,13 @@ export function BudgetWizardPage() {
       const centers = centersResult.ok
         ? centersResult.data.filter((item) => item.is_active !== false).map((item) => item.name)
         : []
-      setCostCenterNames(centers)
+      setCostCenterNames((current) => (sameStringList(current, centers) ? current : centers))
 
       if (!id) {
-        const centersReady = centers.length > 0 || (await companyHasCostCenters(companyId))
-        if (!mounted) return
+        const centersReady = centers.length > 0
         setHasCostCenters(centersReady)
         if (!centersReady) {
+          loadedKeyRef.current = key
           setFetchedFor(key)
           setSuggestionsSeeded(true)
           setError('')
@@ -196,6 +201,7 @@ export function BudgetWizardPage() {
         const budget = await getCompanyBudget(companyId, id)
         if (!mounted) return
         if (!budget) {
+          loadedKeyRef.current = key
           setError('Orçamento não encontrado nesta empresa.')
           setFetchedFor(key)
           return
@@ -209,16 +215,20 @@ export function BudgetWizardPage() {
           ),
         }))
         setDraft(nextDraft)
+        loadedKeyRef.current = key
         setSuggestionsSeeded(true)
         setError('')
         setFetchedFor(key)
         return
       }
 
-      if (suggestionsSeeded && fetchedFor === key) return
-
       const operationsResult = await listCompanyOperations(companyId)
       if (!mounted) return
+      const segment = segments.find((item) => item.id === companyProfile?.segment_id)
+      const facts = companyProfile?.profile_facts ?? {}
+      const operations = Array.isArray(facts.operations)
+        ? facts.operations.map(String)
+        : []
       const extraCodes =
         operationsResult.ok
           ? operationsResult.data
@@ -231,15 +241,19 @@ export function BudgetWizardPage() {
           : []
 
       const context: BudgetDestinationContext = {
-        ...destinationContext,
+        segmentCode: segment?.code ?? null,
+        extraSegmentCodes: uniqueCodes([...operations, ...extraCodes]),
+        revenueModel: companyProfile?.revenue_model ?? null,
+        operationModel: companyProfile?.operation_model ?? null,
+        primaryActivity: companyProfile?.primary_activity ?? null,
+        customSegment: companyProfile?.custom_segment ?? null,
+        employeeCount: companyProfile?.employee_count ?? null,
+        profileFacts: facts,
         costCenterNames: centers,
-        extraSegmentCodes: uniqueCodes([
-          ...(destinationContext.extraSegmentCodes ?? []),
-          ...extraCodes,
-        ]),
       }
 
       setDraft(withSuggestedDestinations(createDraft(), context))
+      loadedKeyRef.current = key
       setSuggestionsSeeded(true)
       setError('')
       setFetchedFor(key)
@@ -247,22 +261,17 @@ export function BudgetWizardPage() {
 
     void load().catch((err: unknown) => {
       if (!mounted) return
+      loadedKeyRef.current = key
       setError(err instanceof Error ? err.message : 'Não foi possível carregar o orçamento.')
       setFetchedFor(key)
+      setSuggestionsSeeded(true)
     })
 
     return () => {
       mounted = false
     }
-  }, [
-    company,
-    companyLoading,
-    id,
-    destinationContext,
-    segments,
-    suggestionsSeeded,
-    fetchedFor,
-  ])
+    // Intencional: não depende de destinationContext/costCenterNames (loop de loading).
+  }, [companyId, companyLoading, id, companyProfile, segments])
 
   const loading = Boolean(fetchKey) && fetchedFor !== fetchKey
 
