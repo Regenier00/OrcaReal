@@ -19,6 +19,9 @@ import {
 } from '@/features/actual/model'
 import { canDeleteImportedStatements } from '@/features/actual/permissions'
 import {
+  companyHasBudgets,
+} from '@/features/budget/budgetGate'
+import {
   companyHasChartAccounts,
 } from '@/features/erp/chartAccountGate'
 import type { BankAccount, StatementImport } from '@/types/database'
@@ -28,6 +31,10 @@ import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
+import {
+  BudgetRequired,
+  COMPANY_BUDGETS_NEW_PATH,
+} from '@/components/company/BudgetRequired'
 import {
   ChartAccountsRequired,
   COMPANY_CHART_ACCOUNTS_PATH,
@@ -47,6 +54,7 @@ export function ImportStatementPage() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [hasBudget, setHasBudget] = useState<boolean | null>(null)
   const [hasChartAccounts, setHasChartAccounts] = useState<boolean | null>(null)
   const [loadedGateFor, setLoadedGateFor] = useState<string | null>(null)
 
@@ -54,20 +62,25 @@ export function ImportStatementPage() {
     if (!company) return
     const companyId = company.id
     let mounted = true
-    void companyHasChartAccounts(companyId)
-      .then((hasAccounts) => {
+    void Promise.all([
+      companyHasBudgets(companyId),
+      companyHasChartAccounts(companyId),
+    ])
+      .then(([budgetOk, chartOk]) => {
         if (!mounted) return
-        setHasChartAccounts(hasAccounts)
+        setHasBudget(budgetOk)
+        setHasChartAccounts(chartOk)
         setLoadedGateFor(companyId)
       })
       .catch((err: unknown) => {
         if (!mounted) return
+        setHasBudget(null)
         setHasChartAccounts(null)
         setLoadedGateFor(companyId)
         setError(
           err instanceof Error
             ? err.message
-            : 'Não foi possível verificar a classificação.',
+            : 'Não foi possível verificar os pré-requisitos da importação.',
         )
       })
     return () => {
@@ -103,7 +116,7 @@ export function ImportStatementPage() {
 
   const loadingAccounts = Boolean(company) && loadedAccountsFor !== company?.id
   const loadingGate = Boolean(company) && loadedGateFor !== company?.id
-  const canUpload = hasChartAccounts === true
+  const canUpload = hasBudget === true && hasChartAccounts === true
 
   const handleFiles = (list: FileList | null) => {
     const next = list?.[0]
@@ -129,6 +142,10 @@ export function ImportStatementPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
+    if (hasBudget === false) {
+      setError('Crie um orçamento antes de importar.')
+      return
+    }
     if (!canUpload) {
       setError(
         'Defina a classificação das contas contábeis antes de importar.',
@@ -189,7 +206,11 @@ export function ImportStatementPage() {
       description="O extrato vira realizado da empresa. Depois da leitura, os lançamentos entram em Realizados não apropriados para você classificar antes do Orçado × Realizado."
       actions={
         <div className="flex flex-wrap gap-2">
-          {hasChartAccounts === false ? (
+          {hasBudget === false ? (
+            <Link to={COMPANY_BUDGETS_NEW_PATH}>
+              <Button>Criar orçamento</Button>
+            </Link>
+          ) : hasChartAccounts === false ? (
             <Link to={COMPANY_CHART_ACCOUNTS_PATH}>
               <Button>Definir classificação</Button>
             </Link>
@@ -208,7 +229,9 @@ export function ImportStatementPage() {
         ) : null}
 
         {loadingGate ? (
-          <p className="text-sm text-mist">Verificando classificação...</p>
+          <p className="text-sm text-mist">Verificando pré-requisitos...</p>
+        ) : hasBudget === false ? (
+          <BudgetRequired message="Sem orçamento, o realizado do extrato não tem centros de custo e destinos alinhados. Crie o orçamento antes de importar." />
         ) : hasChartAccounts === false ? (
           <ChartAccountsRequired message="Sem a classificação dos prefixos contábeis, a importação de extrato fica bloqueada. Cadastre os prefixos em Empresa → Classificação antes de importar." />
         ) : (

@@ -42,7 +42,7 @@ export interface EnrichedSuggestion {
   label: string | null
 }
 
-function usesCostCenterDestinations(moneyGroup: MoneyGroup | '' | null | undefined) {
+export function usesCostCenterDestinations(moneyGroup: MoneyGroup | '' | null | undefined) {
   return moneyGroup === 'cost' || moneyGroup === 'expense'
 }
 

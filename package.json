@@ -11,6 +11,7 @@
     "test:erp": "node --experimental-strip-types src/features/erp/erpParse.test.ts",
     "test:chart": "node --experimental-strip-types src/features/erp/chartClassification.test.ts",
     "test:chart-gate": "node --experimental-strip-types src/features/erp/chartAccountGate.test.ts",
+    "test:budget-gate": "node --experimental-strip-types src/features/budget/budgetGate.test.ts",
     "test:actual-permissions": "node --experimental-strip-types src/features/actual/permissions.test.ts",
     "test:suggestions": "node --experimental-strip-types src/features/actual/suggestions.test.ts",
     "test:destination-suggestions": "node --experimental-strip-types src/features/actual/destinationSuggestions.test.ts",

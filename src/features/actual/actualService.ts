@@ -15,6 +15,11 @@ import {
 import { monthKey } from '@/features/budget/period'
 import { processStatementFile } from '@/features/actual/processStatementFile'
 import {
+  assertCanImportWithBudget,
+  companyHasBudgets,
+  BUDGET_REQUIRED_FOR_IMPORT_MESSAGE,
+} from '@/features/budget/budgetGate'
+import {
   assertCanImportWithChartAccounts,
   companyHasChartAccounts,
   CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE,
@@ -498,6 +503,21 @@ export async function listCompanyBudgetDestinations(
   return (data as BudgetDestination[]) ?? []
 }
 
+/** Destinos/centros que já aparecem em orçamentos não arquivados. */
+export async function listBudgetedDestinations(
+  companyId: string
+): Promise<BudgetDestination[]> {
+  const { data, error } = await supabase.rpc('list_budgeted_destinations', {
+    p_company_id: companyId,
+  })
+
+  if (error) {
+    console.error('Erro ao listar destinos orçados:', error)
+    throw new Error('Não foi possível carregar os destinos do orçamento.')
+  }
+  return (data as BudgetDestination[]) ?? []
+}
+
 export async function listDestinationMatchPatterns(
   companyId: string
 ): Promise<DestinationMatchPatternRow[]> {
@@ -615,6 +635,7 @@ export async function classifyActualTransactions(input: {
   moneyGroup?: string | null
   destinationId?: string | null
   destinationName?: string | null
+  includeUnbudgeted?: boolean
   status?: ActualTransactionStatus
   type?: ActualTransactionType | null
 }): Promise<number> {
@@ -629,6 +650,7 @@ export async function classifyActualTransactions(input: {
     p_status: input.status ?? 'classified',
     p_type: input.type || null,
     p_money_group: input.moneyGroup || null,
+    p_include_unbudgeted: Boolean(input.includeUnbudgeted),
   }
 
   if (input.destinationId || input.destinationName) {
@@ -685,6 +707,7 @@ export async function uploadAndProcessStatement(input: {
   }
 
   assertCanImportWithChartAccounts(await companyHasChartAccounts(input.companyId))
+  assertCanImportWithBudget(await companyHasBudgets(input.companyId))
 
   const { data: created, error: createError } = await supabase
     .from('statement_imports')
@@ -705,6 +728,9 @@ export async function uploadAndProcessStatement(input: {
     const message = createError?.message ?? ''
     if (message.includes('classificação das contas contábeis')) {
       throw new Error(CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE)
+    }
+    if (message.includes('Crie um orçamento antes de importar')) {
+      throw new Error(BUDGET_REQUIRED_FOR_IMPORT_MESSAGE)
     }
     throw new Error('Não foi possível iniciar a importação.')
   }

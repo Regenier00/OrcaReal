@@ -10,6 +10,11 @@ import { isCompanyScopedStoragePath } from '@/lib/storagePath'
 import type { ClassifiedActualSlice } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
 import {
+  assertCanImportWithBudget,
+  companyHasBudgets,
+  BUDGET_REQUIRED_FOR_IMPORT_MESSAGE,
+} from '@/features/budget/budgetGate'
+import {
   assertCanImportWithChartAccounts,
   companyHasChartAccounts,
   CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE,
@@ -189,6 +194,9 @@ function mapErpImportCreateError(error: { message?: string } | null) {
   if (message.includes('classificação das contas contábeis')) {
     return CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE
   }
+  if (message.includes('Crie um orçamento antes de importar')) {
+    return BUDGET_REQUIRED_FOR_IMPORT_MESSAGE
+  }
   const mapped = enrichSupabaseError(
     error,
     getSupabaseRuntimeInfo(),
@@ -223,6 +231,7 @@ export async function uploadAndProcessErpImport(input: {
   }
 
   assertCanImportWithChartAccounts(await companyHasChartAccounts(input.companyId))
+  assertCanImportWithBudget(await companyHasBudgets(input.companyId))
 
   const bytes = new Uint8Array(await input.file.arrayBuffer())
   const fileHash = await sha256Hex(bytes)

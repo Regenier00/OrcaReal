@@ -5,6 +5,9 @@ import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import { canDeleteImportedStatements, canImportErp } from '@/features/actual/permissions'
 import {
+  companyHasBudgets,
+} from '@/features/budget/budgetGate'
+import {
   companyHasChartAccounts,
 } from '@/features/erp/chartAccountGate'
 import {
@@ -26,6 +29,10 @@ import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import {
+  BudgetRequired,
+  COMPANY_BUDGETS_NEW_PATH,
+} from '@/components/company/BudgetRequired'
+import {
   ChartAccountsRequired,
   COMPANY_CHART_ACCOUNTS_PATH,
 } from '@/components/company/ChartAccountsRequired'
@@ -44,6 +51,7 @@ export function ImportErpPage() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [hasBudget, setHasBudget] = useState<boolean | null>(null)
   const [hasChartAccounts, setHasChartAccounts] = useState<boolean | null>(null)
   const [loadedGateFor, setLoadedGateFor] = useState<string | null>(null)
 
@@ -51,22 +59,27 @@ export function ImportErpPage() {
     if (!company) return
     const companyId = company.id
     let mounted = true
-    void companyHasChartAccounts(companyId)
-      .then((hasAccounts) => {
+    void Promise.all([
+      companyHasBudgets(companyId),
+      companyHasChartAccounts(companyId),
+    ])
+      .then(([budgetOk, chartOk]) => {
         if (!mounted) return
-        setHasChartAccounts(hasAccounts)
+        setHasBudget(budgetOk)
+        setHasChartAccounts(chartOk)
         setLoadedGateFor(companyId)
         setError('')
       })
       .catch((err: unknown) => {
         if (!mounted) return
+        setHasBudget(null)
         setHasChartAccounts(null)
         setLoadedGateFor(companyId)
         setError(
           enrichSupabaseError(
             err,
             getSupabaseRuntimeInfo(),
-            'Não foi possível verificar a classificação.',
+            'Não foi possível verificar os pré-requisitos da importação.',
           ),
         )
       })
@@ -76,7 +89,7 @@ export function ImportErpPage() {
   }, [company])
 
   const loadingGate = Boolean(company) && loadedGateFor !== company?.id
-  const canUpload = hasChartAccounts === true
+  const canUpload = hasBudget === true && hasChartAccounts === true
 
   const handleFiles = (list: FileList | null) => {
     const next = list?.[0]
@@ -104,6 +117,10 @@ export function ImportErpPage() {
     if (!company || !user || !file) return
     if (!isSupabaseConfigured) {
       setError(MISSING_API_KEY_REQUEST_MESSAGE)
+      return
+    }
+    if (hasBudget === false) {
+      setError('Crie um orçamento antes de importar.')
       return
     }
     if (!canUpload) {
@@ -172,7 +189,11 @@ export function ImportErpPage() {
       description="Importe lançamentos de ERPs (XLSX/CSV). Contas cujo prefixo está cadastrado na empresa entram no grupo certo; o destino é o centro de custo do arquivo."
       actions={
         <div className="flex flex-wrap gap-2">
-          {canUpload ? (
+          {hasBudget === false ? (
+            <Link to={COMPANY_BUDGETS_NEW_PATH}>
+              <Button>Criar orçamento</Button>
+            </Link>
+          ) : canUpload ? (
             <Link to={COMPANY_CHART_ACCOUNTS_PATH}>
               <Button variant="secondary">Prefixos por grupo</Button>
             </Link>
@@ -195,7 +216,9 @@ export function ImportErpPage() {
         ) : null}
 
         {loadingGate ? (
-          <p className="text-sm text-mist">Verificando classificação...</p>
+          <p className="text-sm text-mist">Verificando pré-requisitos...</p>
+        ) : hasBudget === false ? (
+          <BudgetRequired message="Sem orçamento, o realizado importado não tem estrutura alinhada. Crie o orçamento antes de importar o arquivo ERP." />
         ) : hasChartAccounts === false ? (
           <ChartAccountsRequired message="Sem a classificação dos prefixos contábeis, o arquivo ERP não consegue ser agrupado em Receitas, Custos, Despesas e Investimentos. Cadastre os prefixos em Empresa → Classificação antes de importar." />
         ) : (
