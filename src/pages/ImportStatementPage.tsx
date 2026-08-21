@@ -18,6 +18,9 @@ import {
   isAcceptedStatementFile,
 } from '@/features/actual/model'
 import { canDeleteImportedStatements } from '@/features/actual/permissions'
+import {
+  companyHasChartAccounts,
+} from '@/features/erp/chartAccountGate'
 import type { BankAccount, StatementImport } from '@/types/database'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
@@ -25,6 +28,10 @@ import { Select } from '@/components/ui/Select'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
 import { ImportProgress } from '@/components/actual/ImportProgress'
 import { ImportSummary } from '@/components/actual/ImportSummary'
+import {
+  ChartAccountsRequired,
+  COMPANY_CHART_ACCOUNTS_PATH,
+} from '@/components/company/ChartAccountsRequired'
 
 export function ImportStatementPage() {
   const { user } = useAuth()
@@ -40,6 +47,33 @@ export function ImportStatementPage() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [hasChartAccounts, setHasChartAccounts] = useState<boolean | null>(null)
+  const [loadedGateFor, setLoadedGateFor] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!company) return
+    const companyId = company.id
+    let mounted = true
+    void companyHasChartAccounts(companyId)
+      .then((hasAccounts) => {
+        if (!mounted) return
+        setHasChartAccounts(hasAccounts)
+        setLoadedGateFor(companyId)
+      })
+      .catch((err: unknown) => {
+        if (!mounted) return
+        setHasChartAccounts(null)
+        setLoadedGateFor(companyId)
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível verificar a classificação.',
+        )
+      })
+    return () => {
+      mounted = false
+    }
+  }, [company])
 
   useEffect(() => {
     if (!company) return
@@ -54,7 +88,6 @@ export function ImportStatementPage() {
             ? currentId
             : nextAccounts[0]?.id || '',
         )
-        setError('')
         setLoadedAccountsFor(companyId)
       })
       .catch((err: unknown) => {
@@ -69,6 +102,8 @@ export function ImportStatementPage() {
   }, [company])
 
   const loadingAccounts = Boolean(company) && loadedAccountsFor !== company?.id
+  const loadingGate = Boolean(company) && loadedGateFor !== company?.id
+  const canUpload = hasChartAccounts === true
 
   const handleFiles = (list: FileList | null) => {
     const next = list?.[0]
@@ -94,6 +129,12 @@ export function ImportStatementPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
+    if (!canUpload) {
+      setError(
+        'Defina a classificação das contas contábeis antes de importar.',
+      )
+      return
+    }
     if (!accountId) {
       setError('Selecione o banco deste extrato.')
       return
@@ -147,84 +188,99 @@ export function ImportStatementPage() {
       tourId="actual-import"
       description="O extrato vira realizado da empresa. Depois da leitura, os lançamentos entram em Realizados não apropriados para você classificar antes do Orçado × Realizado."
       actions={
-        <Link to={ACTUAL_PATHS.unappropriated}>
-          <Button variant="secondary">Não apropriados</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {hasChartAccounts === false ? (
+            <Link to={COMPANY_CHART_ACCOUNTS_PATH}>
+              <Button>Definir classificação</Button>
+            </Link>
+          ) : null}
+          <Link to={ACTUAL_PATHS.unappropriated}>
+            <Button variant="secondary">Não apropriados</Button>
+          </Link>
+        </div>
       }
     >
       <div className="mt-8 grid gap-6">
-        <section className="rounded-2xl border border-paper-muted bg-white p-6">
-          <h2 className="font-display text-lg font-semibold text-navy">Banco</h2>
-          <p className="mt-1 text-sm text-mist">
-            Selecione o banco do extrato entre os bancos padrão já cadastrados no sistema.
-          </p>
-          <div className="mt-4 max-w-md">
-            <Select
-              label="Banco"
-              value={accountId}
-              onChange={(event) => setAccountId(event.target.value)}
-              disabled={loadingAccounts || accounts.length === 0}
-            >
-              {accounts.length === 0 ? (
-                <option value="">
-                  {loadingAccounts ? 'Carregando bancos...' : 'Nenhum banco padrão disponível'}
-                </option>
-              ) : null}
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.bank_code ? `${account.bank_code} · ` : ''}
-                  {account.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </section>
-
         {error ? (
           <p className="rounded-xl border border-danger/20 bg-white px-4 py-3 text-sm text-danger">
             {error}
           </p>
         ) : null}
 
-        <form
-          className="grid gap-6"
-          onSubmit={(event) => void handleSubmit(event)}
-        >
-          <section className="rounded-2xl border border-paper-muted bg-white p-6">
-            <h2 className="font-display text-lg font-semibold text-navy">Arquivo</h2>
-            <p className="mt-1 text-sm text-mist">
-              Formatos: OFX, CSV, XLSX e PDF. PDFs digitalizados são lidos por OCR neste navegador.
-            </p>
-            <label
-              onDragOver={(event) => {
-                event.preventDefault()
-                setDragOver(true)
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
-                dragOver ? 'border-brand bg-brand-soft/50' : 'border-paper-muted bg-white'
-              }`}
-            >
-              <input
-                type="file"
-                accept={ACCEPTED_STATEMENT_ACCEPT}
-                className="sr-only"
-                onChange={(event) => handleFiles(event.target.files)}
-              />
-              <span className="font-medium text-ink">
-                {file ? file.name : 'Arraste o extrato ou clique para selecionar'}
-              </span>
-              <span className="mt-1 text-xs text-mist">Até 20 MB · arquivo privado por empresa</span>
-            </label>
-          </section>
+        {loadingGate ? (
+          <p className="text-sm text-mist">Verificando classificação...</p>
+        ) : hasChartAccounts === false ? (
+          <ChartAccountsRequired message="Sem a classificação dos prefixos contábeis, a importação de extrato fica bloqueada. Cadastre os prefixos em Empresa → Classificação antes de importar." />
+        ) : (
+          <>
+            <section className="rounded-2xl border border-paper-muted bg-white p-6">
+              <h2 className="font-display text-lg font-semibold text-navy">Banco</h2>
+              <p className="mt-1 text-sm text-mist">
+                Selecione o banco do extrato entre os bancos padrão já cadastrados no sistema.
+              </p>
+              <div className="mt-4 max-w-md">
+                <Select
+                  label="Banco"
+                  value={accountId}
+                  onChange={(event) => setAccountId(event.target.value)}
+                  disabled={loadingAccounts || accounts.length === 0}
+                >
+                  {accounts.length === 0 ? (
+                    <option value="">
+                      {loadingAccounts ? 'Carregando bancos...' : 'Nenhum banco padrão disponível'}
+                    </option>
+                  ) : null}
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.bank_code ? `${account.bank_code} · ` : ''}
+                      {account.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </section>
 
-          <div>
-            <Button type="submit" disabled={busy || !file || !accountId}>
-              {busy ? 'Processando...' : 'Enviar e processar'}
-            </Button>
-          </div>
-        </form>
+            <form
+              className="grid gap-6"
+              onSubmit={(event) => void handleSubmit(event)}
+            >
+              <section className="rounded-2xl border border-paper-muted bg-white p-6">
+                <h2 className="font-display text-lg font-semibold text-navy">Arquivo</h2>
+                <p className="mt-1 text-sm text-mist">
+                  Formatos: OFX, CSV, XLSX e PDF. PDFs digitalizados são lidos por OCR neste navegador.
+                </p>
+                <label
+                  onDragOver={(event) => {
+                    event.preventDefault()
+                    setDragOver(true)
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleDrop}
+                  className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
+                    dragOver ? 'border-brand bg-brand-soft/50' : 'border-paper-muted bg-white'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept={ACCEPTED_STATEMENT_ACCEPT}
+                    className="sr-only"
+                    onChange={(event) => handleFiles(event.target.files)}
+                  />
+                  <span className="font-medium text-ink">
+                    {file ? file.name : 'Arraste o extrato ou clique para selecionar'}
+                  </span>
+                  <span className="mt-1 text-xs text-mist">Até 20 MB · arquivo privado por empresa</span>
+                </label>
+              </section>
+
+              <div>
+                <Button type="submit" disabled={busy || !file || !accountId}>
+                  {busy ? 'Processando...' : 'Enviar e processar'}
+                </Button>
+              </div>
+            </form>
+          </>
+        )}
       </div>
 
       {current ? (

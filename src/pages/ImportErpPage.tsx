@@ -1,8 +1,11 @@
-import { useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/features/auth/useAuth'
 import { useCompany } from '@/features/company/useCompany'
 import { canDeleteImportedStatements, canImportErp } from '@/features/actual/permissions'
+import {
+  companyHasChartAccounts,
+} from '@/features/erp/chartAccountGate'
 import {
   deleteErpImport,
   uploadAndProcessErpImport,
@@ -20,6 +23,10 @@ import type { ErpImport } from '@/types/database'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/ui/Dialog'
 import { ActualPageShell } from '@/components/actual/ActualPageShell'
+import {
+  ChartAccountsRequired,
+  COMPANY_CHART_ACCOUNTS_PATH,
+} from '@/components/company/ChartAccountsRequired'
 import { ErpImportProgress } from '@/components/erp/ErpImportProgress'
 import { ErpImportSummary } from '@/components/erp/ErpImportSummary'
 
@@ -35,6 +42,37 @@ export function ImportErpPage() {
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [hasChartAccounts, setHasChartAccounts] = useState<boolean | null>(null)
+  const [loadedGateFor, setLoadedGateFor] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!company) return
+    const companyId = company.id
+    let mounted = true
+    void companyHasChartAccounts(companyId)
+      .then((hasAccounts) => {
+        if (!mounted) return
+        setHasChartAccounts(hasAccounts)
+        setLoadedGateFor(companyId)
+        setError('')
+      })
+      .catch((err: unknown) => {
+        if (!mounted) return
+        setHasChartAccounts(null)
+        setLoadedGateFor(companyId)
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Não foi possível verificar a classificação.',
+        )
+      })
+    return () => {
+      mounted = false
+    }
+  }, [company])
+
+  const loadingGate = Boolean(company) && loadedGateFor !== company?.id
+  const canUpload = hasChartAccounts === true
 
   const handleFiles = (list: FileList | null) => {
     const next = list?.[0]
@@ -60,6 +98,12 @@ export function ImportErpPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     if (!company || !user || !file) return
+    if (!canUpload) {
+      setError(
+        'Defina a classificação das contas contábeis antes de importar.',
+      )
+      return
+    }
     if (!canImport) {
       setError('Seu perfil só visualiza. Peça a um membro para importar.')
       return
@@ -108,9 +152,15 @@ export function ImportErpPage() {
       description="Importe lançamentos de ERPs (XLSX/CSV). Contas cujo prefixo está cadastrado na empresa entram no grupo certo; o destino é o centro de custo do arquivo."
       actions={
         <div className="flex flex-wrap gap-2">
-          <Link to="/app/empresa?tab=classificacao">
-            <Button variant="secondary">Prefixos por grupo</Button>
-          </Link>
+          {canUpload ? (
+            <Link to={COMPANY_CHART_ACCOUNTS_PATH}>
+              <Button variant="secondary">Prefixos por grupo</Button>
+            </Link>
+          ) : hasChartAccounts === false ? (
+            <Link to={COMPANY_CHART_ACCOUNTS_PATH}>
+              <Button>Definir classificação</Button>
+            </Link>
+          ) : null}
           <Link to={ERP_PATHS.review}>
             <Button variant="secondary">Revisar lançamentos</Button>
           </Link>
@@ -124,56 +174,62 @@ export function ImportErpPage() {
           </p>
         ) : null}
 
-        <form className="grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
-          <section className="rounded-2xl border border-paper-muted bg-white p-6">
-            <h2 className="font-display text-lg font-semibold text-navy">
-              Arquivo do ERP
-            </h2>
-            <p className="mt-1 text-sm text-mist">
-              Formato principal: XLSX (também CSV). Identificamos só as colunas
-              essenciais — data, valor, descrição, centro de custo e conta
-              contábil — e descartamos o resto. Validamos extensão, MIME, magic
-              bytes e tamanho (máx. 20 MB).
-            </p>
-            <label
-              onDragOver={(event) => {
-                event.preventDefault()
-                setDragOver(true)
-              }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
-                dragOver
-                  ? 'border-brand bg-brand-soft/50'
-                  : 'border-paper-muted bg-white'
-              }`}
-            >
-              <input
-                type="file"
-                accept={ACCEPTED_ERP_ACCEPT}
-                className="sr-only"
-                onChange={(event) => handleFiles(event.target.files)}
-              />
-              <span className="font-medium text-ink">
-                {file ? file.name : 'Arraste a planilha ou clique para selecionar'}
-              </span>
-              <span className="mt-1 text-xs text-mist">
-                Até 20 MB · processamento em lotes · isolamento por empresa
-              </span>
-            </label>
-          </section>
-
-          <div>
-            <Button type="submit" disabled={busy || !file || !canImport}>
-              {busy ? 'Processando...' : 'Enviar e processar'}
-            </Button>
-            {!canImport ? (
-              <p className="mt-2 text-xs text-mist">
-                Visualizadores não podem importar arquivos.
+        {loadingGate ? (
+          <p className="text-sm text-mist">Verificando classificação...</p>
+        ) : hasChartAccounts === false ? (
+          <ChartAccountsRequired message="Sem a classificação dos prefixos contábeis, o arquivo ERP não consegue ser agrupado em Receitas, Custos, Despesas e Investimentos. Cadastre os prefixos em Empresa → Classificação antes de importar." />
+        ) : (
+          <form className="grid gap-6" onSubmit={(event) => void handleSubmit(event)}>
+            <section className="rounded-2xl border border-paper-muted bg-white p-6">
+              <h2 className="font-display text-lg font-semibold text-navy">
+                Arquivo do ERP
+              </h2>
+              <p className="mt-1 text-sm text-mist">
+                Formato principal: XLSX (também CSV). Identificamos só as colunas
+                essenciais — data, valor, descrição, centro de custo e conta
+                contábil — e descartamos o resto. Validamos extensão, MIME, magic
+                bytes e tamanho (máx. 20 MB).
               </p>
-            ) : null}
-          </div>
-        </form>
+              <label
+                onDragOver={(event) => {
+                  event.preventDefault()
+                  setDragOver(true)
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={`mt-4 flex cursor-pointer flex-col items-center rounded-2xl border border-dashed px-6 py-10 text-center ${
+                  dragOver
+                    ? 'border-brand bg-brand-soft/50'
+                    : 'border-paper-muted bg-white'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept={ACCEPTED_ERP_ACCEPT}
+                  className="sr-only"
+                  onChange={(event) => handleFiles(event.target.files)}
+                />
+                <span className="font-medium text-ink">
+                  {file ? file.name : 'Arraste a planilha ou clique para selecionar'}
+                </span>
+                <span className="mt-1 text-xs text-mist">
+                  Até 20 MB · processamento em lotes · isolamento por empresa
+                </span>
+              </label>
+            </section>
+
+            <div>
+              <Button type="submit" disabled={busy || !file || !canImport}>
+                {busy ? 'Processando...' : 'Enviar e processar'}
+              </Button>
+              {!canImport ? (
+                <p className="mt-2 text-xs text-mist">
+                  Visualizadores não podem importar arquivos.
+                </p>
+              ) : null}
+            </div>
+          </form>
+        )}
       </div>
 
       {current ? (

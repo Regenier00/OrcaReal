@@ -14,6 +14,11 @@ import {
 } from '@/features/actual/model'
 import { monthKey } from '@/features/budget/period'
 import { processStatementFile } from '@/features/actual/processStatementFile'
+import {
+  assertCanImportWithChartAccounts,
+  companyHasChartAccounts,
+  CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE,
+} from '@/features/erp/chartAccountGate'
 import type {
   ActualTransaction,
   ActualTransactionStatus,
@@ -679,6 +684,8 @@ export async function uploadAndProcessStatement(input: {
     throw new Error('O arquivo excede o limite de 20 MB.')
   }
 
+  assertCanImportWithChartAccounts(await companyHasChartAccounts(input.companyId))
+
   const { data: created, error: createError } = await supabase
     .from('statement_imports')
     .insert({
@@ -695,6 +702,10 @@ export async function uploadAndProcessStatement(input: {
 
   if (createError || !created) {
     console.error('Erro ao registrar importação:', createError)
+    const message = createError?.message ?? ''
+    if (message.includes('classificação das contas contábeis')) {
+      throw new Error(CHART_ACCOUNTS_REQUIRED_FOR_IMPORT_MESSAGE)
+    }
     throw new Error('Não foi possível iniciar a importação.')
   }
 
